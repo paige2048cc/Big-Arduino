@@ -1,0 +1,28 @@
+{
+  "id": "registor_220ω",
+  "name": "Resistor",
+  "category": "passive",
+  "image": "Registor_220Ω.png",
+  "width": 21,
+  "height": 85,
+  "pins": [
+    {
+      "id": "TERM1",
+      "label": "Terminal 1",
+      "description": "First terminal. Resistors are non-polarized, so terminals are interchangeable.",
+      "type": "terminal",
+      "x": 11,
+      "y": 83,
+      "hitRadius": 8
+    },
+    {
+      "id": "TERM2",
+      "label": "Terminal 2",
+      "description": "Second terminal. Resistors are non-polarized, so terminals are interchangeable.",
+      "type": "terminal",
+      "x": 11,
+      "y": 1,
+      "hitRadius": 8
+    }
+  ]
+}
