@@ -1,0 +1,182 @@
+{
+  "componentId": "arduino-uno",
+  "componentName": "Arduino UNO R3",
+  "category": "microcontrollers",
+  "source": "https://docs.arduino.cc/hardware/uno-rev3",
+  "pins": [
+    {
+      "id": "D0",
+      "label": "Digital 0 / RX",
+      "description": "Digital I/O pin. Also used as Serial RX (receive) for UART communication.",
+      "type": "communication"
+    },
+    {
+      "id": "D1",
+      "label": "Digital 1 / TX",
+      "description": "Digital I/O pin. Also used as Serial TX (transmit) for UART communication.",
+      "type": "communication"
+    },
+    {
+      "id": "D2",
+      "label": "Digital 2",
+      "description": "Digital I/O pin. Supports external interrupt (INT0).",
+      "type": "digital"
+    },
+    {
+      "id": "D3",
+      "label": "Digital 3 ~",
+      "description": "Digital I/O pin with PWM output. Supports external interrupt (INT1).",
+      "type": "pwm"
+    },
+    {
+      "id": "D4",
+      "label": "Digital 4",
+      "description": "Digital I/O pin.",
+      "type": "digital"
+    },
+    {
+      "id": "D5",
+      "label": "Digital 5 ~",
+      "description": "Digital I/O pin with PWM output.",
+      "type": "pwm"
+    },
+    {
+      "id": "D6",
+      "label": "Digital 6 ~",
+      "description": "Digital I/O pin with PWM output.",
+      "type": "pwm"
+    },
+    {
+      "id": "D7",
+      "label": "Digital 7",
+      "description": "Digital I/O pin.",
+      "type": "digital"
+    },
+    {
+      "id": "D8",
+      "label": "Digital 8",
+      "description": "Digital I/O pin.",
+      "type": "digital"
+    },
+    {
+      "id": "D9",
+      "label": "Digital 9 ~",
+      "description": "Digital I/O pin with PWM output.",
+      "type": "pwm"
+    },
+    {
+      "id": "D10",
+      "label": "Digital 10 ~ / SS",
+      "description": "Digital I/O pin with PWM output. SPI Slave Select (SS).",
+      "type": "pwm"
+    },
+    {
+      "id": "D11",
+      "label": "Digital 11 ~ / MOSI",
+      "description": "Digital I/O pin with PWM output. SPI MOSI (Master Out Slave In).",
+      "type": "pwm"
+    },
+    {
+      "id": "D12",
+      "label": "Digital 12 / MISO",
+      "description": "Digital I/O pin. SPI MISO (Master In Slave Out).",
+      "type": "communication"
+    },
+    {
+      "id": "D13",
+      "label": "Digital 13 / SCK / LED",
+      "description": "Digital I/O pin. SPI SCK (Serial Clock). Connected to built-in LED.",
+      "type": "digital"
+    },
+    {
+      "id": "A0",
+      "label": "Analog 0",
+      "description": "Analog input pin. 10-bit ADC, reads values 0-1023.",
+      "type": "analog"
+    },
+    {
+      "id": "A1",
+      "label": "Analog 1",
+      "description": "Analog input pin. 10-bit ADC, reads values 0-1023.",
+      "type": "analog"
+    },
+    {
+      "id": "A2",
+      "label": "Analog 2",
+      "description": "Analog input pin. 10-bit ADC, reads values 0-1023.",
+      "type": "analog"
+    },
+    {
+      "id": "A3",
+      "label": "Analog 3",
+      "description": "Analog input pin. 10-bit ADC, reads values 0-1023.",
+      "type": "analog"
+    },
+    {
+      "id": "A4",
+      "label": "Analog 4 / SDA",
+      "description": "Analog input pin. Also I2C SDA (data line).",
+      "type": "analog"
+    },
+    {
+      "id": "A5",
+      "label": "Analog 5 / SCL",
+      "description": "Analog input pin. Also I2C SCL (clock line).",
+      "type": "analog"
+    },
+    {
+      "id": "5V",
+      "label": "5V",
+      "description": "5V regulated power output. Can supply up to 500mA.",
+      "type": "power"
+    },
+    {
+      "id": "3.3V",
+      "label": "3.3V",
+      "description": "3.3V regulated power output. Max 50mA current.",
+      "type": "power"
+    },
+    {
+      "id": "VIN",
+      "label": "VIN",
+      "description": "Input voltage pin. Use when powering board via external supply (7-12V recommended).",
+      "type": "power"
+    },
+    {
+      "id": "GND1",
+      "label": "GND",
+      "description": "Ground pin.",
+      "type": "ground"
+    },
+    {
+      "id": "GND2",
+      "label": "GND",
+      "description": "Ground pin.",
+      "type": "ground"
+    },
+    {
+      "id": "GND3",
+      "label": "GND",
+      "description": "Ground pin (near power pins).",
+      "type": "ground"
+    },
+    {
+      "id": "RESET",
+      "label": "RESET",
+      "description": "Reset pin. Pull LOW to reset the microcontroller.",
+      "type": "digital"
+    },
+    {
+      "id": "IOREF",
+      "label": "IOREF",
+      "description": "I/O reference voltage. Reflects the operating voltage of the microcontroller (5V).",
+      "type": "power"
+    },
+    {
+      "id": "AREF",
+      "label": "AREF",
+      "description": "Analog reference voltage. Can be used to set external reference for ADC.",
+      "type": "analog"
+    }
+  ]
+}

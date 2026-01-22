@@ -1,0 +1,236 @@
+/* Component Properties Panel - Floating */
+.properties-panel {
+  position: absolute;
+  top: 60px;
+  right: 16px;
+  width: 280px;
+  background: var(--bg-primary, #ffffff);
+  border: 1px solid var(--border-color, #dadce0);
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  z-index: 200;
+  overflow: hidden;
+}
+
+/* Header */
+.properties-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--bg-secondary, #f8f9fa);
+  border-bottom: 1px solid var(--border-color, #dadce0);
+}
+
+.properties-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, #202124);
+}
+
+.properties-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.properties-actions button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-secondary, #5f6368);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.properties-actions button:hover {
+  background: var(--bg-tertiary, #f1f3f4);
+  color: var(--text-primary, #202124);
+}
+
+.properties-actions .delete-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+/* Sections */
+.properties-section {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color, #dadce0);
+}
+
+.properties-section:last-child {
+  border-bottom: none;
+}
+
+/* Component Description */
+.component-description {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary, #5f6368);
+}
+
+.properties-section h4 {
+  margin: 0 0 10px 0;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary, #5f6368);
+}
+
+/* Properties List */
+.properties-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.property-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.property-item label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary, #202124);
+}
+
+.property-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.option-btn {
+  padding: 6px 12px;
+  background: var(--bg-secondary, #f8f9fa);
+  border: 1px solid var(--border-color, #dadce0);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary, #202124);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-transform: capitalize;
+}
+
+.option-btn:hover {
+  background: var(--bg-tertiary, #f1f3f4);
+  border-color: var(--accent-primary, #1a73e8);
+}
+
+.option-btn.active {
+  background: var(--accent-primary, #1a73e8);
+  border-color: var(--accent-primary, #1a73e8);
+  color: white;
+}
+
+.property-item input[type="number"] {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color, #dadce0);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-primary, #202124);
+}
+
+.property-item input[type="number"]:focus {
+  outline: none;
+  border-color: var(--accent-primary, #1a73e8);
+}
+
+/* Pin Connections */
+.pin-connections-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pin-connection-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  background: var(--bg-secondary, #f8f9fa);
+  border-radius: 6px;
+}
+
+.pin-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pin-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary, #202124);
+}
+
+.pin-type {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.pin-type-digital { background: #dbeafe; color: #1e40af; }
+.pin-type-pwm { background: #fef3c7; color: #92400e; }
+.pin-type-analog { background: #dcfce7; color: #166534; }
+.pin-type-power { background: #fecaca; color: #991b1b; }
+.pin-type-ground { background: #e5e7eb; color: #374151; }
+.pin-type-terminal { background: #f3e8ff; color: #6b21a8; }
+.pin-type-communication { background: #cffafe; color: #0e7490; }
+
+.pin-connected-to {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.connection-badge {
+  padding: 3px 8px;
+  background: var(--accent-primary, #1a73e8);
+  color: white;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.not-connected {
+  font-size: 11px;
+  color: var(--text-secondary, #5f6368);
+  font-style: italic;
+}
+
+/* Info Section */
+.properties-info {
+  background: var(--bg-secondary, #f8f9fa);
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+
+.info-label {
+  font-size: 11px;
+  color: var(--text-secondary, #5f6368);
+}
+
+.info-value {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-primary, #202124);
+}
