@@ -97,7 +97,7 @@ export async function loadComponentByFileName(
 
   // Encode the filename for URL (handles special chars like Ω)
   const encodedFileName = encodeURIComponent(fileName);
-  const url = `/components/${category}/${encodedFileName}.json`;
+  const url = `${import.meta.env.BASE_URL}components/${category}/${encodedFileName}.json`;
 
   console.log(`[ComponentService] Fetching: ${url}`);
 
@@ -159,7 +159,7 @@ export function getComponentImageUrl(
   state: 'on' | 'off' = 'off',
   color?: string
 ): string {
-  const baseUrl = `/components/${definition.category}`;
+  const baseUrl = `${import.meta.env.BASE_URL}components/${definition.category}`;
 
   // Check for variant image
   if (definition.variants) {

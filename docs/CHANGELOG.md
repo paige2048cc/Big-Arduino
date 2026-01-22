@@ -10,6 +10,15 @@ All notable changes to Big Arduino App will be documented in this file.
 
 ---
 
+## [6.0.2] - 2026-01-22
+
+### Fixed
+- Component images not loading when drag-dropping onto canvas
+- Fixed missing BASE_URL prefix in `loadComponentByFileName` function
+- Fixed missing BASE_URL prefix in `getComponentImageUrl` function
+
+---
+
 ## [6.0.1] - 2026-01-22
 
 ### Fixed
