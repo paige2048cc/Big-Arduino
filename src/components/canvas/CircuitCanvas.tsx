@@ -228,7 +228,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     if (!variant?.image) return;
 
     // Build the image URL
-    const imageUrl = `/components/${definition.category}/${variant.image}`;
+    const imageUrl = `${import.meta.env.BASE_URL}components/${definition.category}/${variant.image}`;
 
     // Skip if already showing this image
     if (component?.currentImage === imageUrl) return;
@@ -1230,7 +1230,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     console.log(`Loaded definition:`, definition);
 
     // Get image URL - browsers handle special characters in src attributes
-    const imageUrl = `/components/${category}/${definition.image}`;
+    const imageUrl = `${import.meta.env.BASE_URL}components/${category}/${definition.image}`;
     console.log(`Loading image from: ${imageUrl}`);
 
     // Add component to store first to get instance ID

@@ -10,6 +10,45 @@ All notable changes to Big Arduino App will be documented in this file.
 
 ---
 
+## [6.0.1] - 2026-01-22
+
+### Fixed
+- Images not loading on GitHub Pages due to incorrect base path
+- Updated all image and fetch URLs to use `import.meta.env.BASE_URL` prefix
+- Fixed paths in ComponentLibrary, CircuitCanvas, and componentService
+
+---
+
+## [6.0.0] - 2026-01-22
+
+### Changed
+- Merged Instruction panel into AI Chat panel as unified view
+- Instructions now display as vertical collapsible accordion
+- Removed tab switching between Instructions and AI Chat
+
+### Added
+- Step accordion with three visual states: inactive (gray), active (blue), completed (green)
+- Checkmark indicator for completed steps
+- "Mark Complete" button on active steps
+- Auto-collapse completed step and auto-expand next step on completion
+- Click-to-toggle expand/collapse on any step header
+- `expandedSteps` state management for accordion behavior
+
+### Removed
+- Tab switcher UI (Instructions/AI Chat tabs)
+- Progress dots navigation
+- Previous/Next step navigation buttons
+
+---
+
+## [5.5.0] - 2026-01-22
+
+### Changed
+- Arduino UNO image dimensions updated from 898x628 to 600x420
+- All 28 pin positions recalculated to match new image scale (scale factor: 0.668)
+
+---
+
 ## [5.4.1] - 2026-01-22
 
 ### Fixed

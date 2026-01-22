@@ -107,7 +107,7 @@ export function ComponentLibrary({ onComponentDragStart }: ComponentLibraryProps
                     <div className="component-thumbnail">
                       {!imageErrors.has(component.id) ? (
                         <img
-                          src={`/components/${category.folder}/${component.image}`}
+                          src={`${import.meta.env.BASE_URL}components/${category.folder}/${component.image}`}
                           alt={component.name}
                           onError={() => handleImageError(component.id)}
                         />

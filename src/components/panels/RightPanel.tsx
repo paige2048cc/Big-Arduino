@@ -1,9 +1,7 @@
 import { useState } from 'react';
-import { BookOpen, MessageSquare, Send, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MessageSquare, Send, ChevronDown, Check } from 'lucide-react';
 import type { ProjectStep } from '../../types';
 import './RightPanel.css';
-
-type TabType = 'instructions' | 'chat';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -14,7 +12,10 @@ interface RightPanelProps {
   steps: ProjectStep[];
   currentStep: number;
   completedSteps: Set<number>;
+  expandedSteps: Set<number>;
   onStepChange: (step: number) => void;
+  onToggleExpand: (stepIndex: number) => void;
+  onStepComplete: (stepIndex: number) => void;
   chatMessages: ChatMessage[];
   onSendMessage: (message: string) => void;
 }
@@ -23,27 +24,15 @@ export function RightPanel({
   steps,
   currentStep,
   completedSteps,
-  onStepChange,
+  expandedSteps,
+  onStepChange: _onStepChange,
+  onToggleExpand,
+  onStepComplete,
   chatMessages,
   onSendMessage,
 }: RightPanelProps) {
-  const [activeTab, setActiveTab] = useState<TabType>('instructions');
+  // _onStepChange kept for potential future use (e.g., clicking step header to jump)
   const [chatInput, setChatInput] = useState('');
-
-  const step = steps[currentStep];
-  const totalSteps = steps.length;
-
-  const handlePrev = () => {
-    if (currentStep > 0) {
-      onStepChange(currentStep - 1);
-    }
-  };
-
-  const handleNext = () => {
-    if (currentStep < totalSteps - 1) {
-      onStepChange(currentStep + 1);
-    }
-  };
 
   const handleSendMessage = () => {
     if (!chatInput.trim()) return;
@@ -51,118 +40,116 @@ export function RightPanel({
     setChatInput('');
   };
 
+  const getStepState = (index: number) => {
+    if (completedSteps.has(index)) return 'completed';
+    if (index === currentStep) return 'active';
+    return 'inactive';
+  };
+
   return (
     <div className="right-panel-container">
-      {/* Tab Switcher */}
-      <div className="panel-tabs">
-        <button
-          className={`panel-tab ${activeTab === 'instructions' ? 'active' : ''}`}
-          onClick={() => setActiveTab('instructions')}
-        >
-          <BookOpen size={16} />
-          <span>Instructions</span>
-        </button>
-        <button
-          className={`panel-tab ${activeTab === 'chat' ? 'active' : ''}`}
-          onClick={() => setActiveTab('chat')}
-        >
-          <MessageSquare size={16} />
-          <span>AI Chat</span>
-        </button>
-      </div>
-
-      {/* Panel Content */}
+      {/* Scrollable Content */}
       <div className="panel-content">
-        {activeTab === 'instructions' ? (
-          <div className="instructions-content">
-            {/* Step Header */}
-            <div className="step-header">
-              <span className="step-badge">Step {currentStep + 1} of {totalSteps}</span>
-              <h2 className="step-title">{step?.title}</h2>
-              <p className="step-description">{step?.description}</p>
-            </div>
+        {/* Step Accordion */}
+        <div className="step-accordion">
+          {steps.map((step, index) => {
+            const state = getStepState(index);
+            const isExpanded = expandedSteps.has(index);
 
-            {/* Progress dots */}
-            <div className="step-progress">
-              {steps.map((_, index) => (
+            return (
+              <div
+                key={step.id}
+                className={`accordion-step ${state}`}
+              >
+                {/* Accordion Header */}
                 <button
-                  key={index}
-                  className={`progress-dot ${index === currentStep ? 'active' : ''} ${completedSteps.has(index) ? 'completed' : ''}`}
-                  onClick={() => onStepChange(index)}
-                  title={`Step ${index + 1}`}
-                />
-              ))}
-            </div>
+                  className="accordion-header"
+                  onClick={() => onToggleExpand(index)}
+                >
+                  <div className="step-indicator">
+                    {state === 'completed' ? (
+                      <Check size={14} />
+                    ) : (
+                      <span>{index + 1}</span>
+                    )}
+                  </div>
+                  <span className="step-title">{step.title}</span>
+                  <ChevronDown
+                    size={16}
+                    className={`chevron ${isExpanded ? 'expanded' : ''}`}
+                  />
+                </button>
 
-            {/* Instructions List */}
-            <div className="instructions-list">
-              <h3>Instructions</h3>
-              <ol>
-                {step?.instructions.map((instruction, index) => (
-                  <li key={index}>{instruction}</li>
-                ))}
-              </ol>
-            </div>
+                {/* Accordion Content */}
+                {isExpanded && (
+                  <div className="accordion-content">
+                    <p className="step-description">{step.description}</p>
 
-            {/* Tips */}
-            {step?.tips && step.tips.length > 0 && (
-              <div className="tips-box">
-                <h4>Tips</h4>
-                <ul>
-                  {step.tips.map((tip, index) => (
-                    <li key={index}>{tip}</li>
-                  ))}
-                </ul>
+                    <div className="instructions-list">
+                      <h4>Instructions</h4>
+                      <ol>
+                        {step.instructions.map((instruction, i) => (
+                          <li key={i}>{instruction}</li>
+                        ))}
+                      </ol>
+                    </div>
+
+                    {step.tips && step.tips.length > 0 && (
+                      <div className="tips-box">
+                        <h4>Tips</h4>
+                        <ul>
+                          {step.tips.map((tip, i) => (
+                            <li key={i}>{tip}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {state === 'active' && (
+                      <button
+                        className="complete-step-btn"
+                        onClick={() => onStepComplete(index)}
+                      >
+                        <Check size={16} />
+                        <span>Mark Complete</span>
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
-            )}
+            );
+          })}
+        </div>
+
+        {/* Chat Section */}
+        <div className="chat-section">
+          <div className="chat-header">
+            <MessageSquare size={16} />
+            <span>AI Assistant</span>
           </div>
-        ) : (
-          <div className="chat-content">
-            <div className="chat-messages">
-              {chatMessages.map((msg, index) => (
-                <div key={index} className={`chat-message ${msg.role}`}>
-                  <div className="message-bubble">{msg.content}</div>
-                </div>
-              ))}
-            </div>
+          <div className="chat-messages">
+            {chatMessages.map((msg, index) => (
+              <div key={index} className={`chat-message ${msg.role}`}>
+                <div className="message-bubble">{msg.content}</div>
+              </div>
+            ))}
           </div>
-        )}
+        </div>
       </div>
 
-      {/* Footer - Navigation or Chat Input */}
-      {activeTab === 'instructions' ? (
-        <div className="step-navigation">
-          <button
-            className="nav-btn prev"
-            onClick={handlePrev}
-            disabled={currentStep === 0}
-          >
-            <ChevronLeft size={18} />
-            <span>Previous</span>
-          </button>
-          <button
-            className="nav-btn next"
-            onClick={handleNext}
-            disabled={currentStep === totalSteps - 1}
-          >
-            <span>{currentStep === totalSteps - 1 ? 'Complete' : 'Next'}</span>
-            {currentStep < totalSteps - 1 && <ChevronRight size={18} />}
-          </button>
-        </div>
-      ) : (
-        <div className="chat-input-container">
-          <input
-            type="text"
-            placeholder="Ask a question..."
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-          />
-          <button onClick={handleSendMessage} disabled={!chatInput.trim()}>
-            <Send size={18} />
-          </button>
-        </div>
-      )}
+      {/* Fixed Chat Input */}
+      <div className="chat-input-container">
+        <input
+          type="text"
+          placeholder="Ask a question..."
+          value={chatInput}
+          onChange={(e) => setChatInput(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+        />
+        <button onClick={handleSendMessage} disabled={!chatInput.trim()}>
+          <Send size={18} />
+        </button>
+      </div>
     </div>
   );
 }

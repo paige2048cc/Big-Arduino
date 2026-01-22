@@ -66,7 +66,7 @@ export async function loadComponentDefinition(
   }
 
   try {
-    const response = await fetch(`/components/${category}/${componentId}.json`);
+    const response = await fetch(`${import.meta.env.BASE_URL}components/${category}/${componentId}.json`);
     if (!response.ok) {
       throw new Error(`Failed to load component: ${response.status}`);
     }
