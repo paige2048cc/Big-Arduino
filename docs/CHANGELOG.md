@@ -10,6 +10,14 @@ All notable changes to Big Arduino App will be documented in this file.
 
 ---
 
+## [5.4.1] - 2026-01-22
+
+### Fixed
+- React Router now works correctly on GitHub Pages subdirectory deployment
+- Added basename configuration to BrowserRouter using Vite's BASE_URL
+
+---
+
 ## [5.4.0] - 2026-01-22
 
 ### Added
