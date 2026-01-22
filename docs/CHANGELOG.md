@@ -10,6 +10,15 @@ All notable changes to Big Arduino App will be documented in this file.
 
 ---
 
+## [5.4.0] - 2026-01-22
+
+### Added
+- GitHub Pages deployment support
+- GitHub Actions workflow for automatic deployment on push to main
+- Vite base path configuration for GitHub Pages subdirectory hosting
+
+---
+
 ## [5.3.0] - 2026-01-21
 
 ### Added
