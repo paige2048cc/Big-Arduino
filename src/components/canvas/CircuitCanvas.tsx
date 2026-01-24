@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import * as fabric from 'fabric';
-import { ZoomIn, ZoomOut, RotateCcw, Trash2, Move, RotateCw, FlipHorizontal, FlipVertical } from 'lucide-react';
+import { ZoomIn, ZoomOut, Undo2, Trash2, Move, RotateCw, FlipHorizontal, FlipVertical } from 'lucide-react';
 import { useCircuitStore, useHoveredPin, useWireDrawing, useWires, useSimulationErrors, useSelectedWire } from '../../store/circuitStore';
 import type { CircuitError } from '../../services/circuitSimulator';
 import { loadComponentByFileName, getPinAtPosition } from '../../services/componentService';
+import { calculateSnapPosition, shouldRemoveFromBreadboard } from '../../services/breadboardSnapping';
 import './CircuitCanvas.css';
 
 // Helper functions for wire path generation
@@ -141,6 +142,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     startWireDrawing,
     updateWireDrawing,
     addWireBendPoint,
+    removeLastWireBendPoint,
     setWireDrawingColor,
     completeWireDrawing,
     cancelWireDrawing,
@@ -151,6 +153,10 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     removeWire,
     updateWire,
     selectedWireId,
+    undo,
+    canUndo,
+    insertIntoBreadboard,
+    removeFromBreadboard,
   } = useCircuitStore();
 
   const hoveredPin = useHoveredPin();
@@ -178,6 +184,9 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
   // Image cache for component variants (to avoid reloading same images)
   const imageCache = useRef<Map<string, HTMLImageElement>>(new Map());
 
+  // Track pending component loads to prevent duplicate Fabric object creation
+  const pendingLoadsRef = useRef<Set<string>>(new Set());
+
   // Track pressed button during simulation
   const pressedButtonRef = useRef<string | null>(null);
 
@@ -187,6 +196,13 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
 
   // Shift key state for axis constraint
   const isShiftHeldRef = useRef(false);
+
+  // Track drag start position for wire control points (for Shift constraint)
+  const wireControlPointDragStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  // Track if any object is currently being dragged
+  // Used to prevent sync effect from interfering during drag
+  const isDraggingRef = useRef(false);
 
   // Refs for event handlers to avoid stale closures
   const handleMouseMoveRef = useRef<typeof handleMouseMoveEvent>(null!);
@@ -312,12 +328,14 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
 
     // Object moving handler (real-time updates during drag) - using ref to avoid stale closure
     fabricCanvas.on('object:moving', (e) => {
+      isDraggingRef.current = true; // Mark that a drag is in progress
       const obj = e.target as ComponentFabricObject;
       handleObjectMovingRef.current?.(obj);
     });
 
     // Object modified handler (includes moved, scaled, rotated) - using ref to avoid stale closure
     fabricCanvas.on('object:modified', (e) => {
+      isDraggingRef.current = false; // Drag has ended
       const obj = e.target as ComponentFabricObject;
       handleObjectModifiedRef.current?.(obj);
     });
@@ -400,6 +418,32 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     };
   }, []);
 
+  // Lock components during wire drawing to prevent accidental movement
+  useEffect(() => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    const objects = canvas.getObjects();
+    objects.forEach(obj => {
+      const data = (obj as ComponentFabricObject).data;
+      if (data?.type === 'component') {
+        if (wireDrawing.isDrawing) {
+          // Lock movement and disable selection during wire drawing
+          obj.selectable = false;
+          obj.evented = false;
+        } else {
+          // Restore interactivity when not drawing
+          obj.selectable = true;
+          obj.evented = true;
+        }
+      }
+    });
+
+    // Also disable canvas selection during wire drawing
+    canvas.selection = !wireDrawing.isDrawing;
+    canvas.renderAll();
+  }, [wireDrawing.isDrawing]);
+
   // Helper to get pin canvas coordinates (handles rotation, flip, and scale)
   const getPinCanvasPosition = useCallback((componentId: string, pinId: string): { x: number; y: number } | null => {
     const definition = getComponentDefinition(componentId);
@@ -412,19 +456,13 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     if (!fabricObj) return null;
 
     // Pin position in component's local coordinate system (relative to top-left of definition)
-    let localX = pin.x;
-    let localY = pin.y;
-
-    // Handle flip transformations (flip changes pin positions within the component)
-    if (fabricObj.flipX) {
-      localX = definition.width - localX;
-    }
-    if (fabricObj.flipY) {
-      localY = definition.height - localY;
-    }
+    const localX = pin.x;
+    const localY = pin.y;
 
     // Use Fabric.js transform matrix to convert local coords to canvas coords
-    // This accounts for position, rotation, scale, and origin
+    // This accounts for position, rotation, scale, flip, and origin
+    // Note: The transform matrix already includes flipX/flipY transformations,
+    // so we should NOT manually adjust coordinates for flip here.
     const transformMatrix = fabricObj.calcTransformMatrix();
 
     // In Fabric.js, local coordinates are relative to the object's center when transforming
@@ -435,6 +473,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     const relativePoint = new fabric.Point(localX - centerOffsetX, localY - centerOffsetY);
 
     // Apply transform matrix to get canvas coordinates
+    // The matrix handles position, rotation, scale, and flip automatically
     const canvasPoint = fabric.util.transformPoint(relativePoint, transformMatrix);
 
     return {
@@ -506,6 +545,10 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       return data?.type === 'component' && data?.instanceId;
     });
 
+    // Track if cursor is visually covered by a non-base component (breadboard/uno)
+    // This is used to prevent breadboard pins from showing hover when covered
+    let isCoveredByComponent = false;
+
     // Check each component for pin hit (in reverse order so topmost is checked first)
     for (let i = objects.length - 1; i >= 0; i--) {
       const target = objects[i] as ComponentFabricObject;
@@ -513,6 +556,8 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
 
       const definition = getComponentDefinition(target.data.instanceId);
       if (!definition) continue;
+
+      const isBaseComponent = definition.id === 'breadboard' || definition.id === 'arduino-uno';
 
       // Get the inverse transform matrix to convert canvas coords to local coords
       const transformMatrix = target.calcTransformMatrix();
@@ -525,20 +570,25 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       );
 
       // Adjust for center-based transform (Fabric uses center as origin for transforms)
-      let localX = localPoint.x + definition.width / 2;
-      let localY = localPoint.y + definition.height / 2;
-
-      // If flipped, we need to un-flip the local coordinates for pin detection
-      // because pin positions in definition are un-flipped
-      if (target.flipX) {
-        localX = definition.width - localX;
-      }
-      if (target.flipY) {
-        localY = definition.height - localY;
-      }
+      // Note: The inverse transform matrix already handles flipX/flipY, converting
+      // canvas coordinates back to the original (un-flipped) local coordinate space.
+      // No manual flip adjustment is needed here.
+      const localX = localPoint.x + definition.width / 2;
+      const localY = localPoint.y + definition.height / 2;
 
       // Check if within component bounds (using original definition size)
       if (localX < 0 || localX > definition.width || localY < 0 || localY > definition.height) {
+        continue;
+      }
+
+      // If cursor is within a non-base component, mark as covered
+      // This prevents breadboard pins underneath from showing hover
+      if (!isBaseComponent) {
+        isCoveredByComponent = true;
+      }
+
+      // For base components (breadboard/uno), skip if cursor is covered by another component
+      if (isBaseComponent && isCoveredByComponent) {
         continue;
       }
 
@@ -556,6 +606,11 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
           canvasX: pinPos.x,
           canvasY: pinPos.y,
         });
+
+        // If drawing a wire, snap floating endpoint to the hovered pin position (preview only)
+        if (wireDrawing.isDrawing) {
+          updateWireDrawing(pinPos.x, pinPos.y);
+        }
         return;
       }
     }
@@ -563,7 +618,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     // No pin hovered
     setHoveredPin(null);
 
-    // Update wire drawing position if active
+    // Update wire drawing position if active (no pin nearby, use cursor position)
     if (wireDrawing.isDrawing) {
       // Get the last anchor point (either start or last bend point)
       const lastPoint = wireDrawing.bendPoints.length > 0
@@ -771,8 +826,104 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
   // Handle object modified (component movement, wire control point movement)
   const handleObjectModified = useCallback((obj: ComponentFabricObject) => {
     // Handle component movement
-    if (obj?.data?.instanceId) {
-      updateComponentPosition(obj.data.instanceId, obj.left || 0, obj.top || 0);
+    if (obj?.data?.instanceId && obj?.data?.type === 'component') {
+      const instanceId = obj.data.instanceId;
+      const newX = obj.left || 0;
+      const newY = obj.top || 0;
+
+      const componentDef = getComponentDefinition(instanceId);
+      const component = placedComponents.find(c => c.instanceId === instanceId);
+
+      // Don't try to snap breadboards or Arduino Uno
+      const isBaseComponent = componentDef?.id === 'breadboard' || componentDef?.id === 'arduino-uno';
+
+      if (componentDef && component && !isBaseComponent) {
+        // Find breadboards on the canvas
+        const breadboards = placedComponents.filter(c => {
+          const def = getComponentDefinition(c.instanceId);
+          return def?.id === 'breadboard';
+        });
+
+        let snapped = false;
+
+        // Try to snap to each breadboard
+        for (const breadboard of breadboards) {
+          const breadboardDef = getComponentDefinition(breadboard.instanceId);
+          if (!breadboardDef) continue;
+
+          const snapResult = calculateSnapPosition(
+            { ...component, x: newX, y: newY },
+            componentDef,
+            breadboard,
+            breadboardDef,
+            newX,
+            newY
+          );
+
+          if (snapResult?.success) {
+            // Apply snapped position
+            updateComponentPosition(instanceId, snapResult.snappedPosition.x, snapResult.snappedPosition.y);
+
+            // Update Fabric object position and refresh coordinates for proper hit detection
+            obj.set({
+              left: snapResult.snappedPosition.x,
+              top: snapResult.snappedPosition.y,
+            });
+            obj.setCoords();
+
+            // Insert into breadboard
+            insertIntoBreadboard(instanceId, snapResult.breadboardInstanceId, snapResult.insertedPins);
+            snapped = true;
+            break;
+          }
+        }
+
+        if (!snapped) {
+          // No snap - update to drag position
+          updateComponentPosition(instanceId, newX, newY);
+
+          // Check if should remove from breadboard
+          if (component.parentBreadboardId) {
+            const parentBreadboard = placedComponents.find(c => c.instanceId === component.parentBreadboardId);
+            const parentBreadboardDef = parentBreadboard ? getComponentDefinition(parentBreadboard.instanceId) : undefined;
+
+            if (parentBreadboard && parentBreadboardDef) {
+              if (shouldRemoveFromBreadboard(
+                { ...component, x: newX, y: newY },
+                componentDef,
+                parentBreadboard,
+                parentBreadboardDef
+              )) {
+                removeFromBreadboard(instanceId);
+              }
+            }
+          }
+        }
+      } else {
+        // Base component or no definition - just update position
+        updateComponentPosition(instanceId, newX, newY);
+
+        // If this is a breadboard, also update children's Fabric coordinates
+        // (their store positions were updated by updateComponentPosition)
+        if (isBaseComponent && componentDef?.id === 'breadboard') {
+          placedComponents.forEach(child => {
+            if (child.parentBreadboardId === instanceId) {
+              const childFabric = instanceToFabricMap.current.get(child.instanceId);
+              if (childFabric) {
+                childFabric.setCoords();
+              }
+            }
+          });
+          // Reset breadboard position tracking for next drag
+          lastBreadboardPositionRef.current = null;
+        }
+      }
+
+      // Update the moved object's coordinates for proper hit detection
+      obj.setCoords();
+
+      // Re-render to update positions
+      fabricCanvasRef.current?.renderAll();
     }
 
     // Handle wire control point movement
@@ -821,18 +972,68 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
         // If no pin found, the control point will snap back to the original pin position
         // when the wire is re-rendered (since we don't update the connection)
       }
-    }
-  }, [updateComponentPosition, findNearestPin]);
 
-  // Handle object moving (real-time wire updates during control point drag)
+      // Clear drag start position after drag ends
+      wireControlPointDragStartRef.current = null;
+    }
+  }, [updateComponentPosition, findNearestPin, getComponentDefinition, placedComponents, insertIntoBreadboard, removeFromBreadboard]);
+
+  // Track last position for delta calculation during breadboard drag
+  const lastBreadboardPositionRef = useRef<{ id: string; x: number; y: number } | null>(null);
+
+  // Handle object moving (real-time updates during drag)
   const handleObjectMoving = useCallback((obj: ComponentFabricObject) => {
-    // Only handle wire control points
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    // Handle breadboard movement - move children in real-time
+    if (obj?.data?.type === 'component' && obj?.data?.instanceId) {
+      const definition = getComponentDefinition(obj.data.instanceId);
+      if (definition?.id === 'breadboard') {
+        const currentX = obj.left || 0;
+        const currentY = obj.top || 0;
+
+        // Get last position or use current if first move
+        const last = lastBreadboardPositionRef.current;
+        if (last && last.id === obj.data.instanceId) {
+          const deltaX = currentX - last.x;
+          const deltaY = currentY - last.y;
+
+          // Skip if delta is too large (likely a new drag started, not a continuation)
+          // This prevents jumps when starting a new drag from a different position
+          if (Math.abs(deltaX) > 100 || Math.abs(deltaY) > 100) {
+            lastBreadboardPositionRef.current = { id: obj.data.instanceId, x: currentX, y: currentY };
+            return;
+          }
+
+          // Move all children visually
+          placedComponents.forEach(child => {
+            if (child.parentBreadboardId === obj.data?.instanceId) {
+              const childFabric = instanceToFabricMap.current.get(child.instanceId);
+              if (childFabric) {
+                childFabric.set({
+                  left: (childFabric.left || 0) + deltaX,
+                  top: (childFabric.top || 0) + deltaY,
+                });
+                // Mark as dirty to ensure proper rendering
+                childFabric.setCoords();
+              }
+            }
+          });
+        }
+
+        // Update last position
+        lastBreadboardPositionRef.current = { id: obj.data.instanceId, x: currentX, y: currentY };
+      }
+    }
+
+    // Handle wire control points
     if (obj?.data?.type !== 'wire-control-point') return;
 
     const { wireId, pointIndex, pointType } = obj.data;
     if (!wireId || pointIndex === undefined) return;
 
-    const canvas = fabricCanvasRef.current;
+    // canvas already defined at the start of this function
     if (!canvas) return;
 
     const wire = useCircuitStore.getState().wires.find(w => w.id === wireId);
@@ -844,8 +1045,38 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     if (!startPos || !endPos) return;
 
     // Build points array with the dragged position
-    const dragX = obj.left || 0;
-    const dragY = obj.top || 0;
+    let dragX = obj.left || 0;
+    let dragY = obj.top || 0;
+
+    // Capture drag start position on first move (for Shift constraint)
+    if (!wireControlPointDragStartRef.current) {
+      // Get the original position of this point before dragging
+      if (pointType === 'start') {
+        wireControlPointDragStartRef.current = { ...startPos };
+      } else if (pointType === 'end') {
+        wireControlPointDragStartRef.current = { ...endPos };
+      } else {
+        const bendIdx = pointIndex - 1;
+        if (bendIdx >= 0 && bendIdx < wire.bendPoints.length) {
+          wireControlPointDragStartRef.current = { ...wire.bendPoints[bendIdx] };
+        }
+      }
+    }
+
+    // Apply Shift constraint if held - constrain to horizontal/vertical relative to drag start position
+    if (isShiftHeldRef.current && wireControlPointDragStartRef.current) {
+      const constrained = constrainToAxis(
+        wireControlPointDragStartRef.current.x,
+        wireControlPointDragStartRef.current.y,
+        dragX,
+        dragY,
+        true
+      );
+      dragX = constrained.x;
+      dragY = constrained.y;
+      // Update the control point visual position to match constraint
+      obj.set({ left: dragX, top: dragY });
+    }
 
     const points: { x: number; y: number }[] = [];
 
@@ -933,7 +1164,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     });
 
     canvas.renderAll();
-  }, [getPinCanvasPosition, selectedWireId]);
+  }, [getPinCanvasPosition, selectedWireId, getComponentDefinition, placedComponents]);
 
   // Keep handler refs updated to avoid stale closures
   useEffect(() => {
@@ -956,12 +1187,13 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     handleObjectModifiedRef.current = handleObjectModified;
   }, [handleObjectModified]);
 
-  // Sync store deletions with canvas (for delete button in properties panel)
+  // Sync store with canvas (handles deletions and undo/restore of components)
   useEffect(() => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
 
     const storeInstanceIds = new Set(placedComponents.map(c => c.instanceId));
+    const canvasInstanceIds = new Set(instanceToFabricMap.current.keys());
 
     // Find Fabric objects that no longer exist in store and remove them
     instanceToFabricMap.current.forEach((fabricObj, instanceId) => {
@@ -971,8 +1203,96 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       }
     });
 
-    canvas.renderAll();
-  }, [placedComponents]);
+    // Find components in store that don't have Fabric objects (for undo/restore)
+    placedComponents.forEach(component => {
+      if (!canvasInstanceIds.has(component.instanceId)) {
+        // Skip if this component is currently being loaded by createComponentWithImage
+        // This prevents duplicate Fabric objects from being created
+        if (pendingLoadsRef.current.has(component.instanceId)) {
+          return;
+        }
+
+        const definition = getComponentDefinition(component.instanceId);
+        if (!definition) return;
+
+        // Mark as pending to prevent concurrent loads
+        pendingLoadsRef.current.add(component.instanceId);
+
+        // Load and create the Fabric object
+        const imageUrl = `${import.meta.env.BASE_URL}components/${definition.category}/${component.currentImage || definition.image}`;
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+
+        img.onload = () => {
+          // Remove from pending loads
+          pendingLoadsRef.current.delete(component.instanceId);
+
+          // Double-check we haven't created this object in the meantime
+          if (instanceToFabricMap.current.has(component.instanceId)) {
+            return;
+          }
+
+          const fabricImg = new fabric.FabricImage(img, {
+            left: component.x,
+            top: component.y,
+            originX: 'left',
+            originY: 'top',
+            hasControls: false,
+            lockScalingX: true,
+            lockScalingY: true,
+            hasBorders: true,
+            angle: component.rotation,
+            flipX: component.flipX || false,
+            flipY: component.flipY || false,
+          });
+
+          (fabricImg as ComponentFabricObject).data = {
+            type: 'component',
+            instanceId: component.instanceId,
+            definitionId: definition.id,
+          };
+
+          // Breadboard and Arduino Uno should always stay at the lowest layer
+          const isBaseComponent = definition.id === 'breadboard' || definition.id === 'arduino-uno';
+
+          canvas.add(fabricImg);
+          if (isBaseComponent) {
+            canvas.sendObjectToBack(fabricImg);
+          }
+
+          instanceToFabricMap.current.set(component.instanceId, fabricImg);
+          canvas.renderAll();
+        };
+
+        img.onerror = () => {
+          // Remove from pending loads on error
+          pendingLoadsRef.current.delete(component.instanceId);
+        };
+
+        img.src = imageUrl;
+      } else {
+        // Update position of existing Fabric objects to match store (for undo position changes)
+        // Skip during active drag to prevent interference with Fabric.js's built-in drag handling
+        if (!isDraggingRef.current) {
+          const fabricObj = instanceToFabricMap.current.get(component.instanceId);
+          if (fabricObj) {
+            fabricObj.set({
+              left: component.x,
+              top: component.y,
+              angle: component.rotation,
+              flipX: component.flipX || false,
+              flipY: component.flipY || false,
+            });
+          }
+        }
+      }
+    });
+
+    // Only render if not dragging (drag rendering is handled by Fabric.js)
+    if (!isDraggingRef.current) {
+      canvas.renderAll();
+    }
+  }, [placedComponents, getComponentDefinition]);
 
   // Render wires from store
   useEffect(() => {
@@ -1236,6 +1556,9 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     // Add component to store first to get instance ID
     const instanceId = addComponent(definition, x, y);
 
+    // Mark this component as pending load to prevent sync effect from creating duplicate
+    pendingLoadsRef.current.add(instanceId);
+
     // Load the image
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -1264,12 +1587,22 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       // Components render at native size (no scaling)
 
       canvas.add(fabricImg);
+
+      // Breadboard and Arduino Uno should always stay at the lowest layer
+      const isBaseComponent = definition.id === 'breadboard' || definition.id === 'arduino-uno';
+      if (isBaseComponent) {
+        canvas.sendObjectToBack(fabricImg);
+      }
+
       canvas.setActiveObject(fabricImg);
       canvas.renderAll();
 
       // Store mapping
       instanceToFabricMap.current.set(instanceId, fabricImg);
       setComponentDefinition(instanceId, definition);
+
+      // Remove from pending loads
+      pendingLoadsRef.current.delete(instanceId);
 
       onComponentDrop?.(componentId, x, y);
     };
@@ -1279,6 +1612,8 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       // Create fallback visual
       createFallbackComponent(canvas, componentId, x, y, instanceId);
       setComponentDefinition(instanceId, definition);
+      // Remove from pending loads
+      pendingLoadsRef.current.delete(instanceId);
     };
 
     img.src = imageUrl;
@@ -1341,16 +1676,6 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     canvas.renderAll();
   };
 
-  const handleResetZoom = () => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
-
-    canvas.setZoom(1);
-    canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
-    setZoom(1);
-    canvas.renderAll();
-  };
-
   // Handle delete (component or wire)
   const handleDelete = () => {
     const canvas = fabricCanvasRef.current;
@@ -1378,46 +1703,338 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     canvas.renderAll();
   };
 
+  // Helper to calculate center position of a component on canvas
+  const getComponentCenterPosition = useCallback((
+    left: number,
+    top: number,
+    width: number,
+    height: number,
+    angle: number,
+    flipX: boolean,
+    flipY: boolean
+  ): { x: number; y: number } => {
+    let centerOffsetX = width / 2;
+    let centerOffsetY = height / 2;
+    if (flipX) centerOffsetX = -centerOffsetX;
+    if (flipY) centerOffsetY = -centerOffsetY;
+
+    const rad = (angle * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    const rotatedOffsetX = centerOffsetX * cos - centerOffsetY * sin;
+    const rotatedOffsetY = centerOffsetX * sin + centerOffsetY * cos;
+
+    return {
+      x: left + rotatedOffsetX,
+      y: top + rotatedOffsetY,
+    };
+  }, []);
+
+  // Helper to calculate left/top position from center position
+  const getLeftTopFromCenter = useCallback((
+    centerX: number,
+    centerY: number,
+    width: number,
+    height: number,
+    angle: number,
+    flipX: boolean,
+    flipY: boolean
+  ): { left: number; top: number } => {
+    let centerOffsetX = width / 2;
+    let centerOffsetY = height / 2;
+    if (flipX) centerOffsetX = -centerOffsetX;
+    if (flipY) centerOffsetY = -centerOffsetY;
+
+    const rad = (angle * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    const rotatedOffsetX = centerOffsetX * cos - centerOffsetY * sin;
+    const rotatedOffsetY = centerOffsetX * sin + centerOffsetY * cos;
+
+    return {
+      left: centerX - rotatedOffsetX,
+      top: centerY - rotatedOffsetY,
+    };
+  }, []);
+
   // Handle rotate (45 degrees clockwise around component center)
   const handleRotate = () => {
     const canvas = fabricCanvasRef.current;
     if (!canvas || !selectedObject) return;
 
     const obj = selectedObject;
-    const currentAngle = obj.angle || 0;
-    const newAngle = (currentAngle + 45) % 360;
-
-    // Set origin to center for rotation
-    obj.set({
-      originX: 'center',
-      originY: 'center',
-    });
-
-    // Get center position before rotation
-    const center = obj.getCenterPoint();
-
-    obj.rotate(newAngle);
-
-    // Restore position to keep center at same place
-    obj.setPositionByOrigin(center, 'center', 'center');
-
-    // Update store rotation if it's a component
     const compObj = obj as ComponentFabricObject;
-    if (compObj.data?.instanceId) {
-      const { updateComponentRotation } = useCircuitStore.getState();
-      updateComponentRotation(compObj.data.instanceId, newAngle);
+    if (!compObj.data?.instanceId) return;
+
+    const instanceId = compObj.data.instanceId;
+    const definition = getComponentDefinition(instanceId);
+    if (!definition) return;
+
+    const currentAngle = obj.angle || 0;
+    const deltaAngle = 45;
+    const newAngle = (currentAngle + deltaAngle) % 360;
+    const currentLeft = obj.left || 0;
+    const currentTop = obj.top || 0;
+    const flipX = obj.flipX || false;
+    const flipY = obj.flipY || false;
+
+    // Calculate center position before rotation
+    const center = getComponentCenterPosition(
+      currentLeft, currentTop,
+      definition.width, definition.height,
+      currentAngle, flipX, flipY
+    );
+
+    // Calculate new left/top after rotation to keep center in place
+    const newPos = getLeftTopFromCenter(
+      center.x, center.y,
+      definition.width, definition.height,
+      newAngle, flipX, flipY
+    );
+
+    // Apply changes to Fabric object
+    obj.set({
+      angle: newAngle,
+      left: newPos.left,
+      top: newPos.top,
+    });
+    obj.setCoords();
+
+    // Update store
+    const state = useCircuitStore.getState();
+    state.updateComponentRotation(instanceId, newAngle);
+    state.updateComponentPosition(instanceId, newPos.left, newPos.top);
+
+    // If this is a breadboard, also rotate all inserted children
+    if (definition.id === 'breadboard') {
+      const children = state.placedComponents.filter(c => c.parentBreadboardId === instanceId);
+      const deltaRad = (deltaAngle * Math.PI) / 180;
+      const deltaCos = Math.cos(deltaRad);
+      const deltaSin = Math.sin(deltaRad);
+
+      for (const child of children) {
+        const childDef = getComponentDefinition(child.instanceId);
+        if (!childDef) continue;
+
+        const childFabric = instanceToFabricMap.current.get(child.instanceId);
+        if (!childFabric) continue;
+
+        // Get child's current center position
+        const childCenter = getComponentCenterPosition(
+          child.x, child.y,
+          childDef.width, childDef.height,
+          child.rotation, child.flipX || false, child.flipY || false
+        );
+
+        // Calculate child's position relative to breadboard center (before rotation)
+        const relX = childCenter.x - center.x;
+        const relY = childCenter.y - center.y;
+
+        // Rotate relative position by delta angle
+        const newRelX = relX * deltaCos - relY * deltaSin;
+        const newRelY = relX * deltaSin + relY * deltaCos;
+
+        // New child center position
+        const newChildCenterX = center.x + newRelX;
+        const newChildCenterY = center.y + newRelY;
+
+        // New child rotation = old rotation + delta
+        const newChildAngle = (child.rotation + deltaAngle) % 360;
+
+        // Calculate new left/top for child
+        const newChildPos = getLeftTopFromCenter(
+          newChildCenterX, newChildCenterY,
+          childDef.width, childDef.height,
+          newChildAngle, child.flipX || false, child.flipY || false
+        );
+
+        // Update child Fabric object
+        childFabric.set({
+          angle: newChildAngle,
+          left: newChildPos.left,
+          top: newChildPos.top,
+        });
+        childFabric.setCoords();
+
+        // Update child in store
+        state.updateComponentRotation(child.instanceId, newChildAngle);
+        state.updateComponentPosition(child.instanceId, newChildPos.left, newChildPos.top);
+      }
+    }
+
+    // Re-snap if component is inserted in a breadboard (not applicable to breadboard itself)
+    const component = state.placedComponents.find(c => c.instanceId === instanceId);
+    if (component?.parentBreadboardId) {
+      const componentDef = getComponentDefinition(instanceId);
+      const breadboard = state.placedComponents.find(c => c.instanceId === component.parentBreadboardId);
+      const breadboardDef = breadboard ? getComponentDefinition(breadboard.instanceId) : undefined;
+
+      if (componentDef && breadboard && breadboardDef) {
+        const tempComponent = {
+          ...component,
+          x: newPos.left,
+          y: newPos.top,
+          rotation: newAngle,
+        };
+
+        const snapResult = calculateSnapPosition(
+          tempComponent,
+          componentDef,
+          breadboard,
+          breadboardDef,
+          newPos.left,
+          newPos.top
+        );
+
+        if (snapResult?.success) {
+          obj.set({
+            left: snapResult.snappedPosition.x,
+            top: snapResult.snappedPosition.y,
+          });
+          obj.setCoords();
+          state.updateComponentPosition(instanceId, snapResult.snappedPosition.x, snapResult.snappedPosition.y);
+          state.insertIntoBreadboard(instanceId, snapResult.breadboardInstanceId, snapResult.insertedPins);
+        }
+      }
     }
 
     canvas.renderAll();
   };
+
+  // Helper to re-snap component to breadboard after flip
+  const reSnapAfterFlip = useCallback((
+    instanceId: string,
+    obj: ComponentFabricObject,
+    newFlipX: boolean,
+    newFlipY: boolean
+  ) => {
+    const component = placedComponents.find(c => c.instanceId === instanceId);
+    if (!component?.parentBreadboardId) return; // Not inserted in breadboard
+
+    const componentDef = getComponentDefinition(instanceId);
+    const breadboard = placedComponents.find(c => c.instanceId === component.parentBreadboardId);
+    const breadboardDef = breadboard ? getComponentDefinition(breadboard.instanceId) : undefined;
+
+    if (!componentDef || !breadboard || !breadboardDef) return;
+
+    // Create a temporary component state with new flip values for snap calculation
+    const tempComponent = {
+      ...component,
+      flipX: newFlipX,
+      flipY: newFlipY,
+    };
+
+    // Try to snap at current position with new flip state
+    const snapResult = calculateSnapPosition(
+      tempComponent,
+      componentDef,
+      breadboard,
+      breadboardDef,
+      component.x,
+      component.y
+    );
+
+    if (snapResult?.success) {
+      // Update position to snapped position
+      obj.set({
+        left: snapResult.snappedPosition.x,
+        top: snapResult.snappedPosition.y,
+      });
+      obj.setCoords();
+
+      // Update store with new position and re-insert into breadboard
+      updateComponentPosition(instanceId, snapResult.snappedPosition.x, snapResult.snappedPosition.y);
+      insertIntoBreadboard(instanceId, snapResult.breadboardInstanceId, snapResult.insertedPins);
+    }
+  }, [placedComponents, getComponentDefinition, updateComponentPosition, insertIntoBreadboard]);
 
   // Handle horizontal flip
   const handleFlipHorizontal = () => {
     const canvas = fabricCanvasRef.current;
     if (!canvas || !selectedObject) return;
 
-    const obj = selectedObject;
-    obj.set('flipX', !obj.flipX);
+    const obj = selectedObject as ComponentFabricObject;
+    if (!obj.data?.instanceId) return;
+
+    const instanceId = obj.data.instanceId;
+    const definition = getComponentDefinition(instanceId);
+    if (!definition) return;
+
+    const flipY = obj.flipY || false;
+    const newFlipX = !(obj.flipX || false);
+
+    // Get the visual center using Fabric.js's native method BEFORE flip
+    const centerBefore = obj.getCenterPoint();
+
+    // Apply the flip
+    obj.set({ flipX: newFlipX });
+
+    // Get center AFTER flip (it will have moved because flip is around origin)
+    const centerAfter = obj.getCenterPoint();
+
+    // Calculate delta and adjust position to keep center in place
+    const deltaX = centerBefore.x - centerAfter.x;
+    const deltaY = centerBefore.y - centerAfter.y;
+    const newLeft = (obj.left || 0) + deltaX;
+    const newTop = (obj.top || 0) + deltaY;
+
+    obj.set({ left: newLeft, top: newTop });
+    obj.setCoords();
+
+    // Persist to store
+    const state = useCircuitStore.getState();
+    state.updateComponentFlip(instanceId, newFlipX, flipY);
+    state.updateComponentPosition(instanceId, newLeft, newTop);
+
+    // If this is a breadboard, also flip all inserted children
+    if (definition.id === 'breadboard') {
+      const children = state.placedComponents.filter(c => c.parentBreadboardId === instanceId);
+      // Use the original center (which is now restored) as the mirror axis
+      const breadboardCenter = centerBefore;
+
+      for (const child of children) {
+        const childDef = getComponentDefinition(child.instanceId);
+        if (!childDef) continue;
+
+        const childFabric = instanceToFabricMap.current.get(child.instanceId);
+        if (!childFabric) continue;
+
+        // Get child's current center using Fabric.js
+        const childCenterBefore = childFabric.getCenterPoint();
+
+        // Mirror child's center position relative to breadboard center (horizontal = negate X offset)
+        const relX = childCenterBefore.x - breadboardCenter.x;
+        const relY = childCenterBefore.y - breadboardCenter.y;
+        const newChildCenterX = breadboardCenter.x - relX; // Mirror horizontally
+        const newChildCenterY = breadboardCenter.y + relY;
+
+        // Toggle child's flipX
+        const newChildFlipX = !(childFabric.flipX || false);
+
+        // Apply flip to child
+        childFabric.set({ flipX: newChildFlipX });
+
+        // Get center after flip
+        const childCenterAfterFlip = childFabric.getCenterPoint();
+
+        // Calculate where the child needs to move to reach the mirrored position
+        const childDeltaX = newChildCenterX - childCenterAfterFlip.x;
+        const childDeltaY = newChildCenterY - childCenterAfterFlip.y;
+        const newChildLeft = (childFabric.left || 0) + childDeltaX;
+        const newChildTop = (childFabric.top || 0) + childDeltaY;
+
+        childFabric.set({ left: newChildLeft, top: newChildTop });
+        childFabric.setCoords();
+
+        // Update child in store
+        state.updateComponentFlip(child.instanceId, newChildFlipX, child.flipY || false);
+        state.updateComponentPosition(child.instanceId, newChildLeft, newChildTop);
+      }
+    } else {
+      // Re-snap if inserted in breadboard (for non-breadboard components)
+      reSnapAfterFlip(instanceId, obj, newFlipX, flipY);
+    }
+
     canvas.renderAll();
   };
 
@@ -1426,8 +2043,88 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     const canvas = fabricCanvasRef.current;
     if (!canvas || !selectedObject) return;
 
-    const obj = selectedObject;
-    obj.set('flipY', !obj.flipY);
+    const obj = selectedObject as ComponentFabricObject;
+    if (!obj.data?.instanceId) return;
+
+    const instanceId = obj.data.instanceId;
+    const definition = getComponentDefinition(instanceId);
+    if (!definition) return;
+
+    const flipX = obj.flipX || false;
+    const newFlipY = !(obj.flipY || false);
+
+    // Get the visual center using Fabric.js's native method BEFORE flip
+    const centerBefore = obj.getCenterPoint();
+
+    // Apply the flip
+    obj.set({ flipY: newFlipY });
+
+    // Get center AFTER flip (it will have moved because flip is around origin)
+    const centerAfter = obj.getCenterPoint();
+
+    // Calculate delta and adjust position to keep center in place
+    const deltaX = centerBefore.x - centerAfter.x;
+    const deltaY = centerBefore.y - centerAfter.y;
+    const newLeft = (obj.left || 0) + deltaX;
+    const newTop = (obj.top || 0) + deltaY;
+
+    obj.set({ left: newLeft, top: newTop });
+    obj.setCoords();
+
+    // Persist to store
+    const state = useCircuitStore.getState();
+    state.updateComponentFlip(instanceId, flipX, newFlipY);
+    state.updateComponentPosition(instanceId, newLeft, newTop);
+
+    // If this is a breadboard, also flip all inserted children
+    if (definition.id === 'breadboard') {
+      const children = state.placedComponents.filter(c => c.parentBreadboardId === instanceId);
+      // Use the original center (which is now restored) as the mirror axis
+      const breadboardCenter = centerBefore;
+
+      for (const child of children) {
+        const childDef = getComponentDefinition(child.instanceId);
+        if (!childDef) continue;
+
+        const childFabric = instanceToFabricMap.current.get(child.instanceId);
+        if (!childFabric) continue;
+
+        // Get child's current center using Fabric.js
+        const childCenterBefore = childFabric.getCenterPoint();
+
+        // Mirror child's center position relative to breadboard center (vertical = negate Y offset)
+        const relX = childCenterBefore.x - breadboardCenter.x;
+        const relY = childCenterBefore.y - breadboardCenter.y;
+        const newChildCenterX = breadboardCenter.x + relX;
+        const newChildCenterY = breadboardCenter.y - relY; // Mirror vertically
+
+        // Toggle child's flipY
+        const newChildFlipY = !(childFabric.flipY || false);
+
+        // Apply flip to child
+        childFabric.set({ flipY: newChildFlipY });
+
+        // Get center after flip
+        const childCenterAfterFlip = childFabric.getCenterPoint();
+
+        // Calculate where the child needs to move to reach the mirrored position
+        const childDeltaX = newChildCenterX - childCenterAfterFlip.x;
+        const childDeltaY = newChildCenterY - childCenterAfterFlip.y;
+        const newChildLeft = (childFabric.left || 0) + childDeltaX;
+        const newChildTop = (childFabric.top || 0) + childDeltaY;
+
+        childFabric.set({ left: newChildLeft, top: newChildTop });
+        childFabric.setCoords();
+
+        // Update child in store
+        state.updateComponentFlip(child.instanceId, childFabric.flipX || false, newChildFlipY);
+        state.updateComponentPosition(child.instanceId, newChildLeft, newChildTop);
+      }
+    } else {
+      // Re-snap if inserted in breadboard (for non-breadboard components)
+      reSnapAfterFlip(instanceId, obj, flipX, newFlipY);
+    }
+
     canvas.renderAll();
   };
 
@@ -1550,8 +2247,19 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
         }
       }
 
-      // Delete or Backspace: delete selected wire or component
+      // Delete or Backspace: during wire drawing, remove last node; otherwise delete selected wire/component
       if (e.key === 'Delete' || e.key === 'Backspace') {
+        // During wire drawing, remove the last bend point or cancel the wire
+        if (wireDrawing.isDrawing) {
+          e.preventDefault();
+          const hadPoints = removeLastWireBendPoint();
+          if (!hadPoints) {
+            // No bend points left, cancel the entire wire
+            cancelWireDrawing();
+          }
+          return;
+        }
+
         // First check for selected wire
         if (selectedWireId) {
           removeWire(selectedWireId);
@@ -1561,6 +2269,14 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
         // Then check for selected component
         if (selectedObject) {
           handleDelete();
+        }
+      }
+
+      // Ctrl+Z: Undo
+      if (e.key === 'z' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+        e.preventDefault();
+        if (canUndo()) {
+          undo();
         }
       }
     };
@@ -1577,7 +2293,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [wireDrawing.isDrawing, cancelWireDrawing, selectedObject, selectedWireId, selectWire, removeWire]);
+  }, [wireDrawing.isDrawing, cancelWireDrawing, removeLastWireBendPoint, selectedObject, selectedWireId, selectWire, removeWire, undo, canUndo]);
 
   return (
     <div className="circuit-canvas-container">
@@ -1601,8 +2317,13 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
             <button onClick={handleZoomIn} title="Zoom In">
               <ZoomIn size={18} />
             </button>
-            <button onClick={handleResetZoom} title="Reset View">
-              <RotateCcw size={18} />
+            <button
+              onClick={() => canUndo() && undo()}
+              disabled={!canUndo()}
+              title="Undo (Ctrl+Z)"
+              className={!canUndo() ? 'disabled' : ''}
+            >
+              <Undo2 size={18} />
             </button>
           </div>
           <div className="toolbar-divider" />
@@ -1692,6 +2413,14 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
           const isLED = definition?.id?.toLowerCase().includes('led') ||
                         definition?.category?.toLowerCase() === 'leds';
 
+          // Check if this is a breadboard component
+          const isBreadboard = definition?.id === 'breadboard';
+
+          // Get all net-connected pins (for breadboard internal connections)
+          const netConnectedPins = (hoveredPin.pin.net && definition)
+            ? definition.pins.filter(p => p.net === hoveredPin.pin.net)
+            : [hoveredPin.pin];
+
           // Build label with optional polarity indicator
           let pinLabel = hoveredPin.pin.id;
           if (isLED) {
@@ -1704,28 +2433,41 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
 
           return (
             <>
-              {/* Pin Highlight Square */}
-              <div
-                className="pin-highlight"
-                style={{
-                  left: screenX,
-                  top: screenY,
-                  width: highlightSize,
-                  height: highlightSize,
-                  transform: 'translate(-50%, -50%)',
-                }}
-              />
-              {/* Pin Label */}
-              <div
-                className="pin-tooltip pin-tooltip-minimal"
-                style={{
-                  left: screenX,
-                  top: screenY - labelOffsetY,
-                  transform: 'translate(-50%, -100%)',
-                }}
-              >
-                {pinLabel}
-              </div>
+              {/* Render highlights for all net-connected pins */}
+              {netConnectedPins.map(pin => {
+                const pinPos = getPinCanvasPosition(hoveredPin.componentId, pin.id);
+                if (!pinPos) return null;
+
+                const pinScreenX = pinPos.x * vpt[0] + vpt[4];
+                const pinScreenY = pinPos.y * vpt[3] + vpt[5];
+
+                return (
+                  <div
+                    key={pin.id}
+                    className={`pin-highlight ${isBreadboard ? 'pin-highlight-net' : ''}`}
+                    style={{
+                      left: pinScreenX,
+                      top: pinScreenY,
+                      width: highlightSize,
+                      height: highlightSize,
+                      transform: 'translate(-50%, -50%)',
+                    }}
+                  />
+                );
+              })}
+              {/* Pin Label - hidden for breadboard components */}
+              {!isBreadboard && (
+                <div
+                  className="pin-tooltip pin-tooltip-minimal"
+                  style={{
+                    left: screenX,
+                    top: screenY - labelOffsetY,
+                    transform: 'translate(-50%, -100%)',
+                  }}
+                >
+                  {pinLabel}
+                </div>
+              )}
             </>
           );
         })()}

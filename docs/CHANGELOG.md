@@ -10,6 +10,209 @@ All notable changes to Big Arduino App will be documented in this file.
 
 ---
 
+## [6.6.0] - 2026-01-24
+
+### Changed
+- **Property card position**: Moved card upward so top margin (16px) matches right margin
+- **Property card width**: Reduced from 280px to 200px for less workspace obstruction
+- **LED color selector**: Changed from button grid to dropdown menu for cleaner UI
+- **Resistor value selector**: Added dropdown menu with common resistance values (100Ω to 10kΩ)
+
+### Removed
+- Category display from component property card (unnecessary information)
+
+---
+
+## [6.5.2] - 2026-01-24
+
+### Fixed
+- **Flip pivot point**: Breadboard and all components now flip around their visual center point using Fabric.js's native `getCenterPoint()` method
+- **Child mirroring after breadboard flip**: Inserted components are now correctly mirrored around the breadboard's center axis when the breadboard is flipped
+
+### Technical Details
+- Rewrote flip handlers to use Fabric.js's native `getCenterPoint()` instead of manual center calculation
+- Apply flip first, then calculate delta between old and new center positions to adjust left/top
+- Child positions are mirrored by negating their offset from the breadboard center (X for horizontal flip, Y for vertical flip)
+
+---
+
+## [6.5.1] - 2026-01-24
+
+### Fixed
+- **Snap position calculation after rotation**: Fixed `calculateSinglePinPosition` to use correct inverse transformation formula, ensuring components snap to correct breadboard positions after being rotated
+- **Breadboard flip child positioning**: Fixed flip handlers to calculate breadboard center BEFORE applying flip state, ensuring children maintain correct relative positions
+
+### Technical Details
+- Rewrote `calculateSinglePinPosition` to match inverse of `transformToCanvas`: uses `target - rotatedPinRel + rotatedOriginRel` formula
+- Fixed origin offset calculation to properly account for flip state when computing component position from target pin position
+
+---
+
+## [6.5.0] - 2026-01-24
+
+### Added
+- **Breadboard rotation with children**: When a breadboard is rotated, all inserted components now rotate together around the breadboard's center, maintaining their relative positions and electrical connections
+- **Breadboard flip with children**: When a breadboard is flipped (horizontal or vertical), all inserted components are mirrored accordingly, preserving the circuit layout
+
+### Fixed
+- **Rotation pivot point**: All components now correctly rotate around their visual center point instead of an incorrect pivot
+- **Pin positions after rotation**: Fixed coordinate transformation to accurately calculate pin positions after rotation for breadboard snapping and wire connections
+
+### Technical Details
+- Added `getComponentCenterPosition` and `getLeftTopFromCenter` helper functions for consistent center calculation
+- Rewrote `handleRotate` to manually calculate position changes without changing Fabric.js origin
+- Updated flip handlers to transform all children when flipping a breadboard
+- Rewrote `transformToCanvas` in breadboardSnapping.ts to correctly derive center position from local-top-left coordinates
+
+---
+
+## [6.4.0] - 2026-01-24
+
+### Added
+- **Auto re-snap after flip**: Components inserted into a breadboard automatically re-snap to valid positions after being flipped, maintaining correct pin assignments (e.g., LED anode/cathode swap positions)
+- **Wire endpoint snap preview**: While drawing a wire, the floating endpoint now snaps to nearby pins as a visual preview without finalizing the connection - click to confirm
+- **Shift-constrained wire point movement**: Hold Shift while dragging wire control points (endpoints or bend points) to constrain movement to horizontal or vertical directions only
+
+### Technical Details
+- Added `reSnapAfterFlip` helper function that recalculates snap position with new flip state
+- Wire drawing now updates floating endpoint position to hovered pin coordinates for snap preview
+- Wire control point dragging in `handleObjectMoving` now applies `constrainToAxis` when Shift is held
+
+---
+
+## [6.3.3] - 2026-01-24
+
+### Fixed
+- **Breadboard snapping after rotation/flip**: Fixed bug where components couldn't snap to breadboard pins correctly after being rotated or flipped - pin positions are now accurately calculated with all transformations
+- **Flip state persistence**: Component flip state (flipX/flipY) is now persisted in the circuit store, enabling undo/redo support and accurate pin calculations across sessions
+
+### Technical Details
+- Added `flipX` and `flipY` properties to `PlacedComponent` interface
+- Added `updateComponentFlip` store action to persist flip state when components are flipped
+- Updated Fabric.js sync effect to apply stored flip state to canvas objects
+- Updated `transformToCanvas` in breadboardSnapping.ts to handle flip transformations
+- Updated all snap position calculation functions to account for flip state
+
+---
+
+## [6.3.2] - 2026-01-24
+
+### Fixed
+- **Circuit simulation through breadboard**: Fixed bug where components inserted into breadboard weren't recognized in circuit analysis - simulation now re-runs when components are inserted into or removed from a breadboard
+- **Pin hover detection after flip**: Fixed bug where pin hover detection used pre-flip coordinates after component was flipped - removed redundant manual flip adjustment since inverse transform matrix already handles flip transformations
+
+### Technical Details
+- Added `runSimulation()` calls to `insertIntoBreadboard` and `removeFromBreadboard` store actions
+- Ensures circuit paths through breadboard nets are detected immediately when insertion state changes
+- Removed manual flip coordinate adjustment in hover detection (`handleMouseMoveEvent`) - the inverse transform matrix from `fabric.util.invertTransform()` already converts canvas coordinates back to the original local coordinate space
+
+---
+
+## [6.3.1] - 2026-01-24
+
+### Fixed
+- **Duplicate component issue**: Fixed race condition where dropping a component could create duplicate Fabric.js objects due to sync effect firing before image load completed
+- **Ghost breadboard during drag**: Fixed visual artifact where breadboard appeared to leave a copy at original position during drag by preventing sync effect from interfering with active drags
+- **Component immovable after insertion**: Fixed coordinate synchronization so components can still be moved after being inserted into breadboard
+- **Breadboard child movement**: Fixed visual update of inserted components during breadboard drag by properly marking children as dirty and updating coordinates
+- **Large delta jump prevention**: Added safeguard to prevent children from jumping incorrectly when starting a new breadboard drag
+- **Pin positions after flip**: Fixed bug where pin coordinates didn't follow component flip transformations - pins were double-flipped causing wire connections and hit detection to use wrong positions
+
+### Technical Details
+- Added `pendingLoadsRef` to track components currently loading, preventing duplicate Fabric object creation
+- Added `isDraggingRef` flag to prevent sync effect from overwriting positions during active drags
+- Added `setCoords()` calls after position updates for proper hit detection
+- Reset `lastBreadboardPositionRef` when breadboard drag completes
+- Removed manual flip coordinate adjustment in `getPinCanvasPosition` since Fabric.js transform matrix already includes flip transformations
+
+---
+
+## [6.3.0] - 2026-01-24
+
+### Added
+- **Undo system**: Full undo support with Ctrl+Z keyboard shortcut
+- **Undo toolbar button**: Replaced "Reset View" button with Undo (rewind icon) in floating toolbar
+- **Breadboard component insertion**: Components auto-snap to breadboard pins when dropped nearby
+- **Smart two-pin snapping**: LEDs and resistors snap both pins to same row section (enforces real breadboard rules - no spanning across center gap)
+- **Group movement**: Components inserted into breadboard move together when breadboard is moved
+- **Circuit connectivity through breadboard**: Inserted components are electrically connected through breadboard nets - wires to any pin in a row connect to inserted component pins in that row
+
+### New Files
+- `src/services/breadboardSnapping.ts` - Snapping algorithms for breadboard insertion
+
+### Technical Details
+- History stack stores up to 50 snapshots of circuit state
+- Undo restores components, wires, and component definitions
+- Components track `parentBreadboardId` and `insertedPins` for insertion relationship
+- Snap threshold: 25 pixels from breadboard pins
+- Circuit simulator traces through breadboard nets to inserted components bidirectionally
+
+---
+
+## [6.2.2] - 2026-01-24
+
+### Added
+- **Wire node removal**: During wire drawing, pressing Backspace or Delete removes the last added bend point. Continuing to press removes nodes back to the first; removing the first node cancels the entire wire
+
+### Fixed
+- **Component locking during wire drawing**: Components are now locked and cannot be moved while drawing a wire, preventing accidental displacement
+- **Keyboard safety during wire drawing**: Backspace/Delete no longer deletes components during wire drawing - the keys only affect wire nodes
+
+---
+
+## [6.2.1] - 2026-01-24
+
+### Fixed
+- **Breadboard/Uno layering**: Breadboard and Arduino Uno now always stay at the lowest layer in the workspace, even when dragged in after other components exist
+- **Pin hover priority**: Component pins now take priority over breadboard pins when positions overlap - if a component is visually covering a breadboard pin, the breadboard pin hover effect will not appear
+
+---
+
+## [6.2.0] - 2026-01-22
+
+### Added
+- **Breadboard component integration** in the Arduino app
+- New "Boards" category in Component Library with Half-Size Breadboard
+- Breadboard-specific hover behavior: highlights all internally connected pins (same net) with purple color and glow effect (matching pin-generator style)
+- No pin label tooltip for breadboard pins (only net highlighting)
+- Circuit simulator now recognizes breadboard internal connections via `net` property
+- Wires can connect through breadboard rows/rails for circuit simulation
+
+### Changed
+- `getInternalConnections()` in circuit simulator extended to use `net` property from pin definitions
+- Pin hover highlighting now supports multi-pin net highlighting for breadboard
+- Updated breadboard.json dimensions to match actual image size (658x424) with scaled pin positions
+
+---
+
+## [6.1.0] - 2026-01-22
+
+### Added
+- **Pin net/group feature** for internally connected pins (e.g., breadboard rows)
+- New `net` property on Pin interface to group electrically connected pins
+- Pin editor UI: Net/Group field in edit panel for assigning pins to nets
+- Net highlighting: hovering over a pin highlights all pins in the same net (purple)
+- Net badge display in pin list showing which net a pin belongs to
+- New "boards" component category for breadboards and similar
+- Breadboard template (`breadboard-half`) with 400 pins and net definitions:
+  - Power rails: `power-top-plus`, `power-top-minus`, `power-bottom-plus`, `power-bottom-minus`
+  - Main rows: `row-{1-30}-top` and `row-{1-30}-bottom` (5 connected pins each)
+
+### Changed
+- Pin-generator template interface now supports optional `net` property
+- Template matching patterns updated to recognize breadboard images
+
+---
+
+## [6.0.3] - 2026-01-22
+
+### Fixed
+- Wire error/hint messages not updating when circuit changes during simulation
+- Added `runSimulation()` calls after wire operations (addWire, removeWire, updateWire)
+- Added `runSimulation()` call after component removal to update circuit analysis
+
+---
+
 ## [6.0.2] - 2026-01-22
 
 ### Fixed

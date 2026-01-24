@@ -25,6 +25,15 @@ export interface Pin {
   x: number;
   y: number;
   hitRadius: number;
+  /**
+   * Optional net/group identifier for internally connected pins.
+   * Pins with the same `net` value are electrically connected internally
+   * (e.g., breadboard rows, power rails).
+   * Used for:
+   * - Highlighting all connected pins on hover
+   * - Circuit simulation (treating connected pins as one node)
+   */
+  net?: string;
 }
 
 /**
@@ -73,11 +82,18 @@ export interface PlacedComponent {
   x: number;
   y: number;
   rotation: number;
+  // Flip state for horizontal/vertical mirroring
+  flipX?: boolean;
+  flipY?: boolean;
   state: 'on' | 'off';
   // Component-specific properties (LED color, resistor value)
   properties: Record<string, string | number>;
   // Current image being displayed (for variant switching)
   currentImage?: string;
+  // Breadboard insertion tracking
+  parentBreadboardId?: string;
+  // Map of component pin ID -> breadboard pin ID
+  insertedPins?: Record<string, string>;
 }
 
 /**
@@ -132,4 +148,14 @@ export interface ComponentCategory {
   id: string;
   name: string;
   components: string[];
+}
+
+/**
+ * History snapshot for undo functionality
+ */
+export interface HistorySnapshot {
+  placedComponents: PlacedComponent[];
+  wires: Wire[];
+  // Maps must be serialized as arrays for JSON compatibility
+  componentDefinitions: [string, ComponentDefinition][];
 }

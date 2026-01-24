@@ -140,13 +140,15 @@ function getOtherEnd(
 }
 
 /**
- * Gets internal connections within a component (e.g., button pins when pressed)
+ * Gets internal connections within a component (e.g., button pins when pressed,
+ * breadboard rows/rails via net property)
  */
 function getInternalConnections(
   componentType: string,
   pinId: string,
   buttonStates: Map<string, boolean>,
-  componentId: string
+  componentId: string,
+  definition?: ComponentDefinition
 ): string[] {
   // Pushbutton: when pressed, PIN1A-PIN1B and PIN2A-PIN2B are connected
   // Also PIN1x connects to PIN2x (all 4 pins connect when pressed)
@@ -165,6 +167,17 @@ function getInternalConnections(
     if (pinId === 'TERM2') return ['TERM1'];
   }
 
+  // Net-based connections (breadboard rows, power rails, etc.)
+  // Pins with the same 'net' value are internally connected
+  if (definition) {
+    const currentPin = definition.pins.find(p => p.id === pinId);
+    if (currentPin?.net) {
+      return definition.pins
+        .filter(p => p.id !== pinId && p.net === currentPin.net)
+        .map(p => p.id);
+    }
+  }
+
   return [];
 }
 
@@ -177,6 +190,7 @@ function tracePath(
   wires: Wire[],
   definitions: Map<string, ComponentDefinition>,
   buttonStates: Map<string, boolean>,
+  components: PlacedComponent[],
   visited: Set<string> = new Set()
 ): PathResult {
   const result: PathResult = {
@@ -223,7 +237,7 @@ function tracePath(
   }
 
   // First, check internal connections within the component
-  const internalPins = getInternalConnections(componentType, startPinId, buttonStates, startComponentId);
+  const internalPins = getInternalConnections(componentType, startPinId, buttonStates, startComponentId, def);
   for (const internalPinId of internalPins) {
     const internalResult = tracePath(
       startComponentId,
@@ -231,6 +245,7 @@ function tracePath(
       wires,
       definitions,
       buttonStates,
+      components,
       new Set(visited)
     );
 
@@ -250,6 +265,80 @@ function tracePath(
     }
   }
 
+  // Check for components inserted into breadboard at this pin
+  // If we're at a breadboard pin, trace through any component that's inserted there
+  if (componentType === 'breadboard') {
+    for (const insertedComponent of components) {
+      if (insertedComponent.parentBreadboardId !== startComponentId) continue;
+      if (!insertedComponent.insertedPins) continue;
+
+      // Check if any of this component's pins are inserted at our current breadboard pin
+      for (const [compPinId, bbPinId] of Object.entries(insertedComponent.insertedPins)) {
+        if (bbPinId === startPinId) {
+          // This component's pin is at this breadboard pin - trace through it
+          const insertedResult = tracePath(
+            insertedComponent.instanceId,
+            compPinId,
+            wires,
+            definitions,
+            buttonStates,
+            components,
+            new Set(visited)
+          );
+
+          if (insertedResult.reachesPower) {
+            result.reachesPower = true;
+            result.hasResistor = result.hasResistor || insertedResult.hasResistor;
+            result.path = [...result.path, ...insertedResult.path];
+            result.wires = [...result.wires, ...insertedResult.wires];
+            return result;
+          }
+          if (insertedResult.reachesGround) {
+            result.reachesGround = true;
+            result.hasResistor = result.hasResistor || insertedResult.hasResistor;
+            result.path = [...result.path, ...insertedResult.path];
+            result.wires = [...result.wires, ...insertedResult.wires];
+            return result;
+          }
+        }
+      }
+    }
+  }
+
+  // Also check if we're on a component inserted into a breadboard
+  // In this case, trace to the breadboard pin we're inserted at
+  const currentComponent = components.find(c => c.instanceId === startComponentId);
+  if (currentComponent?.parentBreadboardId && currentComponent.insertedPins) {
+    const bbPinId = currentComponent.insertedPins[startPinId];
+    if (bbPinId) {
+      // Trace to the breadboard pin we're inserted at
+      const bbResult = tracePath(
+        currentComponent.parentBreadboardId,
+        bbPinId,
+        wires,
+        definitions,
+        buttonStates,
+        components,
+        new Set(visited)
+      );
+
+      if (bbResult.reachesPower) {
+        result.reachesPower = true;
+        result.hasResistor = result.hasResistor || bbResult.hasResistor;
+        result.path = [...result.path, ...bbResult.path];
+        result.wires = [...result.wires, ...bbResult.wires];
+        return result;
+      }
+      if (bbResult.reachesGround) {
+        result.reachesGround = true;
+        result.hasResistor = result.hasResistor || bbResult.hasResistor;
+        result.path = [...result.path, ...bbResult.path];
+        result.wires = [...result.wires, ...bbResult.wires];
+        return result;
+      }
+    }
+  }
+
   // Find wires connected to this pin
   const connectedWires = findWiresAtPin(startComponentId, startPinId, wires);
 
@@ -264,6 +353,7 @@ function tracePath(
       wires,
       definitions,
       buttonStates,
+      components,
       new Set(visited)
     );
 
@@ -293,15 +383,16 @@ function validateLED(
   componentId: string,
   wires: Wire[],
   definitions: Map<string, ComponentDefinition>,
-  buttonStates: Map<string, boolean>
+  buttonStates: Map<string, boolean>,
+  components: PlacedComponent[]
 ): { isOn: boolean; errors: CircuitError[] } {
   const errors: CircuitError[] = [];
 
   // Trace from ANODE (positive) to find power
-  const anodePath = tracePath(componentId, 'ANODE', wires, definitions, buttonStates);
+  const anodePath = tracePath(componentId, 'ANODE', wires, definitions, buttonStates, components);
 
   // Trace from CATHODE (negative) to find ground
-  const cathodePath = tracePath(componentId, 'CATHODE', wires, definitions, buttonStates);
+  const cathodePath = tracePath(componentId, 'CATHODE', wires, definitions, buttonStates, components);
 
   // Check for correct connections
   const anodeHasPower = anodePath.reachesPower;
@@ -422,7 +513,7 @@ export function analyzeCircuit(
 
     // Validate LEDs
     if (isLED(componentType)) {
-      const result = validateLED(component.instanceId, wires, definitions, buttonStates);
+      const result = validateLED(component.instanceId, wires, definitions, buttonStates, components);
       errors.push(...result.errors);
       activeComponents.set(component.instanceId, result.isOn ? 'on' : 'off');
     }

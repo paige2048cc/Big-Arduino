@@ -17,6 +17,14 @@ export interface TemplatePinDefinition {
   label: string;
   description: string;
   type: 'power' | 'ground' | 'digital' | 'analog' | 'pwm' | 'communication' | 'terminal';
+  /**
+   * Optional net/group identifier for internally connected pins.
+   * Pins with the same `net` value are electrically connected internally.
+   * Examples:
+   * - Breadboard row: "row-1-left" groups holes A1-E1
+   * - Power rail: "power-top" groups all + rail holes
+   */
+  net?: string;
 }
 
 export interface ComponentTemplate {
@@ -33,7 +41,7 @@ export interface ComponentTemplate {
  */
 export function listTemplates(): { id: string; name: string; category: string; pinCount: number }[] {
   const templates: { id: string; name: string; category: string; pinCount: number }[] = [];
-  const categories = ['microcontrollers', 'passive', 'sensors', 'actuators'];
+  const categories = ['microcontrollers', 'passive', 'sensors', 'actuators', 'boards'];
 
   for (const category of categories) {
     const categoryPath = path.join(__dirname, category);
@@ -63,7 +71,7 @@ export function listTemplates(): { id: string; name: string; category: string; p
  * Load a specific template by ID
  */
 export function loadTemplate(templateId: string): ComponentTemplate | null {
-  const categories = ['microcontrollers', 'passive', 'sensors', 'actuators'];
+  const categories = ['microcontrollers', 'passive', 'sensors', 'actuators', 'boards'];
 
   for (const category of categories) {
     const categoryPath = path.join(__dirname, category);
@@ -91,7 +99,7 @@ export function loadTemplate(templateId: string): ComponentTemplate | null {
  */
 export function getAllTemplates(): Map<string, ComponentTemplate> {
   const templates = new Map<string, ComponentTemplate>();
-  const categories = ['microcontrollers', 'passive', 'sensors', 'actuators'];
+  const categories = ['microcontrollers', 'passive', 'sensors', 'actuators', 'boards'];
 
   for (const category of categories) {
     const categoryPath = path.join(__dirname, category);
@@ -124,6 +132,7 @@ export function templateToPins(template: ComponentTemplate): Array<{
   y: number;
   hitRadius: number;
   placed: boolean;
+  net?: string;
 }> {
   return template.pins.map((pin, index) => ({
     id: pin.id,
@@ -133,6 +142,7 @@ export function templateToPins(template: ComponentTemplate): Array<{
     x: 50 + (index % 5) * 60,  // Placeholder positions in a grid
     y: 50 + Math.floor(index / 5) * 60,
     hitRadius: 8,
-    placed: false  // Track if user has placed this pin
+    placed: false,  // Track if user has placed this pin
+    ...(pin.net && { net: pin.net })  // Include net if defined
   }));
 }

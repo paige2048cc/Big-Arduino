@@ -13,6 +13,14 @@ const componentCategories = [
     ]
   },
   {
+    id: 'boards',
+    name: 'Boards',
+    folder: 'boards',
+    components: [
+      { id: 'breadboard', name: 'Half-Size Breadboard', image: 'breadboard.png' },
+    ]
+  },
+  {
     id: 'passive',
     name: 'Passive Components',
     folder: 'passive',
@@ -31,7 +39,7 @@ interface ComponentLibraryProps {
 export function ComponentLibrary({ onComponentDragStart }: ComponentLibraryProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
-    new Set(['microcontrollers', 'passive'])
+    new Set(['microcontrollers', 'boards', 'passive'])
   );
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
 

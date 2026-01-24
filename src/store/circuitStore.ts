@@ -13,6 +13,7 @@ import type {
   Wire,
   ComponentDefinition,
   HoveredPinInfo,
+  HistorySnapshot,
 } from '../types/components';
 import { analyzeCircuit, type CircuitError } from '../services/circuitSimulator';
 
@@ -59,6 +60,12 @@ interface CircuitState {
 
   // Component definitions cache (keyed by instanceId)
   componentDefinitions: Map<string, ComponentDefinition>;
+
+  // History for undo functionality
+  history: {
+    past: HistorySnapshot[];
+    maxHistoryLength: number;
+  };
 }
 
 interface CircuitActions {
@@ -72,6 +79,7 @@ interface CircuitActions {
   removeComponent: (instanceId: string) => void;
   updateComponentPosition: (instanceId: string, x: number, y: number) => void;
   updateComponentRotation: (instanceId: string, rotation: number) => void;
+  updateComponentFlip: (instanceId: string, flipX: boolean, flipY: boolean) => void;
   updateComponentState: (instanceId: string, state: 'on' | 'off', currentImage?: string) => void;
   updateComponentProperty: (
     instanceId: string,
@@ -87,6 +95,7 @@ interface CircuitActions {
   startWireDrawing: (componentId: string, pinId: string, x: number, y: number) => void;
   updateWireDrawing: (x: number, y: number) => void;
   addWireBendPoint: (x: number, y: number) => void;
+  removeLastWireBendPoint: () => boolean; // Returns true if a point was removed, false if wire should be canceled
   setWireDrawingColor: (color: string) => void;
   completeWireDrawing: (endComponentId: string, endPinId: string) => void;
   cancelWireDrawing: () => void;
@@ -113,6 +122,20 @@ interface CircuitActions {
 
   // Reset
   clearCircuit: () => void;
+
+  // History / Undo
+  pushToHistory: () => void;
+  undo: () => void;
+  canUndo: () => boolean;
+  clearHistory: () => void;
+
+  // Breadboard insertion
+  insertIntoBreadboard: (
+    componentInstanceId: string,
+    breadboardInstanceId: string,
+    insertedPins: Record<string, string>
+  ) => void;
+  removeFromBreadboard: (componentInstanceId: string) => void;
 }
 
 // Generate unique IDs
@@ -145,9 +168,14 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
     simulationErrors: [],
     buttonStates: new Map(),
     componentDefinitions: new Map(),
+    history: {
+      past: [],
+      maxHistoryLength: 50,
+    },
 
     // Component actions
     addComponent: (definition, x, y, properties = {}) => {
+      get().pushToHistory();
       const instanceId = generateComponentId();
 
       // Extract default property values from definition
@@ -181,6 +209,7 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
     },
 
     removeComponent: (instanceId) => {
+      get().pushToHistory();
       set((state) => {
         // Remove component
         state.placedComponents = state.placedComponents.filter(
@@ -198,27 +227,61 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
         // Remove from definitions cache
         state.componentDefinitions.delete(instanceId);
       });
+
+      // Re-run simulation when circuit changes
+      get().runSimulation();
     },
 
     updateComponentPosition: (instanceId, x, y) => {
+      get().pushToHistory();
       set((state) => {
         const component = state.placedComponents.find(
           (c) => c.instanceId === instanceId
         );
-        if (component) {
-          component.x = x;
-          component.y = y;
+        if (!component) return;
+
+        // Calculate delta for moving children
+        const deltaX = x - component.x;
+        const deltaY = y - component.y;
+
+        // Update the component position
+        component.x = x;
+        component.y = y;
+
+        // If this is a breadboard, move all inserted children with it
+        const definition = state.componentDefinitions.get(instanceId);
+        if (definition?.id === 'breadboard') {
+          state.placedComponents.forEach(child => {
+            if (child.parentBreadboardId === instanceId) {
+              child.x += deltaX;
+              child.y += deltaY;
+            }
+          });
         }
       });
     },
 
     updateComponentRotation: (instanceId, rotation) => {
+      get().pushToHistory();
       set((state) => {
         const component = state.placedComponents.find(
           (c) => c.instanceId === instanceId
         );
         if (component) {
           component.rotation = rotation;
+        }
+      });
+    },
+
+    updateComponentFlip: (instanceId, flipX, flipY) => {
+      get().pushToHistory();
+      set((state) => {
+        const component = state.placedComponents.find(
+          (c) => c.instanceId === instanceId
+        );
+        if (component) {
+          component.flipX = flipX;
+          component.flipY = flipY;
         }
       });
     },
@@ -293,6 +356,21 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
           state.wireDrawing.bendPoints.push({ x, y });
         }
       });
+    },
+
+    removeLastWireBendPoint: () => {
+      const { wireDrawing } = get();
+      if (!wireDrawing.isDrawing) return false;
+
+      if (wireDrawing.bendPoints.length > 0) {
+        // Remove the last bend point
+        set((state) => {
+          state.wireDrawing.bendPoints.pop();
+        });
+        return true;
+      }
+      // No bend points left - signal that wire should be canceled
+      return false;
     },
 
     setWireDrawingColor: (color) => {
@@ -370,6 +448,7 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
     },
 
     addWire: (wire) => {
+      get().pushToHistory();
       const id = generateWireId();
 
       set((state) => {
@@ -381,16 +460,23 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
         });
       });
 
+      // Re-run simulation when wires change
+      get().runSimulation();
+
       return id;
     },
 
     removeWire: (wireId) => {
+      get().pushToHistory();
       set((state) => {
         state.wires = state.wires.filter((w) => w.id !== wireId);
         if (state.selectedWireId === wireId) {
           state.selectedWireId = null;
         }
       });
+
+      // Re-run simulation when wires change
+      get().runSimulation();
     },
 
     updateWire: (wireId, updates) => {
@@ -417,6 +503,12 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
           }
         }
       });
+
+      // Re-run simulation when wires change (only for connection changes, not bend points)
+      if (updates.startComponentId !== undefined || updates.startPinId !== undefined ||
+          updates.endComponentId !== undefined || updates.endPinId !== undefined) {
+        get().runSimulation();
+      }
     },
 
     selectWire: (wireId) => {
@@ -549,6 +641,7 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
 
     // Reset
     clearCircuit: () => {
+      get().pushToHistory();
       set((state) => {
         state.placedComponents = [];
         state.wires = [];
@@ -571,6 +664,99 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
         state.buttonStates.clear();
         state.componentDefinitions.clear();
       });
+    },
+
+    // History / Undo
+    pushToHistory: () => {
+      const state = get();
+      const snapshot: HistorySnapshot = {
+        placedComponents: JSON.parse(JSON.stringify(state.placedComponents)),
+        wires: JSON.parse(JSON.stringify(state.wires)),
+        componentDefinitions: Array.from(state.componentDefinitions.entries()),
+      };
+
+      set((draft) => {
+        draft.history.past.push(snapshot);
+        // Limit history size
+        if (draft.history.past.length > draft.history.maxHistoryLength) {
+          draft.history.past.shift();
+        }
+      });
+    },
+
+    undo: () => {
+      const { history } = get();
+      if (history.past.length === 0) return;
+
+      set((state) => {
+        const snapshot = state.history.past.pop();
+        if (!snapshot) return;
+
+        // Restore state from snapshot
+        state.placedComponents = snapshot.placedComponents;
+        state.wires = snapshot.wires;
+        state.componentDefinitions = new Map(snapshot.componentDefinitions);
+
+        // Clear selections (they may reference deleted items)
+        state.selectedComponentId = null;
+        state.selectedWireId = null;
+        state.hoveredPin = null;
+
+        // Cancel any wire drawing in progress
+        state.wireDrawing = {
+          isDrawing: false,
+          startComponentId: null,
+          startPinId: null,
+          startX: 0,
+          startY: 0,
+          bendPoints: [],
+          currentX: 0,
+          currentY: 0,
+          color: state.wireDrawing.color,
+        };
+      });
+
+      // Re-run simulation if active
+      get().runSimulation();
+    },
+
+    canUndo: () => {
+      return get().history.past.length > 0;
+    },
+
+    clearHistory: () => {
+      set((state) => {
+        state.history.past = [];
+      });
+    },
+
+    // Breadboard insertion
+    insertIntoBreadboard: (componentInstanceId, breadboardInstanceId, insertedPins) => {
+      set((state) => {
+        const component = state.placedComponents.find(
+          (c) => c.instanceId === componentInstanceId
+        );
+        if (component) {
+          component.parentBreadboardId = breadboardInstanceId;
+          component.insertedPins = insertedPins;
+        }
+      });
+      // Re-run simulation to detect circuit paths through breadboard
+      get().runSimulation();
+    },
+
+    removeFromBreadboard: (componentInstanceId) => {
+      set((state) => {
+        const component = state.placedComponents.find(
+          (c) => c.instanceId === componentInstanceId
+        );
+        if (component) {
+          component.parentBreadboardId = undefined;
+          component.insertedPins = undefined;
+        }
+      });
+      // Re-run simulation when component is removed from breadboard
+      get().runSimulation();
     },
   }))
 );

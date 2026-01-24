@@ -24,5 +24,12 @@
       "y": 1,
       "hitRadius": 8
     }
-  ]
+  ],
+  "properties": {
+    "resistance": {
+      "type": "select",
+      "options": ["100Ω", "220Ω", "330Ω", "470Ω", "1kΩ", "2.2kΩ", "4.7kΩ", "10kΩ"],
+      "default": "220Ω"
+    }
+  }
 }

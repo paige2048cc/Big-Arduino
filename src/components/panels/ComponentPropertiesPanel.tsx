@@ -84,21 +84,16 @@ export function ComponentPropertiesPanel({ onClose }: ComponentPropertiesPanelPr
               <div key={key} className="property-item">
                 <label>{key.charAt(0).toUpperCase() + key.slice(1)}</label>
                 {propDef.type === 'select' && propDef.options && (
-                  <div className="property-options">
+                  <select
+                    value={selectedComponent.properties[key] ?? propDef.default ?? ''}
+                    onChange={(e) => handlePropertyChange(key, e.target.value)}
+                  >
                     {propDef.options.map((option) => (
-                      <button
-                        key={option}
-                        className={`option-btn ${
-                          (selectedComponent.properties[key] || propDef.default) === option
-                            ? 'active'
-                            : ''
-                        }`}
-                        onClick={() => handlePropertyChange(key, option)}
-                      >
-                        {option}
-                      </button>
+                      <option key={option} value={option}>
+                        {option.charAt(0).toUpperCase() + option.slice(1)}
+                      </option>
                     ))}
-                  </div>
+                  </select>
                 )}
                 {propDef.type === 'number' && (
                   <input
@@ -114,14 +109,6 @@ export function ComponentPropertiesPanel({ onClose }: ComponentPropertiesPanelPr
           </div>
         </div>
       )}
-
-      {/* Component Info - Category only */}
-      <div className="properties-section properties-info">
-        <div className="info-row">
-          <span className="info-label">Category</span>
-          <span className="info-value">{definition.category}</span>
-        </div>
-      </div>
     </div>
   );
 }

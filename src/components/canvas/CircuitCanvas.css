@@ -202,6 +202,13 @@
   box-sizing: border-box;
 }
 
+/* Net-connected pin highlight (breadboard internal connections) */
+.pin-highlight-net {
+  background: rgba(156, 39, 176, 0.4);
+  border-color: #9c27b0;
+  box-shadow: 0 0 8px rgba(156, 39, 176, 0.6);
+}
+
 /* Wire Drawing */
 .canvas-area.wire-drawing {
   cursor: crosshair;
