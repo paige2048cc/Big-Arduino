@@ -10,6 +10,17 @@ All notable changes to Big Arduino App will be documented in this file.
 
 ---
 
+## [6.6.1] - 2026-01-24
+
+### Fixed
+- **Pin hover priority for all components**: Pin hover effect is now hidden for ANY component when visually covered by another component above (previously only worked for breadboard and Arduino UNO pins)
+
+### Technical Details
+- Simplified hover detection logic: cursor within any component's bounds marks all components below as covered
+- Applies universally to breadboard, Arduino UNO, LEDs, resistors, and all other components
+
+---
+
 ## [6.6.0] - 2026-01-24
 
 ### Changed

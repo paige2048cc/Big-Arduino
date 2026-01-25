@@ -545,9 +545,9 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       return data?.type === 'component' && data?.instanceId;
     });
 
-    // Track if cursor is visually covered by a non-base component (breadboard/uno)
-    // This is used to prevent breadboard pins from showing hover when covered
-    let isCoveredByComponent = false;
+    // Track if cursor is covered by a component above in z-order
+    // Used to prevent pins from showing hover when visually covered by another component
+    let isCoveredByComponentAbove = false;
 
     // Check each component for pin hit (in reverse order so topmost is checked first)
     for (let i = objects.length - 1; i >= 0; i--) {
@@ -556,8 +556,6 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
 
       const definition = getComponentDefinition(target.data.instanceId);
       if (!definition) continue;
-
-      const isBaseComponent = definition.id === 'breadboard' || definition.id === 'arduino-uno';
 
       // Get the inverse transform matrix to convert canvas coords to local coords
       const transformMatrix = target.calcTransformMatrix();
@@ -581,14 +579,9 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
         continue;
       }
 
-      // If cursor is within a non-base component, mark as covered
-      // This prevents breadboard pins underneath from showing hover
-      if (!isBaseComponent) {
-        isCoveredByComponent = true;
-      }
-
-      // For base components (breadboard/uno), skip if cursor is covered by another component
-      if (isBaseComponent && isCoveredByComponent) {
+      // Skip this component's pins if covered by a component above
+      // This applies to ALL components (breadboard, UNO, LEDs, resistors, etc.)
+      if (isCoveredByComponentAbove) {
         continue;
       }
 
@@ -613,6 +606,10 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
         }
         return;
       }
+
+      // Cursor is within this component's bounds but not on a pin
+      // Mark as covered so components below won't show their pins
+      isCoveredByComponentAbove = true;
     }
 
     // No pin hovered
