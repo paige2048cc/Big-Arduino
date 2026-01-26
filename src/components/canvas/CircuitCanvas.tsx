@@ -204,6 +204,14 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
   // Used to prevent sync effect from interfering during drag
   const isDraggingRef = useRef(false);
 
+  // Track insertion highlight pins (for visual feedback when components snap to breadboard)
+  // Store breadboard instance ID and pin IDs, positions calculated at render time using getPinCanvasPosition
+  const [insertionHighlights, setInsertionHighlights] = useState<Array<{
+    breadboardInstanceId: string;
+    pinId: string;
+  }>>([]);
+  const insertionHighlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Refs for event handlers to avoid stale closures
   const handleMouseMoveRef = useRef<typeof handleMouseMoveEvent>(null!);
   const handleMouseDownRef = useRef<typeof handleMouseDownEvent>(null!);
@@ -276,6 +284,34 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       img.src = imageUrl;
     }
   }, [getComponentDefinition, updateComponentState, placedComponents]);
+
+  // Show insertion highlights on breadboard pins when a component is inserted
+  const showInsertionHighlights = useCallback((
+    breadboardInstanceId: string,
+    insertedPins: Record<string, string> // componentPinId -> breadboardPinId
+  ) => {
+    // Clear any existing timeout
+    if (insertionHighlightTimeoutRef.current) {
+      clearTimeout(insertionHighlightTimeoutRef.current);
+    }
+
+    // Store breadboard and pin IDs - positions will be calculated at render time
+    const highlights: Array<{ breadboardInstanceId: string; pinId: string }> = [];
+
+    for (const [, bbPinId] of Object.entries(insertedPins)) {
+      highlights.push({
+        breadboardInstanceId,
+        pinId: bbPinId,
+      });
+    }
+
+    setInsertionHighlights(highlights);
+
+    // Clear highlights after animation completes (400ms matches CSS animation duration)
+    insertionHighlightTimeoutRef.current = setTimeout(() => {
+      setInsertionHighlights([]);
+    }, 400);
+  }, []);
 
   // Initialize Fabric.js canvas
   useEffect(() => {
@@ -549,6 +585,30 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     // Used to prevent pins from showing hover when visually covered by another component
     let isCoveredByComponentAbove = false;
 
+    // Check if cursor is over a wire - if so, don't show breadboard pin hover
+    // This ensures wires have priority over breadboard pins for selection
+    let isCursorOverWire = false;
+    const wireObjects = canvas.getObjects().filter(obj => {
+      const data = (obj as ComponentFabricObject).data;
+      return data?.type === 'wire';
+    });
+
+    for (const wireObj of wireObjects) {
+      const wireData = (wireObj as ComponentFabricObject).data as { points?: { x: number; y: number }[] };
+      if (!wireData?.points) continue;
+
+      for (let j = 0; j < wireData.points.length - 1; j++) {
+        const p1 = wireData.points[j];
+        const p2 = wireData.points[j + 1];
+        const dist = distanceToLineSegment(pointer.x, pointer.y, p1.x, p1.y, p2.x, p2.y);
+        if (dist < 10) {
+          isCursorOverWire = true;
+          break;
+        }
+      }
+      if (isCursorOverWire) break;
+    }
+
     // Check each component for pin hit (in reverse order so topmost is checked first)
     for (let i = objects.length - 1; i >= 0; i--) {
       const target = objects[i] as ComponentFabricObject;
@@ -582,6 +642,13 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       // Skip this component's pins if covered by a component above
       // This applies to ALL components (breadboard, UNO, LEDs, resistors, etc.)
       if (isCoveredByComponentAbove) {
+        continue;
+      }
+
+      // Skip breadboard pin hover if cursor is over a wire
+      // Wires have priority over breadboard pins for selection
+      const isBreadboard = definition.id === 'breadboard';
+      if (isBreadboard && isCursorOverWire) {
         continue;
       }
 
@@ -648,8 +715,8 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       return;
     }
 
-    // Handle pin/wire interaction - disabled when a wire is selected
-    if (hoveredPin && !selectedWireId) {
+    // Handle pin/wire interaction - disabled when a wire is selected or during simulation
+    if (hoveredPin && !selectedWireId && !isSimulating) {
       if (!wireDrawing.isDrawing) {
         // Start wire drawing
         startWireDrawing(
@@ -668,8 +735,8 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       }
     }
 
-    // Handle click on empty canvas during wire drawing - add bend point
-    if (wireDrawing.isDrawing && mouseEvent.button === 0) {
+    // Handle click on empty canvas during wire drawing - add bend point (disabled during simulation)
+    if (wireDrawing.isDrawing && mouseEvent.button === 0 && !isSimulating) {
       // Get the last anchor point (either start or last bend point)
       const lastPoint = wireDrawing.bendPoints.length > 0
         ? wireDrawing.bendPoints[wireDrawing.bendPoints.length - 1]
@@ -868,8 +935,9 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
             });
             obj.setCoords();
 
-            // Insert into breadboard
+            // Insert into breadboard and show visual feedback
             insertIntoBreadboard(instanceId, snapResult.breadboardInstanceId, snapResult.insertedPins);
+            showInsertionHighlights(snapResult.breadboardInstanceId, snapResult.insertedPins);
             snapped = true;
             break;
           }
@@ -973,7 +1041,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       // Clear drag start position after drag ends
       wireControlPointDragStartRef.current = null;
     }
-  }, [updateComponentPosition, findNearestPin, getComponentDefinition, placedComponents, insertIntoBreadboard, removeFromBreadboard]);
+  }, [updateComponentPosition, findNearestPin, getComponentDefinition, placedComponents, insertIntoBreadboard, removeFromBreadboard, showInsertionHighlights]);
 
   // Track last position for delta calculation during breadboard drag
   const lastBreadboardPositionRef = useRef<{ id: string; x: number; y: number } | null>(null);
@@ -1942,8 +2010,9 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       // Update store with new position and re-insert into breadboard
       updateComponentPosition(instanceId, snapResult.snappedPosition.x, snapResult.snappedPosition.y);
       insertIntoBreadboard(instanceId, snapResult.breadboardInstanceId, snapResult.insertedPins);
+      showInsertionHighlights(snapResult.breadboardInstanceId, snapResult.insertedPins);
     }
-  }, [placedComponents, getComponentDefinition, updateComponentPosition, insertIntoBreadboard]);
+  }, [placedComponents, getComponentDefinition, updateComponentPosition, insertIntoBreadboard, showInsertionHighlights]);
 
   // Handle horizontal flip
   const handleFlipHorizontal = () => {
@@ -2197,6 +2266,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
 
       // Release button during simulation
       if (pressedButtonRef.current) {
+        setButtonState(pressedButtonRef.current, false);
         updateComponentImage(pressedButtonRef.current, 'off');
         pressedButtonRef.current = null;
       }
@@ -2204,7 +2274,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
 
     window.addEventListener('mouseup', handleGlobalMouseUp);
     return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
-  }, [updateComponentImage]);
+  }, [updateComponentImage, setButtonState]);
 
   // Reset buttons when simulation stops
   useEffect(() => {
@@ -2438,10 +2508,15 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
                 const pinScreenX = pinPos.x * vpt[0] + vpt[4];
                 const pinScreenY = pinPos.y * vpt[3] + vpt[5];
 
+                // The actively hovered pin uses full-opacity blue style
+                // Other connected pins (same net) use reduced opacity for visual hierarchy
+                const isActivePin = pin.id === hoveredPin.pin.id;
+                const useNetStyle = isBreadboard && !isActivePin;
+
                 return (
                   <div
                     key={pin.id}
-                    className={`pin-highlight ${isBreadboard ? 'pin-highlight-net' : ''}`}
+                    className={`pin-highlight ${useNetStyle ? 'pin-highlight-net' : ''}`}
                     style={{
                       left: pinScreenX,
                       top: pinScreenY,
@@ -2489,6 +2564,38 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
             Click another pin to complete the wire, or press Escape to cancel
           </div>
         )}
+
+        {/* Insertion Highlights - shown briefly when components snap to breadboard */}
+        {insertionHighlights.length > 0 && (() => {
+          const canvas = fabricCanvasRef.current;
+          if (!canvas) return null;
+          const vpt = canvas.viewportTransform || [1, 0, 0, 1, 0, 0];
+          // Use same highlight size as hover highlight: 20 * zoom
+          const highlightSize = 20 * vpt[0];
+
+          return insertionHighlights.map(highlight => {
+            // Use getPinCanvasPosition to get accurate pin coordinates (same as hover logic)
+            const pinPos = getPinCanvasPosition(highlight.breadboardInstanceId, highlight.pinId);
+            if (!pinPos) return null;
+
+            const screenX = pinPos.x * vpt[0] + vpt[4];
+            const screenY = pinPos.y * vpt[3] + vpt[5];
+
+            return (
+              <div
+                key={`${highlight.breadboardInstanceId}-${highlight.pinId}`}
+                className="pin-highlight pin-highlight-insertion"
+                style={{
+                  left: screenX,
+                  top: screenY,
+                  width: highlightSize,
+                  height: highlightSize,
+                  transform: 'translate(-50%, -50%)',
+                }}
+              />
+            );
+          });
+        })()}
 
         {isDragOver && (
           <div className="drop-indicator">

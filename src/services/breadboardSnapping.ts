@@ -304,6 +304,221 @@ function calculateTwoPinPosition(
 }
 
 /**
+ * Find the best snap position for a 4-pin component (pushbutton)
+ * Maps all 4 pins to breadboard holes based on two anchor pins
+ */
+function findBestFourPinSnap(
+  candidatesByPin: Map<string, SnapCandidate[]>,
+  pins: Pin[],
+  componentDef: ComponentDefinition,
+  componentRotation: number,
+  componentFlipX: boolean = false,
+  componentFlipY: boolean = false,
+  breadboardDef: ComponentDefinition,
+  breadboard: PlacedComponent
+): SnapResult | null {
+  if (pins.length !== 4) {
+    return null;
+  }
+
+  // Group pins by Y position (top pair vs bottom pair)
+  const sortedByY = [...pins].sort((a, b) => a.y - b.y);
+  const topPins = sortedByY.slice(0, 2); // Lower Y = top of component
+  const bottomPins = sortedByY.slice(2, 4); // Higher Y = bottom of component
+
+  // Try to find two pins on the same side that can snap
+  // Prefer bottom pins (PIN1A, PIN2A) as the primary anchor
+  const anchorPairs = [
+    [bottomPins[0], bottomPins[1]], // Try bottom pair first
+    [topPins[0], topPins[1]], // Then top pair
+  ];
+
+  for (const [pin1, pin2] of anchorPairs) {
+    const candidates1 = candidatesByPin.get(pin1.id) || [];
+    const candidates2 = candidatesByPin.get(pin2.id) || [];
+
+    if (candidates1.length === 0 || candidates2.length === 0) continue;
+
+    // Calculate expected pin separation
+    const expectedSeparation = distance(
+      { x: pin1.x, y: pin1.y },
+      { x: pin2.x, y: pin2.y }
+    );
+
+    let bestResult: SnapResult | null = null;
+    let bestScore = Infinity;
+
+    for (const c1 of candidates1) {
+      for (const c2 of candidates2) {
+        // Must be in same row section
+        if (!areSameRowSection(c1.net, c2.net)) continue;
+
+        // Validate pin spacing
+        const actualSeparation = distance(c1.canvasPosition, c2.canvasPosition);
+        const separationError = Math.abs(actualSeparation - expectedSeparation);
+
+        if (separationError > 10) continue;
+
+        const score = c1.distance + c2.distance + separationError * 0.5;
+
+        if (score < bestScore) {
+          bestScore = score;
+
+          // Calculate component position based on these two anchor pins
+          const snappedPosition = calculateTwoPinPosition(
+            pin1, pin2,
+            c1.canvasPosition, c2.canvasPosition,
+            componentDef,
+            componentRotation,
+            componentFlipX,
+            componentFlipY
+          );
+
+          // Now calculate where ALL 4 pins would be at this snapped position
+          // and find the closest breadboard pin for each
+          const insertedPins: Record<string, string> = {};
+          let allPinsValid = true;
+
+          for (const pin of pins) {
+            const pinCanvasPos = transformToCanvas(
+              pin.x, pin.y,
+              snappedPosition.x, snappedPosition.y,
+              componentRotation,
+              componentDef.width, componentDef.height,
+              componentFlipX, componentFlipY
+            );
+
+            // Find the closest breadboard pin to this position
+            let closestBbPin: { id: string; distance: number } | null = null;
+
+            for (const bbPin of breadboardDef.pins) {
+              const bbPinCanvasPos = transformToCanvas(
+                bbPin.x, bbPin.y,
+                breadboard.x, breadboard.y,
+                breadboard.rotation,
+                breadboardDef.width, breadboardDef.height,
+                breadboard.flipX, breadboard.flipY
+              );
+
+              const dist = distance(pinCanvasPos, bbPinCanvasPos);
+              if (dist <= BREADBOARD_SNAP_THRESHOLD && (!closestBbPin || dist < closestBbPin.distance)) {
+                closestBbPin = { id: bbPin.id, distance: dist };
+              }
+            }
+
+            if (closestBbPin) {
+              insertedPins[pin.id] = closestBbPin.id;
+            } else {
+              // This pin doesn't snap to any breadboard hole
+              allPinsValid = false;
+              break;
+            }
+          }
+
+          if (allPinsValid && Object.keys(insertedPins).length === 4) {
+            bestResult = {
+              success: true,
+              snappedPosition,
+              insertedPins,
+              breadboardInstanceId: c1.breadboardInstanceId,
+            };
+          }
+        }
+      }
+    }
+
+    if (bestResult) {
+      return bestResult;
+    }
+  }
+
+  // Fallback to single pin snap if 4-pin snap fails
+  return findBestSinglePinSnapWithAllPins(
+    candidatesByPin, pins, componentDef, componentRotation,
+    componentFlipX, componentFlipY, breadboardDef, breadboard
+  );
+}
+
+/**
+ * Single pin snap that also maps other nearby pins
+ */
+function findBestSinglePinSnapWithAllPins(
+  candidatesByPin: Map<string, SnapCandidate[]>,
+  pins: Pin[],
+  componentDef: ComponentDefinition,
+  componentRotation: number,
+  componentFlipX: boolean,
+  componentFlipY: boolean,
+  breadboardDef: ComponentDefinition,
+  breadboard: PlacedComponent
+): SnapResult | null {
+  let bestCandidate: SnapCandidate | null = null;
+  let bestPin: Pin | null = null;
+
+  for (const pin of pins) {
+    const candidates = candidatesByPin.get(pin.id) || [];
+    if (candidates.length > 0 && (!bestCandidate || candidates[0].distance < bestCandidate.distance)) {
+      bestCandidate = candidates[0];
+      bestPin = pin;
+    }
+  }
+
+  if (!bestCandidate || !bestPin) {
+    return null;
+  }
+
+  const snappedPosition = calculateSinglePinPosition(
+    bestPin,
+    bestCandidate.canvasPosition,
+    componentDef,
+    componentRotation,
+    componentFlipX,
+    componentFlipY
+  );
+
+  // Map all pins that are close to breadboard holes
+  const insertedPins: Record<string, string> = {};
+
+  for (const pin of pins) {
+    const pinCanvasPos = transformToCanvas(
+      pin.x, pin.y,
+      snappedPosition.x, snappedPosition.y,
+      componentRotation,
+      componentDef.width, componentDef.height,
+      componentFlipX, componentFlipY
+    );
+
+    let closestBbPin: { id: string; distance: number } | null = null;
+
+    for (const bbPin of breadboardDef.pins) {
+      const bbPinCanvasPos = transformToCanvas(
+        bbPin.x, bbPin.y,
+        breadboard.x, breadboard.y,
+        breadboard.rotation,
+        breadboardDef.width, breadboardDef.height,
+        breadboard.flipX, breadboard.flipY
+      );
+
+      const dist = distance(pinCanvasPos, bbPinCanvasPos);
+      if (dist <= BREADBOARD_SNAP_THRESHOLD && (!closestBbPin || dist < closestBbPin.distance)) {
+        closestBbPin = { id: bbPin.id, distance: dist };
+      }
+    }
+
+    if (closestBbPin) {
+      insertedPins[pin.id] = closestBbPin.id;
+    }
+  }
+
+  return {
+    success: true,
+    snappedPosition,
+    insertedPins,
+    breadboardInstanceId: bestCandidate.breadboardInstanceId,
+  };
+}
+
+/**
  * Find the best snap position when only one pin can snap (fallback)
  */
 function findBestSinglePinSnap(
@@ -428,7 +643,15 @@ export function calculateSnapPosition(
     return findBestTwoPinSnap(candidatesByPin, pins, componentDef, component.rotation, component.flipX, component.flipY);
   }
 
-  // For single-pin or multi-pin components, use single pin snap
+  // For 4-pin components (pushbutton), try to snap all 4 pins
+  if (pins.length === 4) {
+    return findBestFourPinSnap(
+      candidatesByPin, pins, componentDef, component.rotation,
+      component.flipX, component.flipY, breadboardDef, breadboard
+    );
+  }
+
+  // For single-pin or other multi-pin components, use single pin snap
   return findBestSinglePinSnap(candidatesByPin, pins, componentDef, component.rotation, component.flipX, component.flipY);
 }
 

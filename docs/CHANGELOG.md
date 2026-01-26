@@ -10,6 +10,37 @@ All notable changes to Big Arduino App will be documented in this file.
 
 ---
 
+## [6.7.0] - 2026-01-26
+
+### Fixed
+- **Button simulation not working**: Fixed button press not registering during simulation - wire drawing logic was intercepting clicks on button pins before simulation code could run
+- **Button state not resetting on release**: Fixed global mouseup handler to properly call `setButtonState(false)` when button is released
+- **LED not lighting with pushbutton**: Fixed 4-pin pushbutton snapping - all 4 pins now properly tracked in `insertedPins` so circuit paths through button are correctly traced
+
+### Added
+- **Insertion highlight feedback**: Green pulsing highlight now appears on breadboard holes when components snap into place
+  - Shows 2 highlights for LED/resistor, up to 4 for pushbutton
+  - Uses same pin position calculation as hover logic for accuracy
+  - 400ms animation duration
+- **Wire priority over breadboard pins**: Wires now have hover/selection priority over breadboard pins
+  - When cursor is over a wire, breadboard pin hover effect is hidden
+  - Clicking selects the wire instead of starting new wire drawing
+
+### Changed
+- **Breadboard hover color**: Changed connected pins highlight from purple to blue (matches other components)
+- **Breadboard hover visual hierarchy**:
+  - Active pin (under cursor): Full-opacity blue highlight
+  - Connected pins (same net): Reduced opacity blue (background: 0.1, border: 0.25)
+- **Wire drawing disabled during simulation**: Prevents accidental wire creation while interacting with buttons
+
+### Technical Details
+- Added `findBestFourPinSnap` and `findBestSinglePinSnapWithAllPins` functions in breadboardSnapping.ts
+- Added `showInsertionHighlights` function and `insertionHighlights` state for visual feedback
+- Added wire detection in `handleMouseMoveEvent` to check cursor proximity to wire paths
+- Insertion highlights use `getPinCanvasPosition` for accurate positioning at all zoom levels
+
+---
+
 ## [6.6.1] - 2026-01-24
 
 ### Fixed
