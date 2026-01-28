@@ -10,6 +10,33 @@ All notable changes to Big Arduino App will be documented in this file.
 
 ---
 
+## [6.8.0] - 2026-01-27
+
+### Added
+- **Click-to-place components**: Click any component in the sidebar to enter placement mode
+  - Ghost preview follows cursor globally (shows even over sidebar)
+  - Green indicator bar: "Click to place | ESC to cancel"
+  - Click on canvas to place component at cursor position
+  - Press ESC to cancel placement mode
+- **Pin anchor alignment**: Components align their anchor pin (left-most pin for LED-like components, top-left pin for others) with cursor position for precise placement
+- **Smooth scaling preview**: Large components (>100px) are scaled down while cursor is outside workspace, smoothly scale up when entering canvas area
+
+### Changed
+- **Drag-and-drop preview**: Now uses same ghost preview system as click-to-place
+  - Custom preview replaces browser's native drag image
+  - Same scaling behavior and anchor alignment as click-to-place
+  - Consistent visual experience for both placement methods
+- **Ghost preview rendering**: Uses React portal to render at document body level for global visibility
+
+### Technical Details
+- Added `clickToPlace` state to store with `screenX`, `screenY`, `isOverCanvas` properties
+- Added `dragPreview` state to store with similar properties
+- Ghost preview uses CSS transitions for smooth scaling (`transition: 0.15s ease-out`)
+- Pre-loaded transparent image for hiding native drag preview (fixes timing issues)
+- Anchor offset calculation based on component pin positions
+
+---
+
 ## [6.7.0] - 2026-01-26
 
 ### Fixed

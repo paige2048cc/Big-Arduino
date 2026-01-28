@@ -167,3 +167,14 @@
   background: var(--accent-primary, #1a73e8);
   color: white;
 }
+
+/* Selected state for click-to-place */
+.component-item.selected {
+  background: rgba(26, 115, 232, 0.1);
+  border-color: var(--accent-primary, #1a73e8);
+  box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.3);
+}
+
+.component-item.selected .component-thumbnail {
+  background: rgba(26, 115, 232, 0.15);
+}

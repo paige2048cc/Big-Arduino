@@ -328,3 +328,25 @@
   box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
   white-space: nowrap;
 }
+
+/* Click-to-place cursor */
+.canvas-area.click-to-place {
+  cursor: copy;
+}
+
+/* Click-to-place indicator */
+.click-to-place-indicator {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(76, 175, 80, 0.95);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  z-index: 100;
+  pointer-events: none;
+}

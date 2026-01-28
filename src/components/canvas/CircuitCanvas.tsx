@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import * as fabric from 'fabric';
 import { ZoomIn, ZoomOut, Undo2, Trash2, Move, RotateCw, FlipHorizontal, FlipVertical } from 'lucide-react';
-import { useCircuitStore, useHoveredPin, useWireDrawing, useWires, useSimulationErrors, useSelectedWire } from '../../store/circuitStore';
+import { useCircuitStore, useHoveredPin, useWireDrawing, useWires, useSimulationErrors, useSelectedWire, useClickToPlace, useDragPreview } from '../../store/circuitStore';
 import type { CircuitError } from '../../services/circuitSimulator';
 import { loadComponentByFileName, getPinAtPosition } from '../../services/componentService';
 import { calculateSnapPosition, shouldRemoveFromBreadboard } from '../../services/breadboardSnapping';
@@ -99,6 +100,59 @@ function constrainToAxis(
 // Threshold distance for pin snapping (in canvas pixels)
 const PIN_SNAP_THRESHOLD = 30;
 
+// Ghost preview component for click-to-place
+interface GhostPreviewProps {
+  image: HTMLImageElement;
+  screenX: number;
+  screenY: number;
+  anchorOffsetX: number;  // Offset to align anchor pin with cursor
+  anchorOffsetY: number;
+  isOverCanvas: boolean;
+  imageWidth: number;
+  imageHeight: number;
+}
+
+function GhostPreview({
+  image,
+  screenX,
+  screenY,
+  anchorOffsetX,
+  anchorOffsetY,
+  isOverCanvas,
+  imageWidth,
+  imageHeight
+}: GhostPreviewProps) {
+  // Scale down when outside canvas for large components
+  const maxDimension = Math.max(imageWidth, imageHeight);
+  const shouldScaleDown = !isOverCanvas && maxDimension > 100;
+  const scale = shouldScaleDown ? Math.min(1, 80 / maxDimension) : 1;
+
+  // Adjust offset based on scale
+  const adjustedOffsetX = anchorOffsetX * scale;
+  const adjustedOffsetY = anchorOffsetY * scale;
+
+  return createPortal(
+    <img
+      src={image.src}
+      alt="Preview"
+      style={{
+        position: 'fixed',
+        left: screenX - adjustedOffsetX,
+        top: screenY - adjustedOffsetY,
+        width: imageWidth * scale,
+        height: imageHeight * scale,
+        opacity: isOverCanvas ? 0.7 : 0.5,
+        pointerEvents: 'none',
+        zIndex: 10000,
+        filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.3))',
+        transition: 'width 0.15s ease-out, height 0.15s ease-out, opacity 0.15s ease-out',
+        transformOrigin: 'top left',
+      }}
+    />,
+    document.body
+  );
+}
+
 interface CircuitCanvasProps {
   onComponentDrop?: (componentId: string, x: number, y: number) => void;
   onComponentSelect?: (instanceId: string | null) => void;
@@ -126,6 +180,13 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
   const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
   const [zoom, setZoom] = useState(1);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [ghostPreviewImage, setGhostPreviewImage] = useState<HTMLImageElement | null>(null);
+  const [ghostPreviewAnchor, setGhostPreviewAnchor] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [ghostPreviewDimensions, setGhostPreviewDimensions] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+  // Drag preview state (shared anchor/dimensions calculation)
+  const [dragPreviewImage, setDragPreviewImage] = useState<HTMLImageElement | null>(null);
+  const [dragPreviewAnchor, setDragPreviewAnchor] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [dragPreviewDimensions, setDragPreviewDimensions] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [selectedObject, setSelectedObject] = useState<fabric.FabricObject | null>(null);
 
@@ -157,9 +218,15 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     canUndo,
     insertIntoBreadboard,
     removeFromBreadboard,
+    cancelClickToPlace,
+    updateClickToPlacePreview,
+    updateDragPreview,
+    endDragPreview,
   } = useCircuitStore();
 
   const hoveredPin = useHoveredPin();
+  const clickToPlace = useClickToPlace();
+  const dragPreview = useDragPreview();
   const wireDrawing = useWireDrawing();
   const wires = useWires();
   const simulationErrors = useSimulationErrors();
@@ -210,7 +277,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     breadboardInstanceId: string;
     pinId: string;
   }>>([]);
-  const insertionHighlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const insertionHighlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Refs for event handlers to avoid stale closures
   const handleMouseMoveRef = useRef<typeof handleMouseMoveEvent>(null!);
@@ -575,6 +642,11 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
 
     const pointer = scenePoint;
 
+    // Update click-to-place preview position
+    if (clickToPlace.isActive) {
+      updateClickToPlacePreview(pointer.x, pointer.y);
+    }
+
     // Find all component objects (not just selected ones)
     const objects = canvas.getObjects().filter(obj => {
       const data = (obj as ComponentFabricObject).data;
@@ -704,6 +776,23 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
 
   // Handle mouse down for wire drawing and button press
   const handleMouseDownEvent = useCallback((canvas: fabric.Canvas, mouseEvent: MouseEvent, scenePoint: fabric.Point) => {
+    // Handle click-to-place completion
+    if (clickToPlace.isActive && clickToPlace.componentId && clickToPlace.category && mouseEvent.button === 0) {
+      // Offset placement so anchor pin is at cursor position
+      const placementX = scenePoint.x - ghostPreviewAnchor.x;
+      const placementY = scenePoint.y - ghostPreviewAnchor.y;
+      createComponentWithImage(
+        clickToPlace.componentId,
+        clickToPlace.category,
+        placementX,
+        placementY
+      );
+      cancelClickToPlace();
+      mouseEvent.preventDefault();
+      mouseEvent.stopPropagation();
+      return;
+    }
+
     // Handle middle mouse button for panning
     if (mouseEvent.button === 1) {
       isMiddleMousePanningRef.current = true;
@@ -1579,6 +1668,219 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     }
   }, [wireDrawing]);
 
+  // Load ghost preview image when click-to-place mode starts
+  useEffect(() => {
+    if (!clickToPlace.isActive || !clickToPlace.componentId || !clickToPlace.category) {
+      setGhostPreviewImage(null);
+      setGhostPreviewAnchor({ x: 0, y: 0 });
+      setGhostPreviewDimensions({ width: 0, height: 0 });
+      return;
+    }
+
+    const loadPreview = async () => {
+      const definition = await loadComponentByFileName(
+        clickToPlace.componentId!,
+        clickToPlace.category!
+      );
+      if (!definition) return;
+
+      // Calculate anchor offset based on pin positions
+      // Find the "anchor pin" - the left-most pin that is also near the top, or just the left pin
+      let anchorX = definition.width / 2;  // Default to center
+      let anchorY = definition.height / 2;
+
+      if (definition.pins && definition.pins.length > 0) {
+        // Sort pins by Y position to find the top row, then by X to find left-most
+        const sortedPins = [...definition.pins].sort((a, b) => {
+          // Group pins that are within 20px of each other vertically
+          const yDiff = Math.abs(a.y - b.y);
+          if (yDiff < 20) {
+            return a.x - b.x;  // Same row, sort by X (left-most first)
+          }
+          return a.y - b.y;  // Different rows, sort by Y (top-most first)
+        });
+
+        // For components like LED where all pins are at the bottom,
+        // just use the left-most pin as anchor
+        const leftMostPin = definition.pins.reduce((left, pin) =>
+          pin.x < left.x ? pin : left, definition.pins[0]);
+
+        // Check if pins are mostly at the bottom (like LED)
+        const avgPinY = definition.pins.reduce((sum, p) => sum + p.y, 0) / definition.pins.length;
+        const pinsAtBottom = avgPinY > definition.height * 0.6;
+
+        if (pinsAtBottom) {
+          // Use left-most pin as anchor (good for LED-like components)
+          anchorX = leftMostPin.x;
+          anchorY = leftMostPin.y;
+        } else {
+          // Use top-left pin as anchor (good for ICs, breadboard-spanning components)
+          anchorX = sortedPins[0].x;
+          anchorY = sortedPins[0].y;
+        }
+      }
+
+      setGhostPreviewAnchor({ x: anchorX, y: anchorY });
+      setGhostPreviewDimensions({ width: definition.width, height: definition.height });
+
+      const imageUrl = `${import.meta.env.BASE_URL}components/${clickToPlace.category}/${definition.image}`;
+
+      // Check cache first
+      const cached = imageCache.current.get(imageUrl);
+      if (cached) {
+        setGhostPreviewImage(cached);
+        return;
+      }
+
+      // Load new image
+      const img = new Image();
+      img.onload = () => {
+        imageCache.current.set(imageUrl, img);
+        setGhostPreviewImage(img);
+      };
+      img.src = imageUrl;
+    };
+
+    loadPreview();
+  }, [clickToPlace.isActive, clickToPlace.componentId, clickToPlace.category]);
+
+  // Global mouse listener for click-to-place preview (shows preview everywhere, not just over canvas)
+  useEffect(() => {
+    if (!clickToPlace.isActive) return;
+
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      // Check if cursor is over the canvas container
+      const canvasContainer = canvasContainerRef.current;
+      let isOverCanvas = false;
+      let sceneX = 0;
+      let sceneY = 0;
+
+      if (canvasContainer) {
+        const rect = canvasContainer.getBoundingClientRect();
+        isOverCanvas = (
+          e.clientX >= rect.left &&
+          e.clientX <= rect.right &&
+          e.clientY >= rect.top &&
+          e.clientY <= rect.bottom
+        );
+
+        // If over canvas, calculate scene coordinates
+        if (isOverCanvas && fabricCanvasRef.current) {
+          const canvas = fabricCanvasRef.current;
+          const vpt = canvas.viewportTransform || [1, 0, 0, 1, 0, 0];
+          // Convert screen to scene coordinates
+          sceneX = (e.clientX - rect.left - vpt[4]) / vpt[0];
+          sceneY = (e.clientY - rect.top - vpt[5]) / vpt[3];
+        }
+      }
+
+      // Update preview position with both screen and scene coordinates
+      updateClickToPlacePreview(sceneX, sceneY, e.clientX, e.clientY, isOverCanvas);
+    };
+
+    // Add listener to document for global tracking
+    document.addEventListener('mousemove', handleGlobalMouseMove);
+    return () => {
+      document.removeEventListener('mousemove', handleGlobalMouseMove);
+    };
+  }, [clickToPlace.isActive, updateClickToPlacePreview]);
+
+  // Load drag preview image when drag starts
+  useEffect(() => {
+    if (!dragPreview.isActive || !dragPreview.componentId || !dragPreview.category) {
+      setDragPreviewImage(null);
+      setDragPreviewAnchor({ x: 0, y: 0 });
+      setDragPreviewDimensions({ width: 0, height: 0 });
+      return;
+    }
+
+    const loadPreview = async () => {
+      const definition = await loadComponentByFileName(
+        dragPreview.componentId!,
+        dragPreview.category!
+      );
+      if (!definition) return;
+
+      // Calculate anchor offset (same logic as click-to-place)
+      let anchorX = definition.width / 2;
+      let anchorY = definition.height / 2;
+
+      if (definition.pins && definition.pins.length > 0) {
+        const sortedPins = [...definition.pins].sort((a, b) => {
+          const yDiff = Math.abs(a.y - b.y);
+          if (yDiff < 20) {
+            return a.x - b.x;
+          }
+          return a.y - b.y;
+        });
+
+        const leftMostPin = definition.pins.reduce((left, pin) =>
+          pin.x < left.x ? pin : left, definition.pins[0]);
+
+        const avgPinY = definition.pins.reduce((sum, p) => sum + p.y, 0) / definition.pins.length;
+        const pinsAtBottom = avgPinY > definition.height * 0.6;
+
+        if (pinsAtBottom) {
+          anchorX = leftMostPin.x;
+          anchorY = leftMostPin.y;
+        } else {
+          anchorX = sortedPins[0].x;
+          anchorY = sortedPins[0].y;
+        }
+      }
+
+      setDragPreviewAnchor({ x: anchorX, y: anchorY });
+      setDragPreviewDimensions({ width: definition.width, height: definition.height });
+
+      const imageUrl = `${import.meta.env.BASE_URL}components/${dragPreview.category}/${definition.image}`;
+
+      const cached = imageCache.current.get(imageUrl);
+      if (cached) {
+        setDragPreviewImage(cached);
+        return;
+      }
+
+      const img = new Image();
+      img.onload = () => {
+        imageCache.current.set(imageUrl, img);
+        setDragPreviewImage(img);
+      };
+      img.src = imageUrl;
+    };
+
+    loadPreview();
+  }, [dragPreview.isActive, dragPreview.componentId, dragPreview.category]);
+
+  // Global drag listener for drag preview position
+  useEffect(() => {
+    if (!dragPreview.isActive) return;
+
+    const handleGlobalDrag = (e: DragEvent) => {
+      const canvasContainer = canvasContainerRef.current;
+      let isOverCanvas = false;
+
+      if (canvasContainer) {
+        const rect = canvasContainer.getBoundingClientRect();
+        isOverCanvas = (
+          e.clientX >= rect.left &&
+          e.clientX <= rect.right &&
+          e.clientY >= rect.top &&
+          e.clientY <= rect.bottom
+        );
+      }
+
+      updateDragPreview(e.clientX, e.clientY, isOverCanvas);
+    };
+
+    // Use drag event on document
+    document.addEventListener('drag', handleGlobalDrag);
+    document.addEventListener('dragover', handleGlobalDrag);
+    return () => {
+      document.removeEventListener('drag', handleGlobalDrag);
+      document.removeEventListener('dragover', handleGlobalDrag);
+    };
+  }, [dragPreview.isActive, updateDragPreview]);
+
   // Create component with actual image
   const createComponentWithImage = useCallback(async (
     componentId: string,
@@ -1666,6 +1968,57 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       instanceToFabricMap.current.set(instanceId, fabricImg);
       setComponentDefinition(instanceId, definition);
 
+      // Auto-snap to breadboard if placed near one
+      if (!isBaseComponent) {
+        const breadboards = placedComponents.filter(c => {
+          const def = getComponentDefinition(c.instanceId);
+          return def?.id === 'breadboard';
+        });
+
+        for (const breadboard of breadboards) {
+          const breadboardDef = getComponentDefinition(breadboard.instanceId);
+          if (!breadboardDef) continue;
+
+          const tempComponent = {
+            instanceId,
+            definitionId: definition.id,
+            x,
+            y,
+            rotation: 0,
+            state: 'off' as const,
+            properties: {},
+          };
+
+          const snapResult = calculateSnapPosition(
+            tempComponent,
+            definition,
+            breadboard,
+            breadboardDef,
+            x,
+            y
+          );
+
+          if (snapResult?.success) {
+            // Apply snapped position
+            updateComponentPosition(instanceId, snapResult.snappedPosition.x, snapResult.snappedPosition.y);
+
+            // Update Fabric object position
+            fabricImg.set({
+              left: snapResult.snappedPosition.x,
+              top: snapResult.snappedPosition.y,
+            });
+            fabricImg.setCoords();
+
+            // Insert into breadboard and show visual feedback
+            insertIntoBreadboard(instanceId, snapResult.breadboardInstanceId, snapResult.insertedPins);
+            showInsertionHighlights(snapResult.breadboardInstanceId, snapResult.insertedPins);
+
+            canvas.renderAll();
+            break;
+          }
+        }
+      }
+
       // Remove from pending loads
       pendingLoadsRef.current.delete(instanceId);
 
@@ -1682,7 +2035,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     };
 
     img.src = imageUrl;
-  }, [addComponent, setComponentDefinition, onComponentDrop]);
+  }, [addComponent, setComponentDefinition, onComponentDrop, placedComponents, getComponentDefinition, updateComponentPosition, insertIntoBreadboard, showInsertionHighlights]);
 
   // Fallback component when image fails to load
   const createFallbackComponent = (
@@ -2214,6 +2567,9 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
 
     console.log('[handleDrop] componentId:', componentId, 'category:', category);
 
+    // End drag preview
+    endDragPreview();
+
     if (!componentId) {
       console.error('[handleDrop] No componentId in drag data');
       return;
@@ -2240,10 +2596,14 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     const screenY = e.clientY - rect.top;
 
     // Apply inverse viewport transform to get scene coordinates
-    const x = (screenX - vpt[4]) / vpt[0];
-    const y = (screenY - vpt[5]) / vpt[3];
+    const cursorX = (screenX - vpt[4]) / vpt[0];
+    const cursorY = (screenY - vpt[5]) / vpt[3];
 
-    console.log('[handleDrop] Dropping at position:', x, y);
+    // Apply anchor offset so the anchor pin is at cursor position
+    const x = cursorX - dragPreviewAnchor.x;
+    const y = cursorY - dragPreviewAnchor.y;
+
+    console.log('[handleDrop] Dropping at position:', x, y, 'with anchor offset:', dragPreviewAnchor);
 
     createComponentWithImage(componentId, category, x, y);
   };
@@ -2305,8 +2665,13 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
         isShiftHeldRef.current = true;
       }
 
-      // Escape key: cancel wire drawing or deselect wire
+      // Escape key: cancel click-to-place, wire drawing, or deselect wire
       if (e.key === 'Escape') {
+        if (clickToPlace.isActive) {
+          cancelClickToPlace();
+          e.preventDefault();
+          return;
+        }
         if (wireDrawing.isDrawing) {
           cancelWireDrawing();
         } else if (selectedWireId) {
@@ -2360,14 +2725,14 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [wireDrawing.isDrawing, cancelWireDrawing, removeLastWireBendPoint, selectedObject, selectedWireId, selectWire, removeWire, undo, canUndo]);
+  }, [wireDrawing.isDrawing, cancelWireDrawing, removeLastWireBendPoint, selectedObject, selectedWireId, selectWire, removeWire, undo, canUndo, clickToPlace.isActive, cancelClickToPlace]);
 
   return (
     <div className="circuit-canvas-container">
       {/* Canvas Area */}
       <div
         ref={canvasContainerRef}
-        className={`canvas-area ${isDragOver ? 'drag-over' : ''} ${wireDrawing.isDrawing ? 'wire-drawing' : ''}`}
+        className={`canvas-area ${isDragOver ? 'drag-over' : ''} ${wireDrawing.isDrawing ? 'wire-drawing' : ''} ${clickToPlace.isActive ? 'click-to-place' : ''}`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -2600,6 +2965,41 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
         {isDragOver && (
           <div className="drop-indicator">
             <span>Drop component here</span>
+          </div>
+        )}
+
+        {/* Ghost preview for click-to-place - rendered via portal at document body */}
+        {clickToPlace.isActive && ghostPreviewImage && clickToPlace.screenX > 0 && (
+          <GhostPreview
+            image={ghostPreviewImage}
+            screenX={clickToPlace.screenX}
+            screenY={clickToPlace.screenY}
+            anchorOffsetX={ghostPreviewAnchor.x}
+            anchorOffsetY={ghostPreviewAnchor.y}
+            isOverCanvas={clickToPlace.isOverCanvas}
+            imageWidth={ghostPreviewDimensions.width}
+            imageHeight={ghostPreviewDimensions.height}
+          />
+        )}
+
+        {/* Ghost preview for drag-and-drop - rendered via portal at document body */}
+        {dragPreview.isActive && dragPreviewImage && dragPreview.screenX > 0 && (
+          <GhostPreview
+            image={dragPreviewImage}
+            screenX={dragPreview.screenX}
+            screenY={dragPreview.screenY}
+            anchorOffsetX={dragPreviewAnchor.x}
+            anchorOffsetY={dragPreviewAnchor.y}
+            isOverCanvas={dragPreview.isOverCanvas}
+            imageWidth={dragPreviewDimensions.width}
+            imageHeight={dragPreviewDimensions.height}
+          />
+        )}
+
+        {/* Click-to-place indicator */}
+        {clickToPlace.isActive && (
+          <div className="click-to-place-indicator">
+            Click to place | ESC to cancel
           </div>
         )}
 

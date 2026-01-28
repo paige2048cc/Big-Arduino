@@ -46,6 +46,28 @@ interface CircuitState {
     color: string;
   };
 
+  // Click-to-place state (alternative to drag-and-drop)
+  clickToPlace: {
+    isActive: boolean;
+    componentId: string | null;
+    category: string | null;
+    previewX: number;  // Scene/canvas coordinates
+    previewY: number;
+    screenX: number;   // Screen coordinates for global preview
+    screenY: number;
+    isOverCanvas: boolean;  // Whether cursor is over the canvas area
+  };
+
+  // Drag preview state (for consistent drag-and-drop preview)
+  dragPreview: {
+    isActive: boolean;
+    componentId: string | null;
+    category: string | null;
+    screenX: number;
+    screenY: number;
+    isOverCanvas: boolean;
+  };
+
   // Selected wire for editing
   selectedWireId: string | null;
 
@@ -103,6 +125,16 @@ interface CircuitActions {
   removeWire: (wireId: string) => void;
   updateWire: (wireId: string, updates: Partial<Pick<Wire, 'bendPoints' | 'color' | 'startComponentId' | 'startPinId' | 'endComponentId' | 'endPinId'>>) => void;
   selectWire: (wireId: string | null) => void;
+
+  // Click-to-place actions
+  startClickToPlace: (componentId: string, category: string) => void;
+  updateClickToPlacePreview: (x: number, y: number, screenX?: number, screenY?: number, isOverCanvas?: boolean) => void;
+  cancelClickToPlace: () => void;
+
+  // Drag preview actions
+  startDragPreview: (componentId: string, category: string) => void;
+  updateDragPreview: (screenX: number, screenY: number, isOverCanvas: boolean) => void;
+  endDragPreview: () => void;
 
   // Simulation
   startSimulation: () => void;
@@ -162,6 +194,24 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
       currentX: 0,
       currentY: 0,
       color: '#666666',
+    },
+    clickToPlace: {
+      isActive: false,
+      componentId: null,
+      category: null,
+      previewX: 0,
+      previewY: 0,
+      screenX: 0,
+      screenY: 0,
+      isOverCanvas: false,
+    },
+    dragPreview: {
+      isActive: false,
+      componentId: null,
+      category: null,
+      screenX: 0,
+      screenY: 0,
+      isOverCanvas: false,
     },
     selectedWireId: null,
     isSimulating: false,
@@ -447,6 +497,87 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
       });
     },
 
+    // Click-to-place actions
+    startClickToPlace: (componentId, category) => {
+      get().cancelWireDrawing();
+      set((state) => {
+        state.clickToPlace = {
+          isActive: true,
+          componentId,
+          category,
+          previewX: 0,
+          previewY: 0,
+          screenX: 0,
+          screenY: 0,
+          isOverCanvas: false,
+        };
+      });
+    },
+
+    updateClickToPlacePreview: (x, y, screenX?: number, screenY?: number, isOverCanvas?: boolean) => {
+      set((state) => {
+        if (state.clickToPlace.isActive) {
+          state.clickToPlace.previewX = x;
+          state.clickToPlace.previewY = y;
+          if (screenX !== undefined) state.clickToPlace.screenX = screenX;
+          if (screenY !== undefined) state.clickToPlace.screenY = screenY;
+          if (isOverCanvas !== undefined) state.clickToPlace.isOverCanvas = isOverCanvas;
+        }
+      });
+    },
+
+    cancelClickToPlace: () => {
+      set((state) => {
+        state.clickToPlace = {
+          isActive: false,
+          componentId: null,
+          category: null,
+          previewX: 0,
+          previewY: 0,
+          screenX: 0,
+          screenY: 0,
+          isOverCanvas: false,
+        };
+      });
+    },
+
+    // Drag preview actions
+    startDragPreview: (componentId, category) => {
+      set((state) => {
+        state.dragPreview = {
+          isActive: true,
+          componentId,
+          category,
+          screenX: 0,
+          screenY: 0,
+          isOverCanvas: false,
+        };
+      });
+    },
+
+    updateDragPreview: (screenX, screenY, isOverCanvas) => {
+      set((state) => {
+        if (state.dragPreview.isActive) {
+          state.dragPreview.screenX = screenX;
+          state.dragPreview.screenY = screenY;
+          state.dragPreview.isOverCanvas = isOverCanvas;
+        }
+      });
+    },
+
+    endDragPreview: () => {
+      set((state) => {
+        state.dragPreview = {
+          isActive: false,
+          componentId: null,
+          category: null,
+          screenX: 0,
+          screenY: 0,
+          isOverCanvas: false,
+        };
+      });
+    },
+
     addWire: (wire) => {
       get().pushToHistory();
       const id = generateWireId();
@@ -659,6 +790,24 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
           currentY: 0,
           color: '#666666',
         };
+        state.clickToPlace = {
+          isActive: false,
+          componentId: null,
+          category: null,
+          previewX: 0,
+          previewY: 0,
+          screenX: 0,
+          screenY: 0,
+          isOverCanvas: false,
+        };
+        state.dragPreview = {
+          isActive: false,
+          componentId: null,
+          category: null,
+          screenX: 0,
+          screenY: 0,
+          isOverCanvas: false,
+        };
         state.isSimulating = false;
         state.simulationErrors = [];
         state.buttonStates.clear();
@@ -713,6 +862,27 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
           currentX: 0,
           currentY: 0,
           color: state.wireDrawing.color,
+        };
+
+        // Cancel click-to-place
+        state.clickToPlace = {
+          isActive: false,
+          componentId: null,
+          category: null,
+          previewX: 0,
+          previewY: 0,
+          screenX: 0,
+          screenY: 0,
+          isOverCanvas: false,
+        };
+        // Cancel drag preview
+        state.dragPreview = {
+          isActive: false,
+          componentId: null,
+          category: null,
+          screenX: 0,
+          screenY: 0,
+          isOverCanvas: false,
         };
       });
 
@@ -776,6 +946,12 @@ export const useHoveredPin = () =>
 
 export const useWireDrawing = () =>
   useCircuitStore((state) => state.wireDrawing);
+
+export const useClickToPlace = () =>
+  useCircuitStore((state) => state.clickToPlace);
+
+export const useDragPreview = () =>
+  useCircuitStore((state) => state.dragPreview);
 
 export const useSelectedWire = () =>
   useCircuitStore((state) => {

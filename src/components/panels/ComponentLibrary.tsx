@@ -1,5 +1,9 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Search } from 'lucide-react';
+import { useCircuitStore, useClickToPlace, useDragPreview } from '../../store/circuitStore';
+
+// Pre-create transparent 1x1 image for hiding native drag preview
+const EMPTY_IMG_SRC = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 import './ComponentLibrary.css';
 
 // Component categories with images from public/components/
@@ -38,6 +42,8 @@ interface ComponentLibraryProps {
 
 export function ComponentLibrary({ onComponentDragStart }: ComponentLibraryProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const clickToPlace = useClickToPlace();
+  const startClickToPlace = useCircuitStore((state) => state.startClickToPlace);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set(['microcontrollers', 'boards', 'passive'])
   );
@@ -55,11 +61,40 @@ export function ComponentLibrary({ onComponentDragStart }: ComponentLibraryProps
     });
   };
 
+  const startDragPreview = useCircuitStore((state) => state.startDragPreview);
+  const endDragPreview = useCircuitStore((state) => state.endDragPreview);
+  const dragPreview = useDragPreview();
+
+  // Pre-load empty image for hiding native drag preview
+  const emptyImgRef = useRef<HTMLImageElement | null>(null);
+  useEffect(() => {
+    const img = new Image();
+    img.src = EMPTY_IMG_SRC;
+    emptyImgRef.current = img;
+  }, []);
+
   const handleDragStart = (e: React.DragEvent, componentId: string, category: string) => {
     e.dataTransfer.setData('componentId', componentId);
     e.dataTransfer.setData('category', category);
     e.dataTransfer.effectAllowed = 'copy';
+
+    // Hide native drag preview - use pre-loaded transparent 1x1 image
+    if (emptyImgRef.current) {
+      e.dataTransfer.setDragImage(emptyImgRef.current, 0, 0);
+    }
+
+    // Start our custom drag preview
+    startDragPreview(componentId, category);
+
     onComponentDragStart?.(componentId);
+  };
+
+  const handleDragEnd = () => {
+    endDragPreview();
+  };
+
+  const handleComponentClick = (componentId: string, category: string) => {
+    startClickToPlace(componentId, category);
   };
 
   const handleImageError = (componentId: string) => {
@@ -108,9 +143,11 @@ export function ComponentLibrary({ onComponentDragStart }: ComponentLibraryProps
                 {category.components.map(component => (
                   <div
                     key={component.id}
-                    className="component-item"
+                    className={`component-item ${clickToPlace.isActive && clickToPlace.componentId === component.id ? 'selected' : ''} ${dragPreview.isActive && dragPreview.componentId === component.id ? 'dragging' : ''}`}
                     draggable
                     onDragStart={(e) => handleDragStart(e, component.id, category.folder)}
+                    onDragEnd={handleDragEnd}
+                    onClick={() => handleComponentClick(component.id, category.folder)}
                   >
                     <div className="component-thumbnail">
                       {!imageErrors.has(component.id) ? (
