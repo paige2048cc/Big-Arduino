@@ -120,8 +120,8 @@
   font-size: 14px;
   line-height: 1.5;
   word-wrap: break-word;
-  overflow-wrap: break-word;
-  word-break: break-word;  /* Force break long unbroken strings */
+  overflow-wrap: anywhere;  /* Break long strings when needed */
+  word-break: normal;       /* Preserve word boundaries */
   overflow: hidden;  /* Safety net for overflow */
 }
 
@@ -258,4 +258,47 @@
     transform: translateY(-4px);
     opacity: 1;
   }
+}
+
+/* ==================== */
+/* Message Content      */
+/* ==================== */
+
+.right-panel-container .message-content {
+  display: block;
+  width: 100%;
+}
+
+.right-panel-container .message-content .message-text-segment {
+  display: inline;
+}
+
+/* ==================== */
+/* Markdown Styles      */
+/* ==================== */
+
+.right-panel-container .message-content .markdown-list {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.right-panel-container .message-content .markdown-list li {
+  margin: 4px 0;
+}
+
+.right-panel-container .message-content strong {
+  font-weight: 600;
+}
+
+/* ==================== */
+/* Unknown References   */
+/* ==================== */
+
+.right-panel-container .unknown-component,
+.right-panel-container .unknown-reference {
+  background: var(--bg-tertiary, #f1f3f4);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--text-secondary, #5f6368);
 }

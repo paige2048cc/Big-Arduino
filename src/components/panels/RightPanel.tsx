@@ -6,6 +6,8 @@ import { ReferenceTag } from '../chat/ReferenceTag';
 import { ChatInputField } from '../chat/ChatInputField';
 import type { ChatInputFieldHandle } from '../chat/ChatInputField';
 import { ClickableIssue, parseIssuesFromResponse } from '../chat/ClickableIssue';
+import { renderMessageContent, hasComponentReferences } from '../../utils/messageParser';
+import '../shared/ComponentItem.css';
 import './RightPanel.css';
 
 interface ChatMessage {
@@ -25,9 +27,18 @@ export function RightPanel({
 }: RightPanelProps) {
   const chatInputRef = useRef<ChatInputFieldHandle>(null);
 
-  // Get pending references from store
+  // Get pending references and circuit state from store
   const pendingReferences = usePendingReferences();
-  const { confirmReferences, removeReference, clearReferences, setInputFocused, setHighlights, clearHighlights } = useCircuitStore();
+  const placedComponents = useCircuitStore((state) => state.placedComponents);
+  const {
+    confirmReferences,
+    removeReference,
+    clearReferences,
+    setInputFocused,
+    setHighlights,
+    clearHighlights,
+    setHighlightedToolbarComponent,
+  } = useCircuitStore();
 
   // Handle clicking on an issue to highlight affected items
   const handleViewIssue = (affectedIds: string[]) => {
@@ -43,6 +54,26 @@ export function RightPanel({
     setTimeout(() => {
       clearHighlights();
     }, 5000);
+  };
+
+  // Handle clicking on an existing component reference in AI message
+  const handleExistingComponentClick = (instanceId: string) => {
+    const highlights: HighlightItem[] = [{
+      type: 'component',
+      id: instanceId,
+      severity: 'info',
+    }];
+    setHighlights(highlights);
+
+    // Clear highlights after 5 seconds
+    setTimeout(() => {
+      clearHighlights();
+    }, 5000);
+  };
+
+  // Handle highlighting toolbar components from AI message
+  const handleToolbarHighlight = (componentId: string) => {
+    setHighlightedToolbarComponent(componentId);
   };
 
   // Handle send from ChatInputField
@@ -72,6 +103,21 @@ export function RightPanel({
     setInputFocused(false);
   };
 
+  // Render assistant message content with component references
+  const renderAssistantContent = (content: string) => {
+    // Check if content has component references
+    if (hasComponentReferences(content)) {
+      return renderMessageContent(content, {
+        circuitState: { placedComponents },
+        onExistingComponentClick: handleExistingComponentClick,
+        onToolbarHighlight: handleToolbarHighlight,
+      });
+    }
+
+    // Regular text content
+    return <span className="message-text">{content}</span>;
+  };
+
   return (
     <div className="right-panel-container">
       {/* Chat Header */}
@@ -89,7 +135,7 @@ export function RightPanel({
           </div>
         ) : (
           chatMessages.map((msg, index) => {
-            // For assistant messages, try to parse issues
+            // For assistant messages, try to parse issues first
             if (msg.role === 'assistant') {
               const { issues } = parseIssuesFromResponse(msg.content);
 
@@ -98,7 +144,9 @@ export function RightPanel({
                   <div key={index} className="chat-message assistant">
                     <div className="message-bubble">
                       {/* Show the message content */}
-                      <p className="message-text">{msg.content.split(/\[\d+\]/)[0].trim()}</p>
+                      <div className="message-content">
+                        {renderAssistantContent(msg.content.split(/\[\d+\]/)[0].trim())}
+                      </div>
                       {/* Show clickable issues */}
                       <div className="message-issues">
                         {issues.map((issue) => (
@@ -113,6 +161,17 @@ export function RightPanel({
                   </div>
                 );
               }
+
+              // No issues - render with component references
+              return (
+                <div key={index} className="chat-message assistant">
+                  <div className="message-bubble">
+                    <div className="message-content">
+                      {renderAssistantContent(msg.content)}
+                    </div>
+                  </div>
+                </div>
+              );
             }
 
             // For user messages with references, show tags inline with text

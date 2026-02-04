@@ -1,9 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { ChevronDown, ChevronRight, Search } from 'lucide-react';
-import { useCircuitStore, useClickToPlace, useDragPreview } from '../../store/circuitStore';
-
-// Pre-create transparent 1x1 image for hiding native drag preview
-const EMPTY_IMG_SRC = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+import { useHighlightedToolbarComponent } from '../../store/circuitStore';
+import { ComponentItem } from '../shared/ComponentItem';
 import './ComponentLibrary.css';
 
 // Component categories with images from public/components/
@@ -42,12 +40,10 @@ interface ComponentLibraryProps {
 
 export function ComponentLibrary({ onComponentDragStart }: ComponentLibraryProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const clickToPlace = useClickToPlace();
-  const startClickToPlace = useCircuitStore((state) => state.startClickToPlace);
+  const highlightedComponent = useHighlightedToolbarComponent();
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set(['microcontrollers', 'boards', 'passive'])
   );
-  const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
 
   const toggleCategory = (categoryId: string) => {
     setExpandedCategories(prev => {
@@ -59,46 +55,6 @@ export function ComponentLibrary({ onComponentDragStart }: ComponentLibraryProps
       }
       return next;
     });
-  };
-
-  const startDragPreview = useCircuitStore((state) => state.startDragPreview);
-  const endDragPreview = useCircuitStore((state) => state.endDragPreview);
-  const dragPreview = useDragPreview();
-
-  // Pre-load empty image for hiding native drag preview
-  const emptyImgRef = useRef<HTMLImageElement | null>(null);
-  useEffect(() => {
-    const img = new Image();
-    img.src = EMPTY_IMG_SRC;
-    emptyImgRef.current = img;
-  }, []);
-
-  const handleDragStart = (e: React.DragEvent, componentId: string, category: string) => {
-    e.dataTransfer.setData('componentId', componentId);
-    e.dataTransfer.setData('category', category);
-    e.dataTransfer.effectAllowed = 'copy';
-
-    // Hide native drag preview - use pre-loaded transparent 1x1 image
-    if (emptyImgRef.current) {
-      e.dataTransfer.setDragImage(emptyImgRef.current, 0, 0);
-    }
-
-    // Start our custom drag preview
-    startDragPreview(componentId, category);
-
-    onComponentDragStart?.(componentId);
-  };
-
-  const handleDragEnd = () => {
-    endDragPreview();
-  };
-
-  const handleComponentClick = (componentId: string, category: string) => {
-    startClickToPlace(componentId, category);
-  };
-
-  const handleImageError = (componentId: string) => {
-    setImageErrors(prev => new Set(prev).add(componentId));
   };
 
   const filteredCategories = componentCategories.map(category => ({
@@ -141,29 +97,13 @@ export function ComponentLibrary({ onComponentDragStart }: ComponentLibraryProps
             {expandedCategories.has(category.id) && (
               <div className="category-components">
                 {category.components.map(component => (
-                  <div
+                  <ComponentItem
                     key={component.id}
-                    className={`component-item ${clickToPlace.isActive && clickToPlace.componentId === component.id ? 'selected' : ''} ${dragPreview.isActive && dragPreview.componentId === component.id ? 'dragging' : ''}`}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, component.id, category.folder)}
-                    onDragEnd={handleDragEnd}
-                    onClick={() => handleComponentClick(component.id, category.folder)}
-                  >
-                    <div className="component-thumbnail">
-                      {!imageErrors.has(component.id) ? (
-                        <img
-                          src={`${import.meta.env.BASE_URL}components/${category.folder}/${component.image}`}
-                          alt={component.name}
-                          onError={() => handleImageError(component.id)}
-                        />
-                      ) : (
-                        <div className="component-placeholder">
-                          {component.name.charAt(0)}
-                        </div>
-                      )}
-                    </div>
-                    <span className="component-name">{component.name}</span>
-                  </div>
+                    component={component}
+                    category={category.folder}
+                    highlighted={highlightedComponent === component.id}
+                    onDragStart={onComponentDragStart}
+                  />
                 ))}
               </div>
             )}

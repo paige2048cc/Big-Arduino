@@ -30,7 +30,7 @@ interface GeminiResponse {
 
 export default async function handler(
   req: VercelRequest,
-  res: VercelResponse<ChatResponse>
+  res: VercelResponse
 ) {
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -48,12 +48,7 @@ export default async function handler(
     return res.status(405).json({ content: '', error: 'Method not allowed' });
   }
 
-  // Get API key from environment (Vercel injects this)
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    console.error('GEMINI_API_KEY not configured');
-    return res.status(500).json({ content: '', error: 'API key not configured' });
-  }
+  const apiKey = 'AIzaSyBHaBsPNC68LBQbvMojTDDsMRki4QdVnYs';
 
   try {
     const { message, systemPrompt, context } = req.body as ChatRequest;
@@ -69,65 +64,41 @@ ${context || ''}
 
 User Question: ${message}`;
 
-    // Use Gemini REST API directly with v1 endpoint
-    // Try multiple models in order of preference
-    const models = [
-      'gemini-2.0-flash',
-      'gemini-1.5-flash',
-      'gemini-1.5-pro',
-      'gemini-pro'
-    ];
+    const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
-    let lastError: Error | null = null;
-
-    for (const modelName of models) {
-      try {
-        const apiUrl = `https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${apiKey}`;
-
-        const response = await fetch(apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            contents: [{
-              parts: [{
-                text: fullPrompt
-              }]
-            }],
-            generationConfig: {
-              temperature: 0.7,
-              maxOutputTokens: 2048,
-            }
-          })
-        });
-
-        const data = await response.json() as GeminiResponse;
-
-        if (!response.ok) {
-          console.log(`Model ${modelName} failed:`, data.error?.message || response.statusText);
-          lastError = new Error(data.error?.message || `HTTP ${response.status}`);
-          continue; // Try next model
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-goog-api-key': apiKey,
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: fullPrompt
+          }]
+        }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 2048,
         }
+      })
+    });
 
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    const data = await response.json() as GeminiResponse;
 
-        if (text) {
-          console.log(`Successfully used model: ${modelName}`);
-          return res.status(200).json({ content: text });
-        } else {
-          lastError = new Error('No text in response');
-          continue;
-        }
-      } catch (modelError) {
-        console.log(`Model ${modelName} error:`, modelError);
-        lastError = modelError instanceof Error ? modelError : new Error(String(modelError));
-        continue;
-      }
+    if (!response.ok) {
+      console.error('Gemini API error:', data.error?.message || response.statusText);
+      throw new Error(data.error?.message || `HTTP ${response.status}`);
     }
 
-    // All models failed
-    throw lastError || new Error('All models failed');
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (text) {
+      return res.status(200).json({ content: text });
+    } else {
+      throw new Error('No text in response');
+    }
 
   } catch (error) {
     console.error('Gemini API error:', error);

@@ -10,6 +10,42 @@ All notable changes to Big Arduino App will be documented in this file.
 
 ---
 
+## [7.0.0] - 2026-02-04
+
+### Added
+- **Component cards in AI responses**: AI can now recommend components with draggable cards
+  - `[[add:component-id]]` syntax renders as interactive component card
+  - Cards can be dragged directly to canvas to add components
+  - Toolbar components highlight when mentioned in AI response
+- **Existing component references**: AI can reference components already on canvas
+  - `[[ref:instance-id]]` syntax renders as clickable tag
+  - Clicking tag highlights the component on canvas
+- **Lightweight markdown support**: AI responses now render numbered lists and bold text
+  - Numbered lists: `1. item` renders as `<ol><li>`
+  - Bold: `**text**` renders as `<strong>`
+- **Shared ComponentItem component**: Reusable card component for both library and chat
+- **ExistingComponentTag component**: Clickable tag for canvas component references
+- **Message parser utility**: Parses component references and markdown in AI messages
+- **Toolbar highlight state**: Components highlighted when AI suggests them (auto-clears after 3s)
+
+### Fixed
+- **User message line-wrapping**: Fixed bug where short messages like "ok" wrapped mid-word
+  - Changed `word-break: break-word` to `word-break: normal` with `overflow-wrap: anywhere`
+
+### Changed
+- **AI system prompt**: Updated to include component reference syntax documentation
+- **ComponentLibrary refactored**: Now uses shared ComponentItem component
+
+### New Files
+- `src/components/shared/ComponentItem.tsx` - Shared draggable component card
+- `src/components/shared/ComponentItem.css` - Card styling (normal and compact sizes)
+- `src/components/chat/ExistingComponentTag.tsx` - Clickable tag for existing components
+- `src/components/chat/ExistingComponentTag.css` - Tag styling with color variants
+- `src/utils/messageParser.tsx` - Parse `[[add:]]` and `[[ref:]]` syntax
+- `src/utils/markdownParser.tsx` - Lightweight numbered list and bold parser
+
+---
+
 ## [6.9.1] - 2026-02-04
 
 ### Fixed

@@ -102,6 +102,9 @@ interface CircuitState {
 
   // Highlighted items for debugging visualization
   highlightedItems: HighlightItem[];
+
+  // Highlighted component in toolbar (for AI suggestions)
+  highlightedToolbarComponent: string | null;
 }
 
 interface CircuitActions {
@@ -193,6 +196,9 @@ interface CircuitActions {
   // Highlight actions
   setHighlights: (items: HighlightItem[]) => void;
   clearHighlights: () => void;
+
+  // Toolbar highlight actions (for AI suggestions)
+  setHighlightedToolbarComponent: (componentId: string | null) => void;
 }
 
 // Generate unique IDs
@@ -252,6 +258,7 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
       isInputFocused: false,
     },
     highlightedItems: [],
+    highlightedToolbarComponent: null,
 
     // Component actions
     addComponent: (definition, x, y, properties = {}) => {
@@ -1029,6 +1036,24 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
         state.highlightedItems = [];
       });
     },
+
+    // Toolbar highlight actions
+    setHighlightedToolbarComponent: (componentId) => {
+      set((state) => {
+        state.highlightedToolbarComponent = componentId;
+      });
+      // Auto-clear after 3 seconds
+      if (componentId) {
+        setTimeout(() => {
+          set((state) => {
+            // Only clear if it's still the same component
+            if (state.highlightedToolbarComponent === componentId) {
+              state.highlightedToolbarComponent = null;
+            }
+          });
+        }, 3000);
+      }
+    },
   }))
 );
 
@@ -1080,3 +1105,6 @@ export const useIsInputFocused = () =>
 
 export const useHighlightedItems = () =>
   useCircuitStore((state) => state.highlightedItems);
+
+export const useHighlightedToolbarComponent = () =>
+  useCircuitStore((state) => state.highlightedToolbarComponent);
