@@ -98,11 +98,13 @@
 .right-panel-container .chat-message.user {
   align-items: flex-end;
   align-self: flex-end;
+  max-width: 100%;
 }
 
 .right-panel-container .chat-message.assistant {
   align-items: flex-start;
   align-self: flex-start;
+  max-width: 100%;
 }
 
 /* Adaptive width bubbles */
@@ -119,6 +121,8 @@
   line-height: 1.5;
   word-wrap: break-word;
   overflow-wrap: break-word;
+  word-break: break-word;  /* Force break long unbroken strings */
+  overflow: hidden;  /* Safety net for overflow */
 }
 
 /* User message bubble */
