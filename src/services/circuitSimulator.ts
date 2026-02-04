@@ -533,3 +533,186 @@ export function analyzeCircuit(
     activeComponents,
   };
 }
+
+/**
+ * Diagnostic issue for AI troubleshooting
+ */
+export interface DiagnosticIssue {
+  id: string;
+  severity: 'error' | 'warning';
+  type: CircuitErrorType;
+  title: string;
+  description: string;
+  fix: string;
+  affectedComponentIds: string[];
+  affectedWireIds: string[];
+}
+
+/**
+ * Suggestion for circuit improvement
+ */
+export interface CircuitSuggestion {
+  id: string;
+  type: 'add-component' | 'rewire' | 'safety';
+  title: string;
+  description: string;
+  priority: 'high' | 'medium' | 'low';
+}
+
+/**
+ * Detailed diagnostics for AI troubleshooting
+ */
+export interface DetailedDiagnostics {
+  issues: DiagnosticIssue[];
+  suggestions: CircuitSuggestion[];
+  componentStatus: Map<string, {
+    isConnected: boolean;
+    hasPower: boolean;
+    hasGround: boolean;
+    isActive: boolean;
+  }>;
+}
+
+/**
+ * Get detailed diagnostics for AI troubleshooting
+ */
+export function getDetailedDiagnostics(
+  components: PlacedComponent[],
+  wires: Wire[],
+  definitions: Map<string, ComponentDefinition>,
+  buttonStates: Map<string, boolean>
+): DetailedDiagnostics {
+  const issues: DiagnosticIssue[] = [];
+  const suggestions: CircuitSuggestion[] = [];
+  const componentStatus = new Map<string, {
+    isConnected: boolean;
+    hasPower: boolean;
+    hasGround: boolean;
+    isActive: boolean;
+  }>();
+
+  // Get basic simulation results
+  const simResult = analyzeCircuit(components, wires, definitions, buttonStates);
+
+  // Analyze each component
+  for (const component of components) {
+    const def = definitions.get(component.instanceId);
+    if (!def) continue;
+
+    const componentType = def.id;
+
+    // Check if component has any wires connected
+    const componentWires = wires.filter(
+      w => w.startComponentId === component.instanceId || w.endComponentId === component.instanceId
+    );
+    const isConnected = componentWires.length > 0;
+
+    // Trace power and ground paths
+    let hasPower = false;
+    let hasGround = false;
+
+    if (isConnected) {
+      // Check each pin for power/ground connection
+      for (const wire of componentWires) {
+        const pinId = wire.startComponentId === component.instanceId
+          ? wire.startPinId
+          : wire.endPinId;
+
+        const path = tracePath(component.instanceId, pinId, wires, definitions, buttonStates, components);
+        if (path.reachesPower) hasPower = true;
+        if (path.reachesGround) hasGround = true;
+      }
+    }
+
+    const isActive = simResult.activeComponents.get(component.instanceId) === 'on';
+
+    componentStatus.set(component.instanceId, {
+      isConnected,
+      hasPower,
+      hasGround,
+      isActive
+    });
+
+    // Generate component-specific issues
+    if (isLED(componentType) && isConnected) {
+      // Check for missing resistor
+      const anodePath = tracePath(component.instanceId, 'ANODE', wires, definitions, buttonStates, components);
+      if (!anodePath.hasResistor && anodePath.reachesPower) {
+        suggestions.push({
+          id: `suggest-resistor-${component.instanceId}`,
+          type: 'add-component',
+          title: 'Add current-limiting resistor',
+          description: `LED "${component.instanceId}" is connected without a current-limiting resistor. This may damage the LED.`,
+          priority: 'high'
+        });
+      }
+    }
+
+    // Check for unconnected components
+    if (!isConnected) {
+      issues.push({
+        id: `unconnected-${component.instanceId}`,
+        severity: 'warning',
+        type: 'open-circuit',
+        title: `Unconnected ${def.name || componentType}`,
+        description: `Component "${component.instanceId}" has no wire connections.`,
+        fix: 'Connect the component to the circuit using wires.',
+        affectedComponentIds: [component.instanceId],
+        affectedWireIds: []
+      });
+    }
+  }
+
+  // Convert simulation errors to diagnostic issues
+  for (const error of simResult.errors) {
+    let title: string;
+    let fix: string;
+
+    switch (error.errorType) {
+      case 'no-ground':
+        title = 'Missing ground connection';
+        fix = 'Connect the cathode (-) to a GND pin on the Arduino.';
+        break;
+      case 'no-power':
+        title = 'Missing power connection';
+        fix = 'Connect the anode (+) to a power source (5V, 3.3V, or a digital pin set HIGH).';
+        break;
+      case 'wrong-polarity':
+        title = 'Wrong polarity';
+        fix = 'Swap the anode (+) and cathode (-) connections. The longer leg (anode) goes to power.';
+        break;
+      case 'missing-resistor':
+        title = 'Missing current-limiting resistor';
+        fix = 'Add a 220-330 ohm resistor in series with the LED to prevent damage.';
+        break;
+      case 'short-circuit':
+        title = 'Short circuit detected';
+        fix = 'Check for wires directly connecting power to ground without any load.';
+        break;
+      case 'open-circuit':
+        title = 'Open circuit';
+        fix = 'Ensure all components are properly connected to complete the circuit.';
+        break;
+      default:
+        title = 'Circuit issue';
+        fix = 'Check the circuit connections.';
+    }
+
+    issues.push({
+      id: `error-${error.wireId}-${error.errorType}`,
+      severity: 'error',
+      type: error.errorType,
+      title,
+      description: error.message,
+      fix,
+      affectedComponentIds: error.componentId ? [error.componentId] : [],
+      affectedWireIds: [error.wireId]
+    });
+  }
+
+  return {
+    issues,
+    suggestions,
+    componentStatus
+  };
+}

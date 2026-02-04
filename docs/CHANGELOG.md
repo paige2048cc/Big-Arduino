@@ -10,6 +10,40 @@ All notable changes to Big Arduino App will be documented in this file.
 
 ---
 
+## [6.8.1] - 2026-02-02
+
+### Changed
+- **Tokenized inline input**: Completely rewrote ChatInputField using `contenteditable` for true inline text flow
+  - Reference chips are now inline tokens within the editable text
+  - Caret can be placed before, after, or between chips naturally
+  - Text and chips wrap together as a single flow
+  - Backspace/Delete removes chips like single characters
+  - Input auto-expands vertically as content grows (max 150px, then scrolls)
+
+### Fixed
+- **Chat input nested border issue**: Fixed visual bug where the text input displayed its own border/background
+- **Drag-drop doesn't add references**: Components dropped from the library sidebar no longer create chat references - only clicking existing components in the workspace adds references
+- **Keyboard shortcuts respect chat focus**: Backspace/Delete keys no longer delete workspace components when the chat input is focused
+- **Pending reference replacement**: Fixed logic to check for unconfirmed tags (not just input focus). When any tag is pending (semi-transparent), clicking another component replaces the pending tag. Only after all tags are confirmed (opaque) will clicking another component add a new tag
+- **Chip insertion no longer triggers focus**: Fixed bug where inserting a chip programmatically would call `editor.focus()`, triggering the focus event and immediately confirming all references. Chips are now appended without focusing
+- **Clicking already-selected component adds tag**: Added `mouse:down` handler to detect clicks on already-selected components and add/update the reference tag. Previously, clicking an already-selected component did nothing because Fabric.js selection events don't fire in this case
+- **Consistent tag styling in sent messages**: Tags in sent messages now match the styling from the input field (same padding, border-radius, icon size, and colors). Removed the override that made tags white inside user message bubbles
+- **Tags and text now display correctly in sent messages**: Fixed bug where tags were converted to plain text `[name]` and typed text disappeared. The issue was that ProjectPage was converting references to text format instead of storing them separately, and the text extraction was including chip content
+- **Improved tag contrast in sent messages**: Tags inside user message bubbles (blue background) now use opaque white background with colored text for better readability
+- **Simplified sent message structure**: Removed extra nested containers (`.message-with-references`, `.message-references`) that caused a "two boxes" appearance
+
+### Technical Details
+- Replaced `<input>` / `<textarea>` with `contenteditable` div for true inline token support
+- Chips inserted as `<span contenteditable="false">` elements that act as atomic inline tokens
+- Used `renderToStaticMarkup` from react-dom/server to generate chip HTML for insertion
+- Chip removal via Backspace/Delete triggers `onRemoveReference` callback
+- Placeholder shown via CSS `::before` pseudo-element when editor is empty
+- Paste handler strips formatting, inserting plain text only
+- Added `isDroppingFromLibraryRef` to skip reference creation during drag-drop and click-to-place
+- Keyboard handler checks `chatInput.isInputFocused` from store before processing Delete/Backspace
+
+---
+
 ## [6.8.0] - 2026-01-27
 
 ### Added

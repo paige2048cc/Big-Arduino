@@ -1,0 +1,146 @@
+/**
+ * ChatInputField Styles
+ *
+ * Styles for the rich contenteditable input with inline chip tokens.
+ * Chips flow naturally with text and can be selected/deleted like characters.
+ */
+
+/* Main container - single continuous pill */
+.chat-input-field {
+  flex: 1;
+  display: flex;
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 20px;
+  background: var(--input-bg, #ffffff);
+  border: 1px solid var(--border-color, #dadce0);
+  cursor: text;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.chat-input-field:focus-within {
+  border-color: var(--accent-primary, #1a73e8);
+  box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.1);
+}
+
+/* Contenteditable editor */
+.chat-input-editor {
+  flex: 1;
+  min-height: 24px;
+  max-height: 150px;
+  overflow-y: auto;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-primary, #202124);
+  outline: none;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+/* Placeholder via ::before pseudo-element */
+.chat-input-editor.is-empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-tertiary, #5f6368);
+  pointer-events: none;
+}
+
+/* Inline chip styles - these are inline tokens in the text flow */
+.inline-chip {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  gap: 4px;
+  padding: 1px 8px;
+  margin: 0 2px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  user-select: all;
+  transition: opacity 0.15s ease;
+}
+
+/* Pending state - semi-transparent */
+.inline-chip.chip--pending {
+  opacity: 0.6;
+}
+
+/* Confirmed state - fully opaque */
+.inline-chip.chip--confirmed {
+  opacity: 1;
+}
+
+/* Chip icon */
+.chip-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Chip name */
+.chip-name {
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Color variants */
+
+/* LED - warm red */
+.chip--led {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* Arduino - blue */
+.chip--arduino {
+  background-color: rgba(59, 130, 246, 0.15);
+  color: #2563eb;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+/* Breadboard - green */
+.chip--breadboard {
+  background-color: rgba(34, 197, 94, 0.15);
+  color: #16a34a;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+/* Resistor - amber */
+.chip--resistor {
+  background-color: rgba(217, 119, 6, 0.15);
+  color: #b45309;
+  border: 1px solid rgba(217, 119, 6, 0.3);
+}
+
+/* Button - purple */
+.chip--button {
+  background-color: rgba(168, 85, 247, 0.15);
+  color: #9333ea;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+/* Wire - gray */
+.chip--wire {
+  background-color: rgba(107, 114, 128, 0.15);
+  color: #4b5563;
+  border: 1px solid rgba(107, 114, 128, 0.3);
+}
+
+/* Multi-component - indigo */
+.chip--multi {
+  background-color: rgba(99, 102, 241, 0.15);
+  color: #4f46e5;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+/* Default - neutral gray */
+.chip--default {
+  background-color: rgba(156, 163, 175, 0.15);
+  color: #6b7280;
+  border: 1px solid rgba(156, 163, 175, 0.3);
+}

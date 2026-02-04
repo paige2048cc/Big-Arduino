@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Usb, Unplug, Play, Square } from 'lucide-react';
 import { presetProjects } from '../data/projects';
@@ -6,7 +6,9 @@ import { useSerial } from '../hooks/useSerial';
 import { ThreePanelLayout } from '../components/layout';
 import { LeftPanel, RightPanel, ComponentPropertiesPanel } from '../components/panels';
 import { CircuitCanvas } from '../components/canvas';
-import { useCircuitStore } from '../store/circuitStore';
+import { useCircuitStore, useWires, useSimulationErrors } from '../store/circuitStore';
+import type { ChatReference } from '../types/chat';
+import { sendMessage, isAIServiceConfigured, getFallbackResponse, type CircuitState } from '../services/aiService';
 
 export function ProjectPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -19,7 +21,7 @@ export function ProjectPage() {
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const [expandedSteps, setExpandedSteps] = useState<Set<number>>(new Set([0])); // First step expanded by default
-  const [chatMessages, setChatMessages] = useState<Array<{role: 'user' | 'assistant', content: string}>>([
+  const [chatMessages, setChatMessages] = useState<Array<{role: 'user' | 'assistant', content: string, references?: ChatReference[]}>>([
     { role: 'assistant', content: 'Hi! I\'m here to help you with this project. Ask me anything!' }
   ]);
 
@@ -27,7 +29,13 @@ export function ProjectPage() {
   const { isConnected, isSupported, connect, disconnect } = useSerial();
 
   // Circuit store
-  const { selectedComponentId, selectComponent, isSimulating, toggleSimulation } = useCircuitStore();
+  const { selectedComponentId, selectComponent, isSimulating, toggleSimulation, placedComponents, setHighlights } = useCircuitStore();
+  const wires = useWires();
+  const simulationErrors = useSimulationErrors();
+
+  // AI loading state
+  // Loading state for AI responses (can be used to show loading indicator)
+  const [_isAILoading, setIsAILoading] = useState(false);
 
   // If project not found
   if (!project) {
@@ -41,18 +49,77 @@ export function ProjectPage() {
 
   const step = project.steps[currentStep];
 
-  const handleChatSubmit = (message: string) => {
-    // Add user message
-    setChatMessages(prev => [...prev, { role: 'user', content: message }]);
+  const handleChatSubmit = useCallback(async (message: string, references?: ChatReference[]) => {
+    // Add user message with references stored separately
+    setChatMessages(prev => [...prev, {
+      role: 'user',
+      content: message,
+      references: references && references.length > 0 ? references : undefined
+    }]);
 
-    // Simulate AI response (in real app, this would call AI API)
-    setTimeout(() => {
+    // Check if AI service is configured
+    if (!isAIServiceConfigured()) {
+      // Use fallback response
+      setTimeout(() => {
+        setChatMessages(prev => [...prev, {
+          role: 'assistant',
+          content: getFallbackResponse(message, references || [])
+        }]);
+      }, 500);
+      return;
+    }
+
+    // Build circuit state for AI
+    const circuitState: CircuitState = {
+      placedComponents: placedComponents.map(c => ({
+        instanceId: c.instanceId,
+        definitionId: c.definitionId,
+        x: c.x,
+        y: c.y,
+        rotation: c.rotation
+      })),
+      wires: wires.map(w => ({
+        id: w.id,
+        startComponentId: w.startComponentId,
+        startPinId: w.startPinId,
+        endComponentId: w.endComponentId,
+        endPinId: w.endPinId,
+        color: w.color
+      })),
+      isSimulating,
+      simulationErrors: simulationErrors.map(e => ({
+        componentId: e.componentId,
+        wireId: e.wireId,
+        message: e.message,
+        // Derive severity from error type - most circuit errors are actual errors
+        severity: 'error' as const
+      }))
+    };
+
+    setIsAILoading(true);
+
+    try {
+      const response = await sendMessage(message, references || [], circuitState);
+
       setChatMessages(prev => [...prev, {
         role: 'assistant',
-        content: `That's a great question about "${message}"! For this step, make sure you follow the instructions carefully. If you're stuck, try checking your wiring connections first.`
+        content: response.content
       }]);
-    }, 1000);
-  };
+
+      // Apply highlights if any
+      if (response.highlights && response.highlights.length > 0) {
+        setHighlights(response.highlights);
+      }
+    } catch (error) {
+      console.error('AI service error:', error);
+      setChatMessages(prev => [...prev, {
+        role: 'assistant',
+        content: 'Sorry, I encountered an error processing your request. Please try again.'
+      }]);
+    } finally {
+      setIsAILoading(false);
+    }
+  }, [placedComponents, wires, isSimulating, simulationErrors, setHighlights]);
 
   const handleComponentDrop = (componentId: string, x: number, y: number) => {
     console.log(`Dropped component ${componentId} at (${x}, ${y})`);

@@ -2,8 +2,9 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import * as fabric from 'fabric';
 import { ZoomIn, ZoomOut, Undo2, Trash2, Move, RotateCw, FlipHorizontal, FlipVertical } from 'lucide-react';
-import { useCircuitStore, useHoveredPin, useWireDrawing, useWires, useSimulationErrors, useSelectedWire, useClickToPlace, useDragPreview } from '../../store/circuitStore';
+import { useCircuitStore, useHoveredPin, useWireDrawing, useWires, useSimulationErrors, useSelectedWire, useClickToPlace, useDragPreview, useHighlightedItems, useIsInputFocused } from '../../store/circuitStore';
 import type { CircuitError } from '../../services/circuitSimulator';
+import { createComponentReference, createWireReference } from '../../types/chat';
 import { loadComponentByFileName, getPinAtPosition } from '../../services/componentService';
 import { calculateSnapPosition, shouldRemoveFromBreadboard } from '../../services/breadboardSnapping';
 import './CircuitCanvas.css';
@@ -222,6 +223,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     updateClickToPlacePreview,
     updateDragPreview,
     endDragPreview,
+    addPendingReference,
   } = useCircuitStore();
 
   const hoveredPin = useHoveredPin();
@@ -231,6 +233,17 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
   const wires = useWires();
   const simulationErrors = useSimulationErrors();
   const selectedWire = useSelectedWire();
+  const highlightedItems = useHighlightedItems();
+
+  // Highlight objects ref for cleanup
+  const highlightObjectsRef = useRef<fabric.FabricObject[]>([]);
+
+  // Track whether we're in the middle of dropping a component from the library
+  // (to skip adding references during drop)
+  const isDroppingFromLibraryRef = useRef(false);
+
+  // Get chat input focus state (to skip keyboard shortcuts when typing in chat)
+  const isInputFocused = useIsInputFocused();
 
   // Hovered wire error for tooltip
   const [hoveredWireError, setHoveredWireError] = useState<CircuitError | null>(null);
@@ -408,6 +421,19 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
         selectComponent(selected.data.instanceId);
         selectWire(null);
         onComponentSelect?.(selected.data.instanceId);
+
+        // Create a reference tag for the chat input
+        // Skip if we're dropping a component from the library (not clicking in workspace)
+        if (selected.data.definitionId && !isDroppingFromLibraryRef.current) {
+          const definition = getComponentDefinition(selected.data.definitionId);
+          const displayName = definition?.name || selected.data.definitionId;
+          const reference = createComponentReference(
+            selected.data.instanceId,
+            selected.data.definitionId,
+            displayName
+          );
+          addPendingReference(reference);
+        }
       }
     });
 
@@ -419,6 +445,19 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
         selectComponent(selected.data.instanceId);
         selectWire(null);
         onComponentSelect?.(selected.data.instanceId);
+
+        // Create a reference tag for the chat input
+        // Skip if we're dropping a component from the library (not clicking in workspace)
+        if (selected.data.definitionId && !isDroppingFromLibraryRef.current) {
+          const definition = getComponentDefinition(selected.data.definitionId);
+          const displayName = definition?.name || selected.data.definitionId;
+          const reference = createComponentReference(
+            selected.data.instanceId,
+            selected.data.definitionId,
+            displayName
+          );
+          addPendingReference(reference);
+        }
       }
     });
 
@@ -427,6 +466,30 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       selectComponent(null);
       // Don't clear wire selection here - we handle it manually
       onComponentSelect?.(null);
+    });
+
+    // Handle clicking on already-selected component (selection events don't fire in this case)
+    fabricCanvas.on('mouse:down', (e) => {
+      if (!e.target) return;
+
+      const target = e.target as ComponentFabricObject;
+      const activeObject = fabricCanvas.getActiveObject();
+
+      // Check if we clicked on the already-selected object
+      if (target === activeObject && target.data?.instanceId && target.data?.definitionId) {
+        // Skip if dropping from library
+        if (isDroppingFromLibraryRef.current) return;
+
+        // Add reference for the clicked component
+        const definition = getComponentDefinition(target.data.definitionId);
+        const displayName = definition?.name || target.data.definitionId;
+        const reference = createComponentReference(
+          target.data.instanceId,
+          target.data.definitionId,
+          displayName
+        );
+        addPendingReference(reference);
+      }
     });
 
     // Object moving handler (real-time updates during drag) - using ref to avoid stale closure
@@ -781,12 +844,18 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       // Offset placement so anchor pin is at cursor position
       const placementX = scenePoint.x - ghostPreviewAnchor.x;
       const placementY = scenePoint.y - ghostPreviewAnchor.y;
+      // Mark that we're placing from library (to skip adding chat references)
+      isDroppingFromLibraryRef.current = true;
       createComponentWithImage(
         clickToPlace.componentId,
         clickToPlace.category,
         placementX,
         placementY
       );
+      // Clear the flag after a short delay to allow selection events to fire
+      setTimeout(() => {
+        isDroppingFromLibraryRef.current = false;
+      }, 100);
       cancelClickToPlace();
       mouseEvent.preventDefault();
       mouseEvent.stopPropagation();
@@ -894,6 +963,20 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
             if (dist < 10) {
               // Wire clicked - select it
               selectWire(target.data.wireId);
+
+              // Create a wire reference tag for the chat input
+              const wireData = wires.find(w => w.id === target.data?.wireId);
+              if (wireData) {
+                const wireRef = createWireReference(
+                  wireData.id,
+                  wireData.startComponentId,
+                  wireData.startPinId,
+                  wireData.endComponentId,
+                  wireData.endPinId
+                );
+                addPendingReference(wireRef);
+              }
+
               mouseEvent.preventDefault();
               return;
             }
@@ -953,7 +1036,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
         }
       }
     }
-  }, [hoveredPin, wireDrawing.isDrawing, wireDrawing.bendPoints, wireDrawing.startX, wireDrawing.startY, startWireDrawing, addWireBendPoint, completeWireDrawing, isSimulating, getComponentDefinition, updateComponentImage, setButtonState, selectWire, selectedWireId]);
+  }, [hoveredPin, wireDrawing.isDrawing, wireDrawing.bendPoints, wireDrawing.startX, wireDrawing.startY, startWireDrawing, addWireBendPoint, completeWireDrawing, isSimulating, getComponentDefinition, updateComponentImage, setButtonState, selectWire, selectedWireId, wires, addPendingReference]);
 
   // Handle mouse up for button release and panning stop
   const handleMouseUpEvent = useCallback((canvas?: fabric.Canvas, mouseEvent?: MouseEvent) => {
@@ -1667,6 +1750,97 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       }
     }
   }, [wireDrawing]);
+
+  // Render highlight overlays for AI-identified issues
+  useEffect(() => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    // Remove existing highlight objects
+    highlightObjectsRef.current.forEach(obj => {
+      canvas.remove(obj);
+    });
+    highlightObjectsRef.current = [];
+
+    if (!highlightedItems || highlightedItems.length === 0) {
+      canvas.renderAll();
+      return;
+    }
+
+    // Color mapping based on severity
+    const severityColors: Record<string, { stroke: string; fill: string }> = {
+      error: { stroke: '#ef4444', fill: 'rgba(239, 68, 68, 0.15)' },
+      warning: { stroke: '#f59e0b', fill: 'rgba(245, 158, 11, 0.15)' },
+      suggestion: { stroke: '#22c55e', fill: 'rgba(34, 197, 94, 0.15)' },
+      info: { stroke: '#3b82f6', fill: 'rgba(59, 130, 246, 0.15)' },
+    };
+
+    for (const item of highlightedItems) {
+      const colors = severityColors[item.severity] || severityColors.info;
+
+      if (item.type === 'component') {
+        // Find the component's Fabric object
+        const fabricObj = instanceToFabricMap.current.get(item.id);
+        if (fabricObj) {
+          const bounds = fabricObj.getBoundingRect();
+          const padding = 8;
+
+          // Create highlight rectangle around component
+          const highlight = new fabric.Rect({
+            left: bounds.left - padding,
+            top: bounds.top - padding,
+            width: bounds.width + padding * 2,
+            height: bounds.height + padding * 2,
+            fill: colors.fill,
+            stroke: colors.stroke,
+            strokeWidth: 3,
+            strokeDashArray: [8, 4],
+            rx: 8,
+            ry: 8,
+            selectable: false,
+            evented: false,
+            data: { type: 'highlight', itemId: item.id },
+          });
+
+          canvas.add(highlight);
+          canvas.sendObjectToBack(highlight);
+          highlightObjectsRef.current.push(highlight);
+        }
+      } else if (item.type === 'wire') {
+        // Find the wire's Fabric path
+        const wirePath = wireToFabricMap.current.get(item.id);
+        if (wirePath) {
+          // Get the wire's path data
+          const wireData = (wirePath as ComponentFabricObject).data;
+          if (wireData?.points) {
+            const points = wireData.points as { x: number; y: number }[];
+            const pathString = points.length > 2
+              ? createRoundedPath(points, 12)
+              : `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y}`;
+
+            // Create glow/highlight effect behind wire
+            const highlightPath = new fabric.Path(pathString, {
+              stroke: colors.stroke,
+              strokeWidth: 16,
+              fill: 'transparent',
+              strokeLineCap: 'round',
+              strokeLineJoin: 'round',
+              opacity: 0.4,
+              selectable: false,
+              evented: false,
+              data: { type: 'highlight', itemId: item.id },
+            });
+
+            canvas.add(highlightPath);
+            canvas.sendObjectToBack(highlightPath);
+            highlightObjectsRef.current.push(highlightPath);
+          }
+        }
+      }
+    }
+
+    canvas.renderAll();
+  }, [highlightedItems]);
 
   // Load ghost preview image when click-to-place mode starts
   useEffect(() => {
@@ -2605,7 +2779,13 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
 
     console.log('[handleDrop] Dropping at position:', x, y, 'with anchor offset:', dragPreviewAnchor);
 
+    // Mark that we're dropping from library (to skip adding chat references)
+    isDroppingFromLibraryRef.current = true;
     createComponentWithImage(componentId, category, x, y);
+    // Clear the flag after a short delay to allow selection events to fire
+    setTimeout(() => {
+      isDroppingFromLibraryRef.current = false;
+    }, 100);
   };
 
   // Handle escape to cancel wire drawing
@@ -2680,7 +2860,15 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       }
 
       // Delete or Backspace: during wire drawing, remove last node; otherwise delete selected wire/component
+      // Skip if chat input is focused (let the chat input handle these keys)
       if (e.key === 'Delete' || e.key === 'Backspace') {
+        // Check if chat input is focused - get fresh value from store
+        const chatInputFocused = useCircuitStore.getState().chatInput.isInputFocused;
+        if (chatInputFocused) {
+          // Let the chat input handle backspace/delete
+          return;
+        }
+
         // During wire drawing, remove the last bend point or cancel the wire
         if (wireDrawing.isDrawing) {
           e.preventDefault();
