@@ -10,6 +10,13 @@ All notable changes to Big Arduino App will be documented in this file.
 
 ---
 
+## [6.9.1] - 2026-02-04
+
+### Fixed
+- **AI chat not working**: Fixed Gemini API 404 error - updated model name from `gemini-1.5-flash` to `gemini-pro` which is the correct model identifier for the Google Generative AI SDK
+
+---
+
 ## [6.8.1] - 2026-02-02
 
 ### Changed
