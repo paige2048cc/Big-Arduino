@@ -1,5 +1,37 @@
 # Big Arduino App - Development Guidelines
 
+## Security Requirements
+
+### API Keys and Secrets
+
+**CRITICAL: Never commit API keys, secrets, or credentials to the repository.**
+
+1. **Environment Variables Only**: All API keys must be read from environment variables (`process.env.*`), never hard-coded.
+
+2. **Server-Side Only**: API keys must only be used in server-side code (`/api/*` functions). Never expose keys in frontend code.
+
+3. **Forbidden Patterns**: Do not write code containing:
+   - Hard-coded API keys (e.g., `AIza...`, `sk-...`)
+   - `import.meta.env.VITE_*` for API keys (these are exposed to the client)
+   - Inline credentials in fetch headers
+
+4. **Environment Files**:
+   - `.env` - Local development secrets (NEVER committed, in .gitignore)
+   - `.env.example` - Template with variable names only (committed)
+   - Vercel Dashboard - Production secrets
+
+5. **Before Committing**: Always search for leaked credentials:
+   ```bash
+   grep -r "AIza" --include="*.ts" --include="*.tsx" --include="*.js"
+   grep -r "sk-" --include="*.ts" --include="*.tsx" --include="*.js"
+   ```
+
+### Current Environment Variables
+
+| Variable | Where to Set | Purpose |
+|----------|-------------|---------|
+| `GEMINI_API_KEY` | `.env` (local), Vercel Dashboard (prod) | Google Gemini AI API |
+
 ## Layout Best Practices
 
 ### Full-Height Layout Rules

@@ -28,9 +28,13 @@ interface GeminiResponse {
   };
 }
 
+// Supported Gemini model
+const GEMINI_MODEL = 'gemini-2.0-flash';
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+
 export default async function handler(
   req: VercelRequest,
-  res: VercelResponse
+  res: VercelResponse<ChatResponse>
 ) {
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -48,29 +52,49 @@ export default async function handler(
     return res.status(405).json({ content: '', error: 'Method not allowed' });
   }
 
-  const apiKey = 'AIzaSyBHaBsPNC68LBQbvMojTDDsMRki4QdVnYs';
+  // Get API key from environment variable (set in Vercel dashboard)
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    console.error('GEMINI_API_KEY environment variable is not configured');
+    return res.status(500).json({
+      content: '',
+      error: 'Server configuration error: API key not configured'
+    });
+  }
+
+  // Parse and validate request body
+  let message: string;
+  let systemPrompt: string;
+  let context: string;
 
   try {
-    const { message, systemPrompt, context } = req.body as ChatRequest;
+    const body = req.body as ChatRequest;
+    message = body.message;
+    systemPrompt = body.systemPrompt || '';
+    context = body.context || '';
 
-    if (!message) {
+    if (!message || typeof message !== 'string') {
       return res.status(400).json({ content: '', error: 'Message is required' });
     }
+  } catch {
+    return res.status(400).json({ content: '', error: 'Invalid request body' });
+  }
 
-    // Build the full prompt
-    const fullPrompt = `${systemPrompt || ''}
+  // Build the full prompt
+  const fullPrompt = `${systemPrompt}
 
-${context || ''}
+${context}
 
 User Question: ${message}`;
 
-    const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
-
-    const response = await fetch(apiUrl, {
+  // Call Gemini API
+  let response: Response;
+  try {
+    response = await fetch(GEMINI_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-goog-api-key': apiKey,
+        'x-goog-api-key': apiKey,
       },
       body: JSON.stringify({
         contents: [{
@@ -84,28 +108,67 @@ User Question: ${message}`;
         }
       })
     });
-
-    const data = await response.json() as GeminiResponse;
-
-    if (!response.ok) {
-      console.error('Gemini API error:', data.error?.message || response.statusText);
-      throw new Error(data.error?.message || `HTTP ${response.status}`);
-    }
-
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (text) {
-      return res.status(200).json({ content: text });
-    } else {
-      throw new Error('No text in response');
-    }
-
-  } catch (error) {
-    console.error('Gemini API error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return res.status(500).json({
+  } catch (fetchError) {
+    console.error('Network error calling Gemini API:', fetchError);
+    return res.status(502).json({
       content: '',
-      error: `API request failed: ${errorMessage}`
+      error: 'Failed to connect to AI service'
     });
   }
+
+  // Parse Gemini response
+  let data: GeminiResponse;
+  try {
+    data = await response.json() as GeminiResponse;
+  } catch {
+    console.error('Failed to parse Gemini API response');
+    return res.status(502).json({
+      content: '',
+      error: 'Invalid response from AI service'
+    });
+  }
+
+  // Handle Gemini API errors
+  if (!response.ok) {
+    const errorMessage = data.error?.message || `HTTP ${response.status}`;
+    console.error('Gemini API error:', errorMessage);
+
+    // Map common error codes to user-friendly messages
+    if (response.status === 401 || response.status === 403) {
+      return res.status(502).json({
+        content: '',
+        error: 'AI service authentication failed'
+      });
+    }
+    if (response.status === 429) {
+      return res.status(429).json({
+        content: '',
+        error: 'AI service rate limit exceeded. Please try again later.'
+      });
+    }
+    if (response.status === 404) {
+      return res.status(502).json({
+        content: '',
+        error: 'AI model not available'
+      });
+    }
+
+    return res.status(502).json({
+      content: '',
+      error: `AI service error: ${errorMessage}`
+    });
+  }
+
+  // Extract text from response
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+  if (!text) {
+    console.error('No text in Gemini response:', JSON.stringify(data));
+    return res.status(502).json({
+      content: '',
+      error: 'AI service returned empty response'
+    });
+  }
+
+  return res.status(200).json({ content: text });
 }

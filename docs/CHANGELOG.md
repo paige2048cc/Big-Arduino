@@ -10,6 +10,26 @@ All notable changes to Big Arduino App will be documented in this file.
 
 ---
 
+## [7.0.1] - 2026-02-04
+
+### Security
+- **Removed hard-coded API key**: API key is now read only from `process.env.GEMINI_API_KEY`
+- **Added .env.example**: Template file with required environment variables (no values)
+- **Updated CLAUDE.md**: Added security requirements section with credential handling rules
+
+### Fixed
+- **Improved API error handling**: Structured JSON responses instead of HTTP 500 errors
+  - Network errors return 502 with "Failed to connect to AI service"
+  - Rate limits return 429 with retry message
+  - Auth failures return 502 with "AI service authentication failed"
+  - Empty responses handled gracefully
+
+### Changed
+- **Vercel serverless function**: Reads API key from environment variable only
+- **Local dev server**: Reads API key from `.env` file via `process.env`
+
+---
+
 ## [7.0.0] - 2026-02-04
 
 ### Added
