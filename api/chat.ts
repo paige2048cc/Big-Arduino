@@ -69,9 +69,9 @@ export default async function handler(
 
   try {
     const body = req.body as ChatRequest;
-    message = body.message;
-    systemPrompt = body.systemPrompt || '';
-    context = body.context || '';
+    message = body?.message;
+    systemPrompt = body?.systemPrompt || '';
+    context = body?.context || '';
 
     if (!message || typeof message !== 'string') {
       return res.status(400).json({ content: '', error: 'Message is required' });
