@@ -8,4 +8,13 @@ const base = process.env.VERCEL ? '/' : '/Big-Arduino/'
 export default defineConfig({
   plugins: [react()],
   base,
+  server: {
+    proxy: {
+      // Proxy API requests to Vercel dev server during local development
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      }
+    }
+  }
 })

@@ -1,11 +1,10 @@
 /**
  * AI Service
  *
- * Handles Claude API integration for the AI chat assistant.
+ * Handles AI API integration via Vercel serverless function.
  * Provides circuit analysis and troubleshooting capabilities.
  */
 
-import Anthropic from '@anthropic-ai/sdk';
 import type { ChatReference, WireReference, HighlightItem, HighlightSeverity } from '../types/chat';
 import { loadKnowledge } from './knowledgeService';
 import {
@@ -51,22 +50,8 @@ export interface AIResponse {
   highlights?: HighlightItem[];
 }
 
-// Initialize Anthropic client
-let anthropicClient: Anthropic | null = null;
-
-function getClient(): Anthropic {
-  if (!anthropicClient) {
-    const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      throw new Error('VITE_ANTHROPIC_API_KEY environment variable is not set');
-    }
-    anthropicClient = new Anthropic({
-      apiKey,
-      dangerouslyAllowBrowser: true // Required for browser-side usage
-    });
-  }
-  return anthropicClient;
-}
+// API endpoint - works for both local dev and production
+const API_ENDPOINT = '/api/chat';
 
 /**
  * Build component context from references
@@ -242,21 +227,19 @@ function parseHighlights(response: string): HighlightItem[] {
 }
 
 /**
- * Send a message to the AI assistant
+ * Send a message to the AI assistant via Vercel serverless function
  */
 export async function sendMessage(
   content: string,
   references: ChatReference[],
   circuitState: CircuitState
 ): Promise<AIResponse> {
-  const client = getClient();
-
   // Build context from references and circuit state
   const componentContext = await buildComponentContext(references, circuitState);
   const wireContext = buildWireContext(references, circuitState);
   const simulationStatus = buildSimulationStatus(circuitState);
 
-  const userPrompt = buildContextPrompt(
+  const contextPrompt = buildContextPrompt(
     componentContext,
     wireContext,
     simulationStatus,
@@ -264,108 +247,56 @@ export async function sendMessage(
   );
 
   try {
-    const response = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1024,
-      system: getSystemPrompt(),
-      messages: [
-        {
-          role: 'user',
-          content: userPrompt
-        }
-      ]
+    const response = await fetch(API_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message: content,
+        systemPrompt: getSystemPrompt(),
+        context: contextPrompt,
+      }),
     });
 
-    const textContent = response.content[0];
-    if (textContent.type !== 'text') {
-      throw new Error('Unexpected response type from Claude');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Request failed' }));
+      throw new Error(errorData.error || `API request failed with status ${response.status}`);
     }
 
-    const responseText = textContent.text;
-    const highlights = parseHighlights(responseText);
+    const data = await response.json();
+
+    if (data.error) {
+      throw new Error(data.error);
+    }
+
+    const highlights = parseHighlights(data.content);
 
     return {
-      content: responseText,
+      content: data.content,
       highlights
     };
   } catch (error) {
-    console.error('Error calling Claude API:', error);
-    throw error;
-  }
-}
-
-/**
- * Send a message with streaming response
- */
-export async function sendMessageStreaming(
-  content: string,
-  references: ChatReference[],
-  circuitState: CircuitState,
-  onChunk: (chunk: string) => void
-): Promise<AIResponse> {
-  const client = getClient();
-
-  // Build context from references and circuit state
-  const componentContext = await buildComponentContext(references, circuitState);
-  const wireContext = buildWireContext(references, circuitState);
-  const simulationStatus = buildSimulationStatus(circuitState);
-
-  const userPrompt = buildContextPrompt(
-    componentContext,
-    wireContext,
-    simulationStatus,
-    content
-  );
-
-  try {
-    const stream = await client.messages.stream({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1024,
-      system: getSystemPrompt(),
-      messages: [
-        {
-          role: 'user',
-          content: userPrompt
-        }
-      ]
-    });
-
-    let fullResponse = '';
-
-    for await (const event of stream) {
-      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-        const chunk = event.delta.text;
-        fullResponse += chunk;
-        onChunk(chunk);
-      }
-    }
-
-    const highlights = parseHighlights(fullResponse);
-
-    return {
-      content: fullResponse,
-      highlights
-    };
-  } catch (error) {
-    console.error('Error calling Claude API (streaming):', error);
+    console.error('Error calling AI API:', error);
     throw error;
   }
 }
 
 /**
  * Check if AI service is configured
+ * Always returns true since API key is handled server-side
  */
 export function isAIServiceConfigured(): boolean {
-  return !!import.meta.env.VITE_ANTHROPIC_API_KEY;
+  return true;
 }
 
 /**
- * Get a fallback response when AI is not configured
+ * Get a fallback response when AI request fails
  */
 export function getFallbackResponse(message: string, references: ChatReference[]): string {
   if (references.length > 0) {
     const refNames = references.map(r => r.displayName).join(', ');
-    return `I see you're asking about ${refNames}. ${message ? `Regarding "${message}": ` : ''}To enable AI-powered assistance, please configure the VITE_ANTHROPIC_API_KEY environment variable.`;
+    return `I see you're asking about ${refNames}. ${message ? `Regarding "${message}": ` : ''}I'm having trouble connecting to the AI service. Please try again in a moment.`;
   }
-  return `To enable AI-powered assistance for your question about "${message}", please configure the VITE_ANTHROPIC_API_KEY environment variable.`;
+  return `I'm having trouble processing your question about "${message}". Please try again in a moment.`;
 }

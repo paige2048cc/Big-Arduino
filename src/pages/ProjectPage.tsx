@@ -18,9 +18,7 @@ export function ProjectPage() {
   const project = presetProjects.find(p => p.id === projectId);
 
   // State
-  const [currentStep, setCurrentStep] = useState(0);
-  const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
-  const [expandedSteps, setExpandedSteps] = useState<Set<number>>(new Set([0])); // First step expanded by default
+  const [currentStep] = useState(0);
   const [chatMessages, setChatMessages] = useState<Array<{role: 'user' | 'assistant', content: string, references?: ChatReference[]}>>([
     { role: 'assistant', content: 'Hi! I\'m here to help you with this project. Ask me anything!' }
   ]);
@@ -133,42 +131,6 @@ export function ProjectPage() {
     selectComponent(null);
   };
 
-  const handleStepChange = (step: number) => {
-    setCurrentStep(step);
-  };
-
-  const handleToggleExpand = (stepIndex: number) => {
-    setExpandedSteps(prev => {
-      const next = new Set(prev);
-      if (next.has(stepIndex)) {
-        next.delete(stepIndex);
-      } else {
-        next.add(stepIndex);
-      }
-      return next;
-    });
-  };
-
-  const handleStepComplete = (completedIndex: number) => {
-    // Mark step as completed
-    setCompletedSteps(prev => new Set([...prev, completedIndex]));
-
-    // Collapse completed step and expand next
-    setExpandedSteps(prev => {
-      const next = new Set(prev);
-      next.delete(completedIndex);
-      if (completedIndex < project.steps.length - 1) {
-        next.add(completedIndex + 1);
-      }
-      return next;
-    });
-
-    // Move to next step if available
-    if (completedIndex < project.steps.length - 1) {
-      setCurrentStep(completedIndex + 1);
-    }
-  };
-
   // Get current step code for left panel
   const currentCode = step?.code || '';
 
@@ -231,13 +193,6 @@ export function ProjectPage() {
           }
           rightPanel={
             <RightPanel
-              steps={project.steps}
-              currentStep={currentStep}
-              completedSteps={completedSteps}
-              expandedSteps={expandedSteps}
-              onStepChange={handleStepChange}
-              onToggleExpand={handleToggleExpand}
-              onStepComplete={handleStepComplete}
               chatMessages={chatMessages}
               onSendMessage={handleChatSubmit}
             />
