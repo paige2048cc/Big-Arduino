@@ -1,4 +1,3 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 // Request body interface
@@ -12,6 +11,21 @@ interface ChatRequest {
 interface ChatResponse {
   content: string;
   error?: string;
+}
+
+// Gemini API response structure
+interface GeminiResponse {
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{
+        text?: string;
+      }>;
+    };
+  }>;
+  error?: {
+    message: string;
+    code: number;
+  };
 }
 
 export default async function handler(
@@ -48,11 +62,6 @@ export default async function handler(
       return res.status(400).json({ content: '', error: 'Message is required' });
     }
 
-    // Initialize Gemini
-    const genAI = new GoogleGenerativeAI(apiKey);
-    // Use gemini-1.5-flash-latest for v1beta API
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
-
     // Build the full prompt
     const fullPrompt = `${systemPrompt || ''}
 
@@ -60,12 +69,66 @@ ${context || ''}
 
 User Question: ${message}`;
 
-    // Generate response
-    const result = await model.generateContent(fullPrompt);
-    const response = result.response;
-    const text = response.text();
+    // Use Gemini REST API directly with v1 endpoint
+    // Try multiple models in order of preference
+    const models = [
+      'gemini-2.0-flash',
+      'gemini-1.5-flash',
+      'gemini-1.5-pro',
+      'gemini-pro'
+    ];
 
-    return res.status(200).json({ content: text });
+    let lastError: Error | null = null;
+
+    for (const modelName of models) {
+      try {
+        const apiUrl = `https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${apiKey}`;
+
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [{
+                text: fullPrompt
+              }]
+            }],
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 2048,
+            }
+          })
+        });
+
+        const data = await response.json() as GeminiResponse;
+
+        if (!response.ok) {
+          console.log(`Model ${modelName} failed:`, data.error?.message || response.statusText);
+          lastError = new Error(data.error?.message || `HTTP ${response.status}`);
+          continue; // Try next model
+        }
+
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (text) {
+          console.log(`Successfully used model: ${modelName}`);
+          return res.status(200).json({ content: text });
+        } else {
+          lastError = new Error('No text in response');
+          continue;
+        }
+      } catch (modelError) {
+        console.log(`Model ${modelName} error:`, modelError);
+        lastError = modelError instanceof Error ? modelError : new Error(String(modelError));
+        continue;
+      }
+    }
+
+    // All models failed
+    throw lastError || new Error('All models failed');
+
   } catch (error) {
     console.error('Gemini API error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
