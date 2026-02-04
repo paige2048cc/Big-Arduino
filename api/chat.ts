@@ -34,7 +34,7 @@ const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/
 
 export default async function handler(
   req: VercelRequest,
-  res: VercelResponse<ChatResponse>
+  res: VercelResponse
 ) {
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Credentials', 'true');
