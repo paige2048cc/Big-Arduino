@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import * as fabric from 'fabric';
 import { ZoomIn, ZoomOut, Undo2, Trash2, Move, RotateCw, FlipHorizontal, FlipVertical } from 'lucide-react';
-import { useCircuitStore, useHoveredPin, useWireDrawing, useWires, useSimulationErrors, useSelectedWire, useClickToPlace, useDragPreview, useHighlightedItems, useIsInputFocused } from '../../store/circuitStore';
+import { useCircuitStore, useHoveredPin, useWireDrawing, useWires, useSimulationErrors, useSelectedWire, useClickToPlace, useDragPreview, useHighlightedItems } from '../../store/circuitStore';
 import type { CircuitError } from '../../services/circuitSimulator';
 import { createComponentReference, createWireReference } from '../../types/chat';
 import { loadComponentByFileName, getPinAtPosition } from '../../services/componentService';
@@ -241,9 +241,6 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
   // Track whether we're in the middle of dropping a component from the library
   // (to skip adding references during drop)
   const isDroppingFromLibraryRef = useRef(false);
-
-  // Get chat input focus state (to skip keyboard shortcuts when typing in chat)
-  const isInputFocused = useIsInputFocused();
 
   // Hovered wire error for tooltip
   const [hoveredWireError, setHoveredWireError] = useState<CircuitError | null>(null);

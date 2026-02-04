@@ -177,7 +177,7 @@ export const ChatInputField = forwardRef<ChatInputFieldHandle, ChatInputFieldPro
     });
 
     // Add new chips at cursor (or end)
-    newRefs.forEach((pr, i) => {
+    newRefs.forEach((pr) => {
       const actualIndex = pendingReferences.indexOf(pr);
       const chipHtml = createChipHTML(pr.reference, actualIndex, pr.confirmed);
       insertChipAtCursor(chipHtml);
