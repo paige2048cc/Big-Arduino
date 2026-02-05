@@ -135,18 +135,27 @@ export function RightPanel({
           </div>
         ) : (
           chatMessages.map((msg, index) => {
+            // Generate a stable key based on role and index
+            const messageKey = `${msg.role}-${index}`;
+
             // For assistant messages, try to parse issues first
             if (msg.role === 'assistant') {
               const { issues } = parseIssuesFromResponse(msg.content);
 
               if (issues.length > 0) {
+                // Extract content before first issue marker using simple string find
+                const firstBracket = msg.content.indexOf('[1]');
+                const contentBeforeIssues = firstBracket > 0 ? msg.content.slice(0, firstBracket).trim() : '';
+
                 return (
-                  <div key={index} className="chat-message assistant">
+                  <div key={messageKey} className="chat-message assistant">
                     <div className="message-bubble">
                       {/* Show the message content */}
-                      <div className="message-content">
-                        {renderAssistantContent(msg.content.split(/\[\d+\]/)[0].trim())}
-                      </div>
+                      {contentBeforeIssues && (
+                        <div className="message-content">
+                          {renderAssistantContent(contentBeforeIssues)}
+                        </div>
+                      )}
                       {/* Show clickable issues */}
                       <div className="message-issues">
                         {issues.map((issue) => (
@@ -164,7 +173,7 @@ export function RightPanel({
 
               // No issues - render with component references
               return (
-                <div key={index} className="chat-message assistant">
+                <div key={messageKey} className="chat-message assistant">
                   <div className="message-bubble">
                     <div className="message-content">
                       {renderAssistantContent(msg.content)}
@@ -177,7 +186,7 @@ export function RightPanel({
             // For user messages with references, show tags inline with text
             if (msg.role === 'user' && msg.references && msg.references.length > 0) {
               return (
-                <div key={index} className="chat-message user">
+                <div key={messageKey} className="chat-message user">
                   <div className="message-bubble">
                     {msg.references.map((ref, refIndex) => {
                       let key: string;
@@ -204,7 +213,7 @@ export function RightPanel({
             }
 
             return (
-              <div key={index} className={`chat-message ${msg.role}`}>
+              <div key={messageKey} className={`chat-message ${msg.role}`}>
                 <div className="message-bubble">{msg.content}</div>
               </div>
             );

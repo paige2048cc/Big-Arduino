@@ -70,71 +70,108 @@ export const ClickableIssue: React.FC<ClickableIssueProps> = ({ issue, onView })
 
 /**
  * Parse AI response for issue markers and create issue data
+ * Uses simple line-by-line parsing to avoid ReDoS vulnerabilities
  */
 export function parseIssuesFromResponse(response: string): {
   issues: IssueData[];
   cleanedResponse: string;
 } {
   const issues: IssueData[] = [];
+
+  // Split into lines for simple parsing (avoids complex regex backtracking)
+  const lines = response.split('\n');
   let issueNumber = 0;
 
-  // Pattern to match issue blocks like:
-  // [1] [ERROR] Title [COMPONENT_ID]
-  // Description
-  // → Fix suggestion
-  const issuePattern = /\[(\d+)\]\s*\[(ERROR|WARNING|SUGGESTION|INFO)\]\s*([^\n\[]+)(?:\[([^\]]+)\])?\n([^\n]+)(?:\n→\s*(.+))?/gi;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
 
-  let match;
-  while ((match = issuePattern.exec(response)) !== null) {
-    issueNumber++;
-    const severity = match[2].toLowerCase() as HighlightSeverity;
-    const title = match[3].trim();
-    const componentId = match[4];
-    const description = match[5].trim();
-    const fix = match[6]?.trim();
+    // Try to match structured format: [1] [ERROR] Title [COMPONENT_ID]
+    // Use simple string operations instead of complex regex
+    if (line.startsWith('[') && line.length > 3) {
+      const bracketMatch = line.match(/^\[(\d+)\]\s*\[(ERROR|WARNING|SUGGESTION|INFO)\]/i);
+      if (bracketMatch) {
+        issueNumber++;
+        const severity = bracketMatch[2].toLowerCase() as HighlightSeverity;
 
-    issues.push({
-      id: `issue-${issueNumber}`,
-      number: issueNumber,
-      severity: severity === 'error' ? 'error' : severity === 'warning' ? 'warning' : severity === 'suggestion' ? 'suggestion' : 'info',
-      title,
-      description,
-      fix,
-      affectedIds: componentId ? [componentId] : []
-    });
-  }
+        // Extract title and optional component ID from rest of line
+        let rest = line.slice(bracketMatch[0].length).trim();
+        let componentId: string | undefined;
 
-  // Also try simpler pattern: numbered list with severity emoji
-  if (issues.length === 0) {
-    const simplePattern = /(\d+)\.\s*(❌|⚠️|💡|ℹ️)?\s*\*?\*?([^*\n:]+)\*?\*?\s*(?:\[([^\]]+)\])?\n\s*([^\n]+)(?:\n\s*→\s*(.+))?/g;
+        // Check for component ID at end: [COMPONENT_ID]
+        const idMatch = rest.match(/\[([^\]]+)\]$/);
+        if (idMatch) {
+          componentId = idMatch[1];
+          rest = rest.slice(0, -idMatch[0].length).trim();
+        }
 
-    while ((match = simplePattern.exec(response)) !== null) {
-      issueNumber++;
-      const emoji = match[2];
-      let severity: HighlightSeverity = 'info';
-      if (emoji === '❌') severity = 'error';
-      else if (emoji === '⚠️') severity = 'warning';
-      else if (emoji === '💡') severity = 'suggestion';
+        const title = rest || 'Issue';
+        const description = (i + 1 < lines.length) ? lines[i + 1].trim() : '';
 
-      const title = match[3].trim();
-      const componentId = match[4];
-      const description = match[5].trim();
-      const fix = match[6]?.trim();
+        // Check for fix on next line (starts with →)
+        let fix: string | undefined;
+        if (i + 2 < lines.length && lines[i + 2].trim().startsWith('→')) {
+          fix = lines[i + 2].trim().slice(1).trim();
+        }
 
-      issues.push({
-        id: `issue-${issueNumber}`,
-        number: issueNumber,
-        severity,
-        title,
-        description,
-        fix,
-        affectedIds: componentId ? [componentId] : []
-      });
+        issues.push({
+          id: `issue-${issueNumber}`,
+          number: issueNumber,
+          severity: severity === 'error' ? 'error' : severity === 'warning' ? 'warning' : severity === 'suggestion' ? 'suggestion' : 'info',
+          title,
+          description,
+          fix,
+          affectedIds: componentId ? [componentId] : []
+        });
+        continue;
+      }
+    }
+
+    // Try simpler emoji format: 1. ❌ Title
+    const emojiMatch = line.match(/^(\d+)\.\s*(❌|⚠️|💡|ℹ️)?\s*/);
+    if (emojiMatch) {
+      const emoji = emojiMatch[2];
+      // Only process if there's an emoji or it looks like an issue
+      if (emoji) {
+        issueNumber++;
+        let severity: HighlightSeverity = 'info';
+        if (emoji === '❌') severity = 'error';
+        else if (emoji === '⚠️') severity = 'warning';
+        else if (emoji === '💡') severity = 'suggestion';
+
+        let rest = line.slice(emojiMatch[0].length).trim();
+
+        // Remove markdown bold markers
+        rest = rest.replace(/\*\*/g, '');
+
+        // Check for component ID
+        let componentId: string | undefined;
+        const idMatch = rest.match(/\[([^\]]+)\]$/);
+        if (idMatch) {
+          componentId = idMatch[1];
+          rest = rest.slice(0, -idMatch[0].length).trim();
+        }
+
+        const title = rest || 'Issue';
+        const description = (i + 1 < lines.length) ? lines[i + 1].trim() : '';
+
+        let fix: string | undefined;
+        if (i + 2 < lines.length && lines[i + 2].trim().startsWith('→')) {
+          fix = lines[i + 2].trim().slice(1).trim();
+        }
+
+        issues.push({
+          id: `issue-${issueNumber}`,
+          number: issueNumber,
+          severity,
+          title,
+          description,
+          fix,
+          affectedIds: componentId ? [componentId] : []
+        });
+      }
     }
   }
 
-  // Clean the response by removing issue blocks (if we want to show them differently)
-  // For now, keep the original response
   return { issues, cleanedResponse: response };
 }
 
