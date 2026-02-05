@@ -183,6 +183,7 @@ function getInternalConnections(
 
 /**
  * Traces a path from a starting pin to find power or ground
+ * @param maxDepth - Maximum recursion depth to prevent infinite loops (default: 100)
  */
 function tracePath(
   startComponentId: string,
@@ -191,7 +192,9 @@ function tracePath(
   definitions: Map<string, ComponentDefinition>,
   buttonStates: Map<string, boolean>,
   components: PlacedComponent[],
-  visited: Set<string> = new Set()
+  visited: Set<string> = new Set(),
+  depth: number = 0,
+  maxDepth: number = 100
 ): PathResult {
   const result: PathResult = {
     reachesPower: false,
@@ -201,6 +204,12 @@ function tracePath(
     wires: [],
     lastWireId: null,
   };
+
+  // Prevent infinite recursion with depth limit
+  if (depth >= maxDepth) {
+    console.warn(`tracePath: Max depth (${maxDepth}) reached, stopping recursion`);
+    return result;
+  }
 
   const key = `${startComponentId}:${startPinId}`;
   if (visited.has(key)) {
@@ -246,7 +255,9 @@ function tracePath(
       definitions,
       buttonStates,
       components,
-      new Set(visited)
+      visited,
+      depth + 1,
+      maxDepth
     );
 
     if (internalResult.reachesPower) {
@@ -283,7 +294,9 @@ function tracePath(
             definitions,
             buttonStates,
             components,
-            new Set(visited)
+            visited,
+            depth + 1,
+            maxDepth
           );
 
           if (insertedResult.reachesPower) {
@@ -319,7 +332,9 @@ function tracePath(
         definitions,
         buttonStates,
         components,
-        new Set(visited)
+        visited,
+        depth + 1,
+        maxDepth
       );
 
       if (bbResult.reachesPower) {
@@ -354,7 +369,9 @@ function tracePath(
       definitions,
       buttonStates,
       components,
-      new Set(visited)
+      visited,
+      depth + 1,
+      maxDepth
     );
 
     if (wireResult.reachesPower) {
