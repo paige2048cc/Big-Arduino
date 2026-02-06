@@ -145,11 +145,8 @@ export function renderMessageContent(
         </div>
       );
       componentCards = [];
-
-      // Highlight toolbar components
-      if (onToolbarHighlight) {
-        componentIds.forEach((id) => onToolbarHighlight(id));
-      }
+      // Note: Don't call onToolbarHighlight here - it causes render loops
+      // Toolbar highlighting should be triggered by user interaction, not during render
       componentIds = [];
     }
   };
