@@ -1,14 +1,36 @@
-import { useRef } from 'react';
+import { useRef, useMemo } from 'react';
 import { MessageSquare, Send } from 'lucide-react';
 import type { ChatReference, HighlightItem } from '../../types/chat';
 import { usePendingReferences, useCircuitStore } from '../../store/circuitStore';
 import { ReferenceTag } from '../chat/ReferenceTag';
 import { ChatInputField } from '../chat/ChatInputField';
 import type { ChatInputFieldHandle } from '../chat/ChatInputField';
-import { ClickableIssue, parseIssuesFromResponse } from '../chat/ClickableIssue';
+import { ClickableIssue, parseIssuesFromResponse, type IssueData } from '../chat/ClickableIssue';
 import { renderMessageContent, hasComponentReferences } from '../../utils/messageParser';
 import '../shared/ComponentItem.css';
 import './RightPanel.css';
+
+// Cache for parsed issues to avoid re-parsing on every render
+const issueCache = new Map<string, { issues: IssueData[]; cleanedResponse: string }>();
+
+function getCachedIssues(content: string) {
+  if (issueCache.has(content)) {
+    return issueCache.get(content)!;
+  }
+  try {
+    const result = parseIssuesFromResponse(content);
+    // Limit cache size to prevent memory issues
+    if (issueCache.size > 100) {
+      const firstKey = issueCache.keys().next().value;
+      if (firstKey) issueCache.delete(firstKey);
+    }
+    issueCache.set(content, result);
+    return result;
+  } catch (e) {
+    console.error('Error parsing issues:', e);
+    return { issues: [], cleanedResponse: content };
+  }
+}
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -105,17 +127,25 @@ export function RightPanel({
 
   // Render assistant message content with component references
   const renderAssistantContent = (content: string) => {
-    // Check if content has component references
-    if (hasComponentReferences(content)) {
-      return renderMessageContent(content, {
-        circuitState: { placedComponents },
-        onExistingComponentClick: handleExistingComponentClick,
-        onToolbarHighlight: handleToolbarHighlight,
-      });
-    }
+    // Safeguard: limit content length to prevent performance issues
+    const safeContent = content.length > 10000 ? content.slice(0, 10000) + '...' : content;
 
-    // Regular text content
-    return <span className="message-text">{content}</span>;
+    try {
+      // Check if content has component references
+      if (hasComponentReferences(safeContent)) {
+        return renderMessageContent(safeContent, {
+          circuitState: { placedComponents },
+          onExistingComponentClick: handleExistingComponentClick,
+          onToolbarHighlight: handleToolbarHighlight,
+        });
+      }
+
+      // Regular text content
+      return <span className="message-text">{safeContent}</span>;
+    } catch (e) {
+      console.error('Error rendering assistant content:', e);
+      return <span className="message-text">{safeContent}</span>;
+    }
   };
 
   return (
@@ -140,7 +170,7 @@ export function RightPanel({
 
             // For assistant messages, try to parse issues first
             if (msg.role === 'assistant') {
-              const { issues } = parseIssuesFromResponse(msg.content);
+              const { issues } = getCachedIssues(msg.content);
 
               if (issues.length > 0) {
                 // Extract content before first issue marker using simple string find
