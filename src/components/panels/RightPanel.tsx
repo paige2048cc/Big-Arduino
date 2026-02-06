@@ -1,4 +1,4 @@
-import { useRef, useMemo } from 'react';
+import { useRef } from 'react';
 import { MessageSquare, Send } from 'lucide-react';
 import type { ChatReference, HighlightItem } from '../../types/chat';
 import { usePendingReferences, useCircuitStore } from '../../store/circuitStore';
