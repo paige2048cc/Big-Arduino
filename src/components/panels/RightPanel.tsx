@@ -59,7 +59,6 @@ export function RightPanel({
     setInputFocused,
     setHighlights,
     clearHighlights,
-    setHighlightedToolbarComponent,
   } = useCircuitStore();
 
   // Handle clicking on an issue to highlight affected items
@@ -91,11 +90,6 @@ export function RightPanel({
     setTimeout(() => {
       clearHighlights();
     }, 5000);
-  };
-
-  // Handle highlighting toolbar components from AI message
-  const handleToolbarHighlight = (componentId: string) => {
-    setHighlightedToolbarComponent(componentId);
   };
 
   // Handle send from ChatInputField
@@ -136,7 +130,6 @@ export function RightPanel({
         return renderMessageContent(safeContent, {
           circuitState: { placedComponents },
           onExistingComponentClick: handleExistingComponentClick,
-          onToolbarHighlight: handleToolbarHighlight,
         });
       }
 

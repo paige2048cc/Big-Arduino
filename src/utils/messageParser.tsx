@@ -116,7 +116,6 @@ function getInstanceDisplayName(
 interface RenderOptions {
   circuitState?: CircuitState;
   onExistingComponentClick?: (instanceId: string) => void;
-  onToolbarHighlight?: (componentId: string) => void;
 }
 
 /**
@@ -126,7 +125,7 @@ export function renderMessageContent(
   content: string,
   options: RenderOptions = {}
 ): React.ReactNode {
-  const { circuitState, onExistingComponentClick, onToolbarHighlight } = options;
+  const { circuitState, onExistingComponentClick } = options;
   const segments = parseMessage(content);
 
   // Count add-component segments for scaling
