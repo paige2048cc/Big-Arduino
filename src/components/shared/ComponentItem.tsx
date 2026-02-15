@@ -7,6 +7,11 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import { useCircuitStore, useClickToPlace, useDragPreview } from '../../store/circuitStore';
+import {
+  useOnboardingStore,
+  useIsOnboardingActive,
+  useOnboardingPhase,
+} from '../../store/onboardingStore';
 import './ComponentItem.css';
 
 // Pre-create transparent 1x1 image for hiding native drag preview
@@ -41,6 +46,11 @@ export function ComponentItem({
   const startDragPreview = useCircuitStore((state) => state.startDragPreview);
   const endDragPreview = useCircuitStore((state) => state.endDragPreview);
 
+  // Onboarding hooks
+  const isOnboardingActive = useIsOnboardingActive();
+  const onboardingPhase = useOnboardingPhase();
+  const onComponentClicked = useOnboardingStore((state) => state.onComponentClicked);
+
   // Pre-load empty image for hiding native drag preview
   const emptyImgRef = useRef<HTMLImageElement | null>(null);
   useEffect(() => {
@@ -62,6 +72,11 @@ export function ComponentItem({
     // Start our custom drag preview
     startDragPreview(component.id, category);
 
+    // Notify onboarding that component was clicked/dragged
+    if (isOnboardingActive && onboardingPhase === 'initial') {
+      onComponentClicked();
+    }
+
     onDragStart?.(component.id);
   };
 
@@ -70,6 +85,11 @@ export function ComponentItem({
   };
 
   const handleClick = () => {
+    // Notify onboarding that component was clicked
+    if (isOnboardingActive && onboardingPhase === 'initial') {
+      onComponentClicked();
+    }
+
     startClickToPlace(component.id, category);
   };
 

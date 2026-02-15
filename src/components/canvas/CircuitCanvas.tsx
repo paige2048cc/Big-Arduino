@@ -3,10 +3,16 @@ import { createPortal } from 'react-dom';
 import * as fabric from 'fabric';
 import { ZoomIn, ZoomOut, Undo2, Trash2, Move, RotateCw, FlipHorizontal, FlipVertical } from 'lucide-react';
 import { useCircuitStore, useHoveredPin, useWireDrawing, useWires, useSimulationErrors, useSelectedWire, useClickToPlace, useDragPreview, useHighlightedItems } from '../../store/circuitStore';
+import {
+  useOnboardingStore,
+  useIsOnboardingActive,
+  useOnboardingPhase,
+} from '../../store/onboardingStore';
 import type { CircuitError } from '../../services/circuitSimulator';
 import { createComponentReference, createWireReference } from '../../types/chat';
 import { loadComponentByFileName, getPinAtPosition } from '../../services/componentService';
 import { calculateSnapPosition, shouldRemoveFromBreadboard } from '../../services/breadboardSnapping';
+import { routeOrthogonalManhattan, type Rect as RouterRect, type Point as RouterPoint } from '../../services/routing/orthogonalRouter';
 import './CircuitCanvas.css';
 
 // Helper functions for wire path generation
@@ -98,8 +104,96 @@ function constrainToAxis(
   }
 }
 
+function dedupeConsecutivePoints(points: { x: number; y: number }[]): { x: number; y: number }[] {
+  const out: { x: number; y: number }[] = [];
+  for (const p of points) {
+    const last = out[out.length - 1];
+    if (!last || last.x !== p.x || last.y !== p.y) out.push(p);
+  }
+  return out;
+}
+
+function simplifyCollinearPoints(points: { x: number; y: number }[]): { x: number; y: number }[] {
+  if (points.length <= 2) return points;
+  const out: { x: number; y: number }[] = [points[0]];
+  for (let i = 1; i < points.length - 1; i++) {
+    const a = out[out.length - 1];
+    const b = points[i];
+    const c = points[i + 1];
+    const collinear = (a.x === b.x && b.x === c.x) || (a.y === b.y && b.y === c.y);
+    if (!collinear) out.push(b);
+  }
+  out.push(points[points.length - 1]);
+  return out;
+}
+
+function fallbackOrthogonal(a: { x: number; y: number }, b: { x: number; y: number }): { x: number; y: number }[] {
+  if (a.x === b.x || a.y === b.y) return [a, b];
+  return [a, { x: b.x, y: a.y }, b];
+}
+
+function applySegmentShift(
+  points: { x: number; y: number }[],
+  segmentIndex: number,
+  orientation: 'h' | 'v',
+  newCoord: number
+): { x: number; y: number }[] {
+  if (points.length < 2) return points;
+  if (segmentIndex < 0 || segmentIndex >= points.length - 1) return points;
+
+  if (orientation === 'h') {
+    const newY = newCoord;
+    // Segment endpoints
+    const i = segmentIndex;
+    const j = segmentIndex + 1;
+
+    if (i === 0) {
+      const start = points[0];
+      const p1 = { ...points[1], y: newY };
+      const inserted = start.y === newY ? [] : [{ x: start.x, y: newY }];
+      return simplifyCollinearPoints(dedupeConsecutivePoints([start, ...inserted, p1, ...points.slice(2)]));
+    }
+    if (j === points.length - 1) {
+      const end = points[points.length - 1];
+      const prev = { ...points[points.length - 2], y: newY };
+      const inserted = end.y === newY ? [] : [{ x: end.x, y: newY }];
+      return simplifyCollinearPoints(dedupeConsecutivePoints([...points.slice(0, -2), prev, ...inserted, end]));
+    }
+
+    const out = points.map((p) => ({ ...p }));
+    out[i].y = newY;
+    out[j].y = newY;
+    return simplifyCollinearPoints(dedupeConsecutivePoints(out));
+  }
+
+  // Vertical segment
+  const newX = newCoord;
+  const i = segmentIndex;
+  const j = segmentIndex + 1;
+
+  if (i === 0) {
+    const start = points[0];
+    const p1 = { ...points[1], x: newX };
+    const inserted = start.x === newX ? [] : [{ x: newX, y: start.y }];
+    return simplifyCollinearPoints(dedupeConsecutivePoints([start, ...inserted, p1, ...points.slice(2)]));
+  }
+  if (j === points.length - 1) {
+    const end = points[points.length - 1];
+    const prev = { ...points[points.length - 2], x: newX };
+    const inserted = end.x === newX ? [] : [{ x: newX, y: end.y }];
+    return simplifyCollinearPoints(dedupeConsecutivePoints([...points.slice(0, -2), prev, ...inserted, end]));
+  }
+
+  const out = points.map((p) => ({ ...p }));
+  out[i].x = newX;
+  out[j].x = newX;
+  return simplifyCollinearPoints(dedupeConsecutivePoints(out));
+}
+
 // Threshold distance for pin snapping (in canvas pixels)
 const PIN_SNAP_THRESHOLD = 30;
+const DEFAULT_ROUTE_GRID_SIZE = 12;
+const DEFAULT_ROUTE_CLEARANCE = 28;
 
 // Ghost preview component for click-to-place
 interface GhostPreviewProps {
@@ -162,16 +256,16 @@ interface CircuitCanvasProps {
 // Extended FabricObject to include our custom data
 interface ComponentFabricObject extends fabric.FabricObject {
   data?: {
-    type: 'component' | 'grid' | 'wire' | 'wire-outline' | 'wire-control-point' | 'pin-highlight';
+    type: 'component' | 'grid' | 'wire' | 'wire-outline' | 'wire-segment-handle' | 'pin-highlight';
     instanceId?: string;
     definitionId?: string;
     componentId?: string;
     wireId?: string;
     error?: CircuitError;
     points?: { x: number; y: number }[];
-    // For wire control points
-    pointIndex?: number;
-    pointType?: 'start' | 'bend' | 'end';
+    // For wire segment handles
+    segmentIndex?: number;
+    segmentOrientation?: 'h' | 'v';
   };
 }
 
@@ -235,6 +329,11 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
   const selectedWire = useSelectedWire();
   const highlightedItems = useHighlightedItems();
 
+  // Onboarding hooks
+  const isOnboardingActive = useIsOnboardingActive();
+  const onboardingPhase = useOnboardingPhase();
+  const onComponentDropped = useOnboardingStore((state) => state.onComponentDropped);
+
   // Highlight objects ref for cleanup
   const highlightObjectsRef = useRef<fabric.FabricObject[]>([]);
 
@@ -252,11 +351,20 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
   // Map wireId to Fabric path object
   const wireToFabricMap = useRef<Map<string, fabric.Path>>(new Map());
 
-  // Wire control points (circles at endpoints and bends) when wire is selected
-  const wireControlPointsRef = useRef<fabric.Circle[]>([]);
+  // Wire segment handles (draggable) when wire is selected
+  const wireControlPointsRef = useRef<fabric.FabricObject[]>([]);
 
   // Wire preview path during drawing
   const wirePreviewRef = useRef<fabric.Path | null>(null);
+  // Route context cache during wire drawing (components are locked while drawing)
+  const routeContextRef = useRef<{
+    componentRects: Map<string, RouterRect>;
+    obstacles: RouterRect[];
+    startRect?: RouterRect;
+  } | null>(null);
+  // Cache latest preview result so click-to-complete matches what user saw
+  const previewRoutedPointsRef = useRef<{ points: RouterPoint[]; bendPoints: RouterPoint[] } | null>(null);
+  const routeRafRef = useRef<number | null>(null);
 
   // Image cache for component variants (to avoid reloading same images)
   const imageCache = useRef<Map<string, HTMLImageElement>>(new Map());
@@ -273,9 +381,6 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
 
   // Shift key state for axis constraint
   const isShiftHeldRef = useRef(false);
-
-  // Track drag start position for wire control points (for Shift constraint)
-  const wireControlPointDragStartRef = useRef<{ x: number; y: number } | null>(null);
 
   // Track if any object is currently being dragged
   // Used to prevent sync effect from interfering during drag
@@ -586,6 +691,44 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
 
+    // Build routing context when entering wire drawing mode.
+    // While drawing, components are locked so rects remain stable.
+    if (wireDrawing.isDrawing) {
+      const componentRects = new Map<string, RouterRect>();
+      const obstacles: RouterRect[] = [];
+
+      for (const comp of placedComponents) {
+        const def = getComponentDefinition(comp.instanceId);
+        if (!def) continue;
+
+        // Breadboard is effectively the "table" we wire on top of.
+        // Treat other components (including Arduino UNO) as obstacles.
+        if (def.id === 'breadboard') continue;
+
+        const obj = instanceToFabricMap.current.get(comp.instanceId);
+        if (!obj) continue;
+
+        const r = obj.getBoundingRect();
+        const rect: RouterRect = {
+          left: r.left,
+          top: r.top,
+          right: r.left + r.width,
+          bottom: r.top + r.height,
+        };
+
+        componentRects.set(comp.instanceId, rect);
+        obstacles.push(rect);
+      }
+
+      const startRect =
+        wireDrawing.startComponentId ? componentRects.get(wireDrawing.startComponentId) : undefined;
+
+      routeContextRef.current = { componentRects, obstacles, startRect };
+    } else {
+      routeContextRef.current = null;
+      previewRoutedPointsRef.current = null;
+    }
+
     const objects = canvas.getObjects();
     objects.forEach(obj => {
       const data = (obj as ComponentFabricObject).data;
@@ -605,7 +748,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     // Also disable canvas selection during wire drawing
     canvas.selection = !wireDrawing.isDrawing;
     canvas.renderAll();
-  }, [wireDrawing.isDrawing]);
+  }, [wireDrawing.isDrawing, wireDrawing.startComponentId, placedComponents, getComponentDefinition]);
 
   // Helper to get pin canvas coordinates (handles rotation, flip, and scale)
   const getPinCanvasPosition = useCallback((componentId: string, pinId: string): { x: number; y: number } | null => {
@@ -849,6 +992,12 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
         placementX,
         placementY
       );
+
+      // Notify onboarding that component was dropped/placed
+      if (isOnboardingActive && onboardingPhase === 'component-clicked') {
+        onComponentDropped();
+      }
+
       // Clear the flag after a short delay to allow selection events to fire
       setTimeout(() => {
         isDroppingFromLibraryRef.current = false;
@@ -884,8 +1033,10 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
         mouseEvent.stopPropagation();
         return;
       } else {
-        // Complete wire drawing
-        completeWireDrawing(hoveredPin.componentId, hoveredPin.pin.id);
+        // Complete wire drawing.
+        // Use the same routed bend points that the preview is showing.
+        const override = previewRoutedPointsRef.current?.bendPoints;
+        completeWireDrawing(hoveredPin.componentId, hoveredPin.pin.id, override);
         return;
       }
     }
@@ -915,16 +1066,16 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     // Handle wire control point click (for dragging bend points)
     const controlPointObjects = canvas.getObjects().filter(obj => {
       const data = (obj as ComponentFabricObject).data;
-      return data?.type === 'wire-control-point';
+      return data?.type === 'wire-segment-handle';
     });
 
     for (let i = controlPointObjects.length - 1; i >= 0; i--) {
       const target = controlPointObjects[i] as ComponentFabricObject;
       if (!target.data?.wireId) continue;
 
-      // Check if click is on this control point
+      // Check if click is on this segment handle
       if (target.containsPoint(scenePoint)) {
-        // Control point clicked - Fabric will handle the drag
+        // Handle clicked - Fabric will handle the drag
         return;
       }
     }
@@ -1160,57 +1311,26 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       fabricCanvasRef.current?.renderAll();
     }
 
-    // Handle wire control point movement
-    if (obj?.data?.type === 'wire-control-point') {
-      const { wireId, pointIndex, pointType } = obj.data;
-      if (!wireId || pointIndex === undefined) return;
+    // Handle wire segment handle movement (commit on drag end)
+    if (obj?.data?.type === 'wire-segment-handle') {
+      const { wireId, segmentIndex, segmentOrientation } = obj.data;
+      if (!wireId || segmentIndex === undefined || !segmentOrientation) return;
 
-      const wire = useCircuitStore.getState().wires.find(w => w.id === wireId);
+      const wire = useCircuitStore.getState().wires.find((w) => w.id === wireId);
       if (!wire) return;
 
-      const newX = obj.left || 0;
-      const newY = obj.top || 0;
+      const startPos = getPinCanvasPosition(wire.startComponentId, wire.startPinId);
+      const endPos = getPinCanvasPosition(wire.endComponentId, wire.endPinId);
+      if (!startPos || !endPos) return;
 
-      if (pointType === 'bend') {
-        // Handle bend point movement
-        // pointIndex 0 is start, 1...n are bend points, last is end
-        // So bend point at pointIndex maps to bendPoints[pointIndex - 1]
-        const bendPointIndex = pointIndex - 1;
-        if (bendPointIndex >= 0 && bendPointIndex < wire.bendPoints.length) {
-          const newBendPoints = [...wire.bendPoints];
-          newBendPoints[bendPointIndex] = { x: newX, y: newY };
-          useCircuitStore.getState().updateWire(wireId, { bendPoints: newBendPoints });
-        }
-      } else if (pointType === 'start' || pointType === 'end') {
-        // Handle endpoint movement - find nearest pin to snap to
-        // Exclude the current connected pin from search
-        const excludeComponentId = pointType === 'start' ? wire.startComponentId : wire.endComponentId;
-        const excludePinId = pointType === 'start' ? wire.startPinId : wire.endPinId;
+      const points = [startPos, ...wire.bendPoints, endPos];
+      const newCoord = segmentOrientation === 'h' ? (obj.top || 0) : (obj.left || 0);
+      const newPoints = applySegmentShift(points, segmentIndex, segmentOrientation, newCoord);
+      const newBendPoints = newPoints.slice(1, -1);
 
-        const nearestPin = findNearestPin(newX, newY, excludeComponentId, excludePinId);
-
-        if (nearestPin) {
-          // Found a pin to snap to - update the wire connection
-          if (pointType === 'start') {
-            useCircuitStore.getState().updateWire(wireId, {
-              startComponentId: nearestPin.componentId,
-              startPinId: nearestPin.pinId,
-            });
-          } else {
-            useCircuitStore.getState().updateWire(wireId, {
-              endComponentId: nearestPin.componentId,
-              endPinId: nearestPin.pinId,
-            });
-          }
-        }
-        // If no pin found, the control point will snap back to the original pin position
-        // when the wire is re-rendered (since we don't update the connection)
-      }
-
-      // Clear drag start position after drag ends
-      wireControlPointDragStartRef.current = null;
+      useCircuitStore.getState().updateWire(wireId, { bendPoints: newBendPoints });
     }
-  }, [updateComponentPosition, findNearestPin, getComponentDefinition, placedComponents, insertIntoBreadboard, removeFromBreadboard, showInsertionHighlights]);
+  }, [updateComponentPosition, findNearestPin, getComponentDefinition, placedComponents, insertIntoBreadboard, removeFromBreadboard, showInsertionHighlights, getPinCanvasPosition]);
 
   // Track last position for delta calculation during breadboard drag
   const lastBreadboardPositionRef = useRef<{ id: string; x: number; y: number } | null>(null);
@@ -1261,11 +1381,11 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       }
     }
 
-    // Handle wire control points
-    if (obj?.data?.type !== 'wire-control-point') return;
+    // Handle wire segment handles (real-time path preview during drag)
+    if (obj?.data?.type !== 'wire-segment-handle') return;
 
-    const { wireId, pointIndex, pointType } = obj.data;
-    if (!wireId || pointIndex === undefined) return;
+    const { wireId, segmentIndex, segmentOrientation } = obj.data;
+    if (!wireId || segmentIndex === undefined || !segmentOrientation) return;
 
     // canvas already defined at the start of this function
     if (!canvas) return;
@@ -1278,65 +1398,9 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     const endPos = getPinCanvasPosition(wire.endComponentId, wire.endPinId);
     if (!startPos || !endPos) return;
 
-    // Build points array with the dragged position
-    let dragX = obj.left || 0;
-    let dragY = obj.top || 0;
-
-    // Capture drag start position on first move (for Shift constraint)
-    if (!wireControlPointDragStartRef.current) {
-      // Get the original position of this point before dragging
-      if (pointType === 'start') {
-        wireControlPointDragStartRef.current = { ...startPos };
-      } else if (pointType === 'end') {
-        wireControlPointDragStartRef.current = { ...endPos };
-      } else {
-        const bendIdx = pointIndex - 1;
-        if (bendIdx >= 0 && bendIdx < wire.bendPoints.length) {
-          wireControlPointDragStartRef.current = { ...wire.bendPoints[bendIdx] };
-        }
-      }
-    }
-
-    // Apply Shift constraint if held - constrain to horizontal/vertical relative to drag start position
-    if (isShiftHeldRef.current && wireControlPointDragStartRef.current) {
-      const constrained = constrainToAxis(
-        wireControlPointDragStartRef.current.x,
-        wireControlPointDragStartRef.current.y,
-        dragX,
-        dragY,
-        true
-      );
-      dragX = constrained.x;
-      dragY = constrained.y;
-      // Update the control point visual position to match constraint
-      obj.set({ left: dragX, top: dragY });
-    }
-
-    const points: { x: number; y: number }[] = [];
-
-    // Start point
-    if (pointType === 'start') {
-      points.push({ x: dragX, y: dragY });
-    } else {
-      points.push(startPos);
-    }
-
-    // Bend points
-    wire.bendPoints.forEach((bp, i) => {
-      const bendPointIndex = i + 1; // bend points start at index 1
-      if (pointIndex === bendPointIndex) {
-        points.push({ x: dragX, y: dragY });
-      } else {
-        points.push(bp);
-      }
-    });
-
-    // End point
-    if (pointType === 'end') {
-      points.push({ x: dragX, y: dragY });
-    } else {
-      points.push(endPos);
-    }
+    const basePoints = [startPos, ...wire.bendPoints, endPos];
+    const newCoord = segmentOrientation === 'h' ? (obj.top || 0) : (obj.left || 0);
+    const points = applySegmentShift(basePoints, segmentIndex, segmentOrientation, newCoord);
 
     // Create new path string
     const pathString = points.length > 2
@@ -1626,15 +1690,13 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     canvas.renderAll();
   }, [wires, placedComponents, getPinCanvasPosition, isSimulating, simulationErrors, selectedWireId]);
 
-  // Render wire control points when a wire is selected
+  // Render wire segment handles when a wire is selected
   useEffect(() => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
 
-    // Remove existing control points
-    wireControlPointsRef.current.forEach(circle => {
-      canvas.remove(circle);
-    });
+    // Remove existing handles
+    wireControlPointsRef.current.forEach(obj => canvas.remove(obj));
     wireControlPointsRef.current = [];
 
     // If no wire is selected, we're done
@@ -1661,40 +1723,51 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
 
     const allPoints = [startPos, ...selectedWire.bendPoints, endPos];
 
-    // Create control point circles for each point
-    allPoints.forEach((point, index) => {
-      const isEndpoint = index === 0 || index === allPoints.length - 1;
-      const pointType = index === 0 ? 'start' : (index === allPoints.length - 1 ? 'end' : 'bend');
+    // Create draggable handles for each axis-aligned segment.
+    // Horizontal segment -> can drag vertically (Y).
+    // Vertical segment -> can drag horizontally (X).
+    for (let i = 0; i < allPoints.length - 1; i++) {
+      const a = allPoints[i];
+      const b = allPoints[i + 1];
+      const isH = Math.abs(a.y - b.y) < 0.001;
+      const isV = Math.abs(a.x - b.x) < 0.001;
+      if (!isH && !isV) continue;
 
-      const circle = new fabric.Circle({
-        left: point.x,
-        top: point.y,
-        radius: isEndpoint ? 10 : 8,
-        fill: isEndpoint ? '#1a73e8' : '#ffffff',
+      const midX = (a.x + b.x) / 2;
+      const midY = (a.y + b.y) / 2;
+      const size = 10;
+
+      const handle = new fabric.Rect({
+        left: midX,
+        top: midY,
+        width: size,
+        height: size,
+        rx: 3,
+        ry: 3,
+        fill: '#ffffff',
         stroke: '#1a73e8',
         strokeWidth: 2,
         originX: 'center',
         originY: 'center',
-        // All control points (endpoints and bend points) are draggable
         selectable: true,
         evented: true,
         hasControls: false,
         hasBorders: false,
-        lockMovementX: false,
-        lockMovementY: false,
-        hoverCursor: 'move',
+        lockMovementX: isH, // horizontal segment -> lock X, allow Y
+        lockMovementY: isV, // vertical segment -> lock Y, allow X
+        hoverCursor: isH ? 'ns-resize' : 'ew-resize',
         data: {
-          type: 'wire-control-point',
+          type: 'wire-segment-handle',
           wireId: selectedWireId,
-          pointIndex: index,
-          pointType,
+          segmentIndex: i,
+          segmentOrientation: isH ? 'h' : 'v',
         },
       });
 
-      canvas.add(circle);
-      canvas.bringObjectToFront(circle);
-      wireControlPointsRef.current.push(circle);
-    });
+      canvas.add(handle);
+      canvas.bringObjectToFront(handle);
+      wireControlPointsRef.current.push(handle);
+    }
 
     canvas.renderAll();
   }, [selectedWireId, wires, getPinCanvasPosition]);
@@ -1705,48 +1778,83 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     if (!canvas) return;
 
     if (wireDrawing.isDrawing) {
-      // Build points: start -> bendPoints -> current mouse position
-      const points = [
-        { x: wireDrawing.startX, y: wireDrawing.startY },
-        ...wireDrawing.bendPoints,
-        { x: wireDrawing.currentX, y: wireDrawing.currentY },
-      ];
-
-      const pathString = points.length > 2
-        ? createRoundedPath(points, 12)
-        : `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y}`;
-
-      // Remove old preview and create new one (Fabric.js path updates can be problematic)
-      if (wirePreviewRef.current) {
-        canvas.remove(wirePreviewRef.current);
+      // Throttle route computations to animation frames (A* can be non-trivial).
+      if (routeRafRef.current) {
+        cancelAnimationFrame(routeRafRef.current);
       }
 
-      // Create new preview path
-      const previewPath = new fabric.Path(pathString, {
-        stroke: wireDrawing.color,
-        strokeWidth: 6,
-        fill: 'transparent',
-        strokeLineCap: 'round',
-        strokeLineJoin: 'round',
-        strokeDashArray: [10, 5],
-        selectable: false,
-        evented: false,
-        data: { type: 'wire-preview' },
-      });
+      routeRafRef.current = requestAnimationFrame(() => {
+        routeRafRef.current = null;
 
-      canvas.add(previewPath);
-      canvas.bringObjectToFront(previewPath);
-      wirePreviewRef.current = previewPath;
-      canvas.renderAll();
+        const start: RouterPoint = { x: wireDrawing.startX, y: wireDrawing.startY };
+        const end: RouterPoint = { x: wireDrawing.currentX, y: wireDrawing.currentY };
+        const anchors: RouterPoint[] = [start, ...wireDrawing.bendPoints, end];
+
+        const ctx = routeContextRef.current;
+        const endRect = hoveredPin?.componentId ? ctx?.componentRects.get(hoveredPin.componentId) : undefined;
+        const startRect = ctx?.startRect;
+        const obstacles = ctx?.obstacles ?? [];
+
+        const routedPoints: RouterPoint[] = [];
+        for (let i = 0; i < anchors.length - 1; i++) {
+          const segStart = anchors[i];
+          const segEnd = anchors[i + 1];
+          const segment =
+            routeOrthogonalManhattan({
+              start: segStart,
+              end: segEnd,
+              obstacles,
+              startRect: i === 0 ? startRect : undefined,
+              endRect: i === anchors.length - 2 ? endRect : undefined,
+              gridSize: DEFAULT_ROUTE_GRID_SIZE,
+              clearance: DEFAULT_ROUTE_CLEARANCE,
+            }) ?? fallbackOrthogonal(segStart, segEnd);
+
+          if (i === 0) routedPoints.push(...segment);
+          else routedPoints.push(...segment.slice(1));
+        }
+
+        const points = simplifyCollinearPoints(dedupeConsecutivePoints(routedPoints));
+        const bendPoints = points.slice(1, -1);
+        previewRoutedPointsRef.current = { points, bendPoints };
+
+        const pathString =
+          points.length > 2
+            ? createRoundedPath(points, 12)
+            : `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y}`;
+
+        // Remove old preview and create new one (Fabric.js path updates can be problematic)
+        if (wirePreviewRef.current) {
+          canvas.remove(wirePreviewRef.current);
+        }
+
+        // Create new preview path
+        const previewPath = new fabric.Path(pathString, {
+          stroke: wireDrawing.color,
+          strokeWidth: 6,
+          fill: 'transparent',
+          strokeLineCap: 'round',
+          strokeLineJoin: 'round',
+          selectable: false,
+          evented: false,
+          data: { type: 'wire-preview', points },
+        });
+
+        canvas.add(previewPath);
+        canvas.bringObjectToFront(previewPath);
+        wirePreviewRef.current = previewPath;
+        canvas.renderAll();
+      });
     } else {
       // Remove preview when not drawing
       if (wirePreviewRef.current) {
         canvas.remove(wirePreviewRef.current);
         wirePreviewRef.current = null;
+        previewRoutedPointsRef.current = null;
         canvas.renderAll();
       }
     }
-  }, [wireDrawing]);
+  }, [wireDrawing, hoveredPin?.componentId]);
 
   // Render highlight overlays for AI-identified issues
   useEffect(() => {
@@ -2779,6 +2887,12 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     // Mark that we're dropping from library (to skip adding chat references)
     isDroppingFromLibraryRef.current = true;
     createComponentWithImage(componentId, category, x, y);
+
+    // Notify onboarding that component was dropped
+    if (isOnboardingActive && onboardingPhase === 'component-clicked') {
+      onComponentDropped();
+    }
+
     // Clear the flag after a short delay to allow selection events to fire
     setTimeout(() => {
       isDroppingFromLibraryRef.current = false;
