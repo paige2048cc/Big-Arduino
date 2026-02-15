@@ -10,7 +10,7 @@
   align-items: center;
   gap: 8px;
   padding: 12px 16px;
-  background: var(--bg-secondary, #f8f9fa);
+  background: var(--bg-primary, #ffffff);
   border-bottom: 1px solid var(--border-color, #dadce0);
 }
 
@@ -48,7 +48,7 @@
 
 .category-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   width: 100%;
   padding: 8px 16px;
@@ -61,10 +61,13 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   transition: all 0.15s ease;
+  text-align: left;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .category-header:hover {
-  background: var(--bg-tertiary, #f1f3f4);
+  background: rgba(237, 246, 255, 0.6);
   color: var(--text-primary, #202124);
 }
 
@@ -76,17 +79,24 @@
 .category-count {
   margin-left: auto;
   padding: 2px 6px;
-  background: var(--bg-tertiary, #f1f3f4);
+  background: var(--bg-primary, #ffffff);
+  border: 1px solid var(--border-color, #dadce0);
   border-radius: 10px;
   font-size: 10px;
   font-weight: 500;
   color: var(--text-secondary, #5f6368);
 }
 
-/* Component Items - 3-column card grid */
+/* Component Items - Responsive card grid (1-3 cards per row) */
 .category-components {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* Responsive grid that adapts to sidebar width:
+   * - Max 3 cards per row (ensured by min-width being at least 1/3 of available space)
+   * - Adapts to 2 cards when sidebar is narrower
+   * - Falls to 1 card at very narrow widths
+   * - Each card has minimum 80px width for usability
+   */
+  grid-template-columns: repeat(auto-fill, minmax(max(80px, calc((100% - 16px) / 3)), 1fr));
   gap: 8px;
   padding: 8px;
 }

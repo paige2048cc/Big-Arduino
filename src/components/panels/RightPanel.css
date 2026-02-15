@@ -11,26 +11,6 @@
 }
 
 /* ==================== */
-/* Chat Header          */
-/* ==================== */
-
-.right-panel-container .chat-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 16px;
-  border-bottom: 1px solid var(--border-color, #e8eaed);
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-primary, #202124);
-}
-
-.right-panel-container .chat-header svg {
-  color: var(--accent-primary, #1a73e8);
-  flex-shrink: 0;
-}
-
-/* ==================== */
 /* Chat Messages Area   */
 /* ==================== */
 
@@ -76,10 +56,13 @@
 
 .right-panel-container .chat-message {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: flex-start;
   padding: 0;
   background: transparent;
   border-radius: 0;
+  width: 100%;
   align-self: stretch;
   animation: messageSlideIn 0.2s ease-out;
 }
@@ -96,49 +79,45 @@
 }
 
 .right-panel-container .chat-message.user {
-  align-items: flex-end;
-  align-self: flex-end;
+  justify-content: flex-end;
   max-width: 100%;
 }
 
 .right-panel-container .chat-message.assistant {
-  align-items: flex-start;
-  align-self: flex-start;
+  justify-content: flex-start;
   max-width: 100%;
 }
 
-/* Adaptive width bubbles */
+/* Message bubble base */
 .right-panel-container .message-bubble {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  width: fit-content;
+  display: inline-block;
+  width: fit-content; /* hug content when short */
   min-width: 40px;
-  max-width: 85%;
-  padding: 10px 14px;
+  max-width: 100%; /* when long, expand to available width and wrap */
+  padding: 12px 14px;
   font-size: 14px;
   line-height: 1.5;
-  word-wrap: break-word;
-  overflow-wrap: anywhere;  /* Break long strings when needed */
-  word-break: normal;       /* Preserve word boundaries */
-  overflow: hidden;  /* Safety net for overflow */
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 
 /* User message bubble */
 .right-panel-container .chat-message.user .message-bubble {
-  background: var(--accent-primary, #1a73e8);
-  color: white;
+  background: #f3f5f8; /* light gray bubble for user */
+  color: var(--text-primary, #202124);
   border-radius: 16px 16px 4px 16px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(18, 30, 61, 0.08);
+  box-shadow: 0 2px 10px rgba(18, 30, 61, 0.06);
 }
 
 /* Assistant message bubble */
 .right-panel-container .chat-message.assistant .message-bubble {
-  background: var(--bg-secondary, #f8f9fa);
+  background: #ffffff;
   color: var(--text-primary, #202124);
   border-radius: 16px 16px 16px 4px;
-  border: 1px solid var(--border-color, #e8eaed);
+  border: 1px solid rgba(18, 30, 61, 0.08);
+  box-shadow: 0 2px 10px rgba(18, 30, 61, 0.06);
 }
 
 /* Message text */
@@ -159,6 +138,7 @@
 .right-panel-container .message-text-content {
   margin: 0;
   white-space: pre-wrap;
+  display: inline;
 }
 
 /* Reference tags in user messages - stand out on blue background */
@@ -180,23 +160,68 @@
   background: var(--bg-primary, #ffffff);
 }
 
-/* Chat Input Row */
-.right-panel-container .chat-input-row {
+/* Composer: input + send button inside the input field */
+.right-panel-container .chat-input-composer {
   display: flex;
-  gap: 12px;
-  align-items: flex-end;
+  align-items: center;
   min-width: 0;  /* Allow shrinking */
   width: 100%;
+  position: relative;
 }
 
-/* Send button */
-.right-panel-container .chat-input-row .send-button {
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
+/* Hide native file input */
+.right-panel-container .chat-input-composer .chat-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Give editor space so text doesn't sit under the buttons */
+.right-panel-container .chat-input-composer .chat-input-field {
+  width: 100%;
+  padding-right: 52px; /* room for send button (32px) */
+}
+
+/* Attach button (inside input, bottom-left) */
+.right-panel-container .chat-input-composer .attach-button {
+  position: absolute;
+  left: 18px;
+  bottom: 18px;
+  width: 40px;
+  height: 40px;
   border: none;
-  border-radius: 50%;
-  background: var(--accent-primary, #1a73e8);
+  border-radius: 12px;
+  background: transparent;
+  color: rgba(96, 107, 127, 0.85);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.right-panel-container .chat-input-composer .attach-button:hover {
+  background: rgba(237, 246, 255, 0.9);
+  color: rgba(26, 43, 195, 0.95);
+}
+
+.right-panel-container .chat-input-composer .attach-button:active {
+  transform: scale(0.98);
+}
+
+/* Send button (inside input, circular) */
+.right-panel-container .chat-input-composer .send-button {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  border: none;
+  border-radius: 999px;
+  background: #1a2bc3;
   color: white;
   cursor: pointer;
   display: flex;
@@ -204,20 +229,19 @@
   justify-content: center;
   transition: all 0.2s ease;
   flex-shrink: 0;
-  box-shadow: 0 2px 4px rgba(26, 115, 232, 0.3);
+  box-shadow: 0 6px 14px rgba(26, 43, 195, 0.22);
 }
 
-.right-panel-container .chat-input-row .send-button:hover:not(:disabled) {
-  background: #1557b0;
-  transform: scale(1.05);
-  box-shadow: 0 4px 8px rgba(26, 115, 232, 0.4);
+.right-panel-container .chat-input-composer .send-button:hover:not(:disabled) {
+  background: #1423a8;
+  box-shadow: 0 8px 18px rgba(26, 43, 195, 0.26);
 }
 
-.right-panel-container .chat-input-row .send-button:active:not(:disabled) {
-  transform: scale(0.95);
+.right-panel-container .chat-input-composer .send-button:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
-.right-panel-container .chat-input-row .send-button:disabled {
+.right-panel-container .chat-input-composer .send-button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
   box-shadow: none;
@@ -265,12 +289,27 @@
 /* ==================== */
 
 .right-panel-container .message-content {
-  display: block;
+  display: flex;
+  flex-direction: column;
   width: 100%;
+  gap: 10px;
 }
 
 .right-panel-container .message-content .message-text-segment {
   display: inline;
+}
+
+/* Reference tags inside bubbles should wrap safely */
+.right-panel-container .message-bubble .reference-tag {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+.right-panel-container .message-bubble .reference-tag .reference-tag__name {
+  max-width: none;
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 
 /* ==================== */

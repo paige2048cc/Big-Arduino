@@ -10,19 +10,20 @@
   flex: 1;
   min-width: 0;  /* Allow shrinking in flex context */
   display: flex;
-  min-height: 40px;
-  padding: 8px 12px;
-  border-radius: 20px;
-  background: var(--input-bg, #ffffff);
-  border: 1px solid var(--border-color, #dadce0);
+  min-height: 108px;
+  padding: 0;
+  border-radius: 22px;
+  background: #f6f8fb;
+  border: 1px solid rgba(18, 30, 61, 0.10);
   cursor: text;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
   overflow: hidden;  /* Prevent content overflow */
+  box-shadow: 0 8px 18px rgba(18, 30, 61, 0.08);
 }
 
 .chat-input-field:focus-within {
-  border-color: var(--accent-primary, #1a73e8);
-  box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.1);
+  border-color: #1a2bc3;
+  box-shadow: 0 0 0 2px rgba(26, 43, 195, 0.12);
 }
 
 /* Contenteditable editor */
@@ -30,7 +31,7 @@
   flex: 1;
   min-width: 0;  /* Allow shrinking in flex context */
   width: 100%;
-  min-height: 24px;
+  min-height: 56px;
   max-height: 150px;
   overflow-y: auto;
   overflow-x: hidden;
@@ -41,6 +42,7 @@
   word-wrap: break-word;
   overflow-wrap: break-word;
   white-space: pre-wrap;
+  padding: 18px 56px 56px 22px; /* leave room for send/attach buttons */
 }
 
 /* Placeholder via ::before pseudo-element */

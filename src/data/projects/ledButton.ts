@@ -2,8 +2,8 @@ import type { Project } from '../../types';
 
 export const ledButtonProject: Project = {
   id: 'led-button',
-  title: 'LED Button Controller',
-  description: 'Learn the basics! Control an LED with a button - your first interactive Arduino project.',
+  title: 'Light up the LED',
+  description: 'Light up an LED with Arduino - a beginner-friendly first circuit project.',
   difficulty: 'beginner',
   image: '/projects/led-button.png',
   estimatedTime: '15-20 min',
@@ -124,7 +124,7 @@ export const ledButtonProject: Project = {
         'Make sure the correct board (Arduino Uno) is selected in Tools > Board',
         'Select the right COM port in Tools > Port',
       ],
-      code: `// LED Button Controller
+      code: `// Light up the LED
 // Press the button to toggle the LED!
 
 const int LED_PIN = 13;
@@ -191,7 +191,7 @@ void loop() {
       ],
     },
   ],
-  arduinoCode: `// LED Button Controller
+  arduinoCode: `// Light up the LED
 const int LED_PIN = 13;
 const int BUTTON_PIN = 2;
 bool ledState = false;

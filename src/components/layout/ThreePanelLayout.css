@@ -4,6 +4,7 @@
   width: 100%;
   overflow: hidden;
   background: var(--bg-canvas, #e8eaed);
+  position: relative;
 }
 
 /* Panel Base Styles */
@@ -23,10 +24,31 @@
   overflow: visible !important;
 }
 
-.left-panel.collapsed {
+/* Floating/overlay behavior: left panel does not participate in layout flow */
+.left-panel--floating {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  height: auto;
+  border: none;
+  border-right: 1px solid var(--border-color, #dadce0);
+  border-radius: 0;
+  box-shadow: 0 8px 20px rgba(60, 64, 67, 0.14);
+  z-index: 30;
+  /* Collapse/expand via transform so the handle stays clickable */
+  transition: transform 250ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.left-panel:not(.left-panel--floating).collapsed {
   width: 0 !important;
   min-width: 0;
   border-right: none;
+}
+
+/* Floating collapsed: slide out, keep the handle visible */
+.left-panel--floating.is-collapsed {
+  transform: translateX(calc(-100% + 14px));
 }
 
 /* Inner content wrapper - clips content during collapse */
@@ -34,6 +56,8 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
+  /* Smooth transition when not collapsing; inline styles override during collapse */
+  transition: none;
 }
 
 .center-panel {
@@ -84,6 +108,14 @@
   margin-right: -2px;
 }
 
+/* Floating left resizer - absolute, overlays workspace */
+.left-resizer--floating {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 35;
+}
+
 /* Prevent text selection during drag */
 .three-panel-layout.dragging {
   user-select: none;
@@ -114,6 +146,11 @@
   color: var(--accent-primary, #1a73e8);
   box-shadow: 2px 0 4px rgba(60, 64, 67, 0.1);
   transition: all 0.15s ease;
+}
+
+/* Raise handle above floating panel + resizer */
+.left-panel--floating .panel-collapse-btn {
+  z-index: 40;
 }
 
 .panel-collapse-btn:hover {

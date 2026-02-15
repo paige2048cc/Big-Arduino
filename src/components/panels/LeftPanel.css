@@ -3,13 +3,15 @@
   flex-direction: column;
   height: 100%;
   background: var(--bg-primary, #ffffff);
+  container-type: inline-size;
+  container-name: left-panel;
 }
 
 /* Tab Switcher */
 .panel-tabs {
   display: flex;
   border-bottom: 1px solid var(--border-color, #dadce0);
-  background: var(--bg-secondary, #f8f9fa);
+  background: var(--bg-primary, #ffffff);
 }
 
 .panel-tab {
@@ -30,18 +32,36 @@
 }
 
 .panel-tab:hover {
-  background: var(--bg-tertiary, #f1f3f4);
+  background: rgba(237, 246, 255, 0.6);
   color: var(--text-primary, #202124);
 }
 
 .panel-tab.active {
-  color: var(--accent-primary, #1a73e8);
-  border-bottom-color: var(--accent-primary, #1a73e8);
-  background: var(--bg-primary, #ffffff);
+  color: #1a2bc3;
+  border-bottom-color: #1a2bc3;
+  background: #edf6ff; /* only the active tab gets this */
 }
 
 .panel-tab svg {
   flex-shrink: 0;
+}
+
+/* Hide tab text when sidebar is narrow - use container query */
+.panel-tab span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Container query for responsive tabs */
+@container left-panel (max-width: 200px) {
+  .panel-tab span {
+    display: none;
+  }
+
+  .panel-tab {
+    padding: 12px 8px;
+  }
 }
 
 /* Panel Content */
@@ -67,6 +87,10 @@
   letter-spacing: 0.5px;
   background: var(--bg-secondary, #f8f9fa);
   border-bottom: 1px solid var(--border-color, #dadce0);
+  /* Allow title to wrap and stay left-aligned */
+  text-align: left;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .code-editor {

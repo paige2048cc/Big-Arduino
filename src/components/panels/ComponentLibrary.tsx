@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight, Search } from 'lucide-react';
-import { useHighlightedToolbarComponent } from '../../store/circuitStore';
+import { useHighlightedToolbarComponents } from '../../store/circuitStore';
 import { ComponentItem } from '../shared/ComponentItem';
 import './ComponentLibrary.css';
 
@@ -40,7 +40,7 @@ interface ComponentLibraryProps {
 
 export function ComponentLibrary({ onComponentDragStart }: ComponentLibraryProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const highlightedComponent = useHighlightedToolbarComponent();
+  const highlightedComponents = useHighlightedToolbarComponents();
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set(['microcontrollers', 'boards', 'passive'])
   );
@@ -101,7 +101,7 @@ export function ComponentLibrary({ onComponentDragStart }: ComponentLibraryProps
                     key={component.id}
                     component={component}
                     category={category.folder}
-                    highlighted={highlightedComponent === component.id}
+                    highlighted={highlightedComponents.includes(component.id)}
                     onDragStart={onComponentDragStart}
                   />
                 ))}

@@ -22,10 +22,10 @@ export function ThreePanelLayout({
   rightPanel,
   initialLeftWidth = 280,
   initialRightWidth = 360,
-  minLeftWidth = 200,
+  minLeftWidth = 160,
   maxLeftWidth = 400,
   minRightWidth = 280,
-  maxRightWidth = 480,
+  maxRightWidth = 720,
   minCenterWidth = 400,
 }: ThreePanelLayoutProps) {
   const [leftWidth, setLeftWidth] = useState(initialLeftWidth);
@@ -54,11 +54,12 @@ export function ThreePanelLayout({
 
       if (isDraggingRight) {
         const newRightWidth = containerRect.right - e.clientX;
-        const maxAllowedRight = containerWidth - leftWidth - minCenterWidth;
+        // Left panel is floating (overlay) so it should not reduce available width.
+        const maxAllowedRight = containerWidth - minCenterWidth;
         setRightWidth(Math.max(minRightWidth, Math.min(maxRightWidth, Math.min(newRightWidth, maxAllowedRight))));
       }
     },
-    [isDraggingLeft, isDraggingRight, leftWidth, rightWidth, minLeftWidth, maxLeftWidth, minRightWidth, maxRightWidth, minCenterWidth]
+    [isDraggingLeft, isDraggingRight, rightWidth, minLeftWidth, maxLeftWidth, minRightWidth, maxRightWidth, minCenterWidth]
   );
 
   const handleMouseUp = useCallback(() => {
@@ -76,34 +77,6 @@ export function ThreePanelLayout({
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
     >
-      {/* Left Panel */}
-      <div
-        className={`panel left-panel ${isLeftCollapsed ? 'collapsed' : ''}`}
-        style={{ width: isLeftCollapsed ? 0 : leftWidth }}
-      >
-        {/* Panel Content - wrapped for overflow clipping */}
-        <div className="left-panel-content">
-          {leftPanel}
-        </div>
-
-        {/* Protruding Collapse/Expand Handle */}
-        <button
-          className="panel-collapse-btn"
-          onClick={toggleLeftPanel}
-          title={isLeftCollapsed ? 'Expand panel' : 'Collapse panel'}
-        >
-          {isLeftCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-        </button>
-      </div>
-
-      {/* Left Resizer - hidden when collapsed */}
-      {!isLeftCollapsed && (
-        <div
-          className={`panel-resizer left-resizer ${isDraggingLeft ? 'active' : ''}`}
-          onMouseDown={() => setIsDraggingLeft(true)}
-        />
-      )}
-
       {/* Center Panel */}
       <div className="panel center-panel">
         {centerPanel}
@@ -119,6 +92,39 @@ export function ThreePanelLayout({
       <div className="panel right-panel" style={{ width: rightWidth }}>
         {rightPanel}
       </div>
+
+      {/* Floating Left Panel (overlays workspace; does not shift center) */}
+      <div
+        className={`panel left-panel left-panel--floating ${isLeftCollapsed ? 'is-collapsed' : ''}`}
+        style={{ width: leftWidth }}
+      >
+        <div
+          className="left-panel-content"
+          style={{
+            minWidth: leftWidth,
+            width: leftWidth
+          }}
+        >
+          {leftPanel}
+        </div>
+
+        <button
+          className="panel-collapse-btn"
+          onClick={toggleLeftPanel}
+          title={isLeftCollapsed ? 'Expand panel' : 'Collapse panel'}
+        >
+          {isLeftCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+        </button>
+      </div>
+
+      {/* Left Resizer (floating) */}
+      {!isLeftCollapsed && (
+        <div
+          className={`panel-resizer left-resizer left-resizer--floating ${isDraggingLeft ? 'active' : ''}`}
+          style={{ left: leftWidth - 2 }}
+          onMouseDown={() => setIsDraggingLeft(true)}
+        />
+      )}
     </div>
   );
 }

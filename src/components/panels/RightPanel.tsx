@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { MessageSquare, Send } from 'lucide-react';
+import { ArrowUp, Plus } from 'lucide-react';
 import type { ChatReference, HighlightItem } from '../../types/chat';
 import { usePendingReferences, useCircuitStore } from '../../store/circuitStore';
 import { ReferenceTag } from '../chat/ReferenceTag';
@@ -48,6 +48,7 @@ export function RightPanel({
   onSendMessage,
 }: RightPanelProps) {
   const chatInputRef = useRef<ChatInputFieldHandle>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Get pending references and circuit state from store
   const pendingReferences = usePendingReferences();
@@ -108,6 +109,21 @@ export function RightPanel({
     chatInputRef.current?.triggerSend();
   };
 
+  const handleAddFileClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // UI-only: open native file picker; file handling/upload is out of scope for now
+    // Keep a lightweight trace for later integration if needed.
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      console.log('[chat] selected files:', files.map(f => ({ name: f.name, size: f.size, type: f.type })));
+    }
+    // Allow selecting the same file again
+    e.target.value = '';
+  };
+
   // Handle input focus - confirm pending references
   const handleInputFocus = () => {
     setInputFocused(true);
@@ -143,12 +159,6 @@ export function RightPanel({
 
   return (
     <div className="right-panel-container">
-      {/* Chat Header */}
-      <div className="chat-header">
-        <MessageSquare size={18} />
-        <span>AI Assistant</span>
-      </div>
-
       {/* Chat Messages */}
       <div className="chat-messages">
         {chatMessages.length === 0 ? (
@@ -246,7 +256,16 @@ export function RightPanel({
 
       {/* Fixed Chat Input */}
       <div className="chat-input-container">
-        <div className="chat-input-row">
+        <div className="chat-input-composer">
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="chat-file-input"
+            onChange={handleFilesSelected}
+            aria-hidden="true"
+            tabIndex={-1}
+          />
           <ChatInputField
             ref={chatInputRef}
             pendingReferences={pendingReferences}
@@ -254,13 +273,23 @@ export function RightPanel({
             onSend={handleSendFromInput}
             onFocus={handleInputFocus}
             onBlur={handleInputBlur}
-            placeholder="Ask a question..."
+            placeholder="Ask for changes..."
           />
+          <button
+            onClick={handleAddFileClick}
+            className="attach-button"
+            title="Add file"
+            aria-label="Add file"
+            type="button"
+          >
+            <Plus size={20} />
+          </button>
           <button
             onClick={handleSendClick}
             className="send-button"
+            type="button"
           >
-            <Send size={18} />
+            <ArrowUp size={18} />
           </button>
         </div>
       </div>
