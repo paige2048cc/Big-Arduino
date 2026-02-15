@@ -1,0 +1,193 @@
+/**
+ * DockContainer Styles
+ *
+ * Styles for the dock container with panels, divider, and drop zones
+ */
+
+/* ==================== */
+/* Container            */
+/* ==================== */
+
+.dock-container {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  background: var(--bg-primary, #ffffff);
+  position: relative;
+  overflow: hidden;
+}
+
+.dock-container.vertical {
+  flex-direction: column;
+}
+
+.dock-container.horizontal {
+  flex-direction: row;
+}
+
+.dock-container.resizing {
+  cursor: ns-resize;
+  user-select: none;
+}
+
+.dock-container.horizontal.resizing {
+  cursor: ew-resize;
+}
+
+/* ==================== */
+/* Panel Wrapper        */
+/* ==================== */
+
+.dock-panel-wrapper {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* ==================== */
+/* Divider              */
+/* ==================== */
+
+.dock-divider {
+  position: relative;
+  flex-shrink: 0;
+  background: var(--border-color, #e8eaed);
+  z-index: 10;
+}
+
+.dock-divider.vertical {
+  height: 4px;
+  cursor: ns-resize;
+}
+
+.dock-divider.horizontal {
+  width: 4px;
+  cursor: ew-resize;
+}
+
+.dock-divider-handle {
+  position: absolute;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+
+.dock-divider.vertical .dock-divider-handle {
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+}
+
+.dock-divider.horizontal .dock-divider-handle {
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 4px;
+  height: 40px;
+  border-radius: 2px;
+}
+
+.dock-divider:hover .dock-divider-handle,
+.dock-container.resizing .dock-divider-handle {
+  background: var(--accent-primary, #1a73e8);
+}
+
+/* ==================== */
+/* Drop Zones           */
+/* ==================== */
+
+.drop-zone {
+  position: absolute;
+  pointer-events: none;
+  z-index: 100;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.drop-zone.active {
+  opacity: 1;
+}
+
+.drop-zone-top {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: linear-gradient(180deg, rgba(26, 115, 232, 0.15) 0%, transparent 100%);
+  border-top: 3px solid var(--accent-primary, #1a73e8);
+}
+
+.drop-zone-bottom {
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: linear-gradient(0deg, rgba(26, 115, 232, 0.15) 0%, transparent 100%);
+  border-bottom: 3px solid var(--accent-primary, #1a73e8);
+}
+
+.drop-zone-left {
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 60px;
+  background: linear-gradient(90deg, rgba(26, 115, 232, 0.15) 0%, transparent 100%);
+  border-left: 3px solid var(--accent-primary, #1a73e8);
+}
+
+.drop-zone-right {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 60px;
+  background: linear-gradient(270deg, rgba(26, 115, 232, 0.15) 0%, transparent 100%);
+  border-right: 3px solid var(--accent-primary, #1a73e8);
+}
+
+/* ==================== */
+/* Empty State          */
+/* ==================== */
+
+.dock-empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-secondary, #5f6368);
+  font-size: 14px;
+}
+
+/* ==================== */
+/* Drag Preview         */
+/* ==================== */
+
+.dock-drag-preview {
+  position: fixed;
+  pointer-events: none;
+  z-index: 10001;
+  width: 280px;
+  background: var(--bg-primary, #ffffff);
+  border: 2px solid var(--accent-primary, #1a73e8);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.dock-drag-preview-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--accent-primary, #1a73e8);
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dock-drag-preview-header img {
+  filter: brightness(0) invert(1);
+}
