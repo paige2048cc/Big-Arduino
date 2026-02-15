@@ -25,6 +25,38 @@ import type {
 // Enable Immer's MapSet plugin for using Map/Set in state
 enableMapSet();
 
+const DEFAULT_WIRE_COLOR = '#2563eb'; // blue
+
+function suggestWireColorForPin(definition: ComponentDefinition | undefined, pinId: string): string {
+  const pin = definition?.pins.find((p) => p.id === pinId);
+  if (!pin) return DEFAULT_WIRE_COLOR;
+
+  const text = `${pin.id} ${pin.label} ${pin.description}`.toLowerCase();
+
+  // Ground first
+  if (pin.type === 'ground' || text.includes('gnd') || text.includes('ground')) return '#000000';
+
+  // Power
+  if (
+    pin.type === 'power' ||
+    /\b(3v3|3\.3v|5v|vcc|vin)\b/i.test(text)
+  ) {
+    return '#dc2626'; // red
+  }
+
+  // Common signal colors (optional but helpful)
+  switch (pin.type) {
+    case 'analog':
+      return '#16a34a'; // green
+    case 'pwm':
+      return '#f97316'; // orange
+    case 'communication':
+      return '#7c3aed'; // purple
+    default:
+      return DEFAULT_WIRE_COLOR;
+  }
+}
+
 interface CircuitState {
   // Placed components on the canvas
   placedComponents: PlacedComponent[];
@@ -103,8 +135,8 @@ interface CircuitState {
   // Highlighted items for debugging visualization
   highlightedItems: HighlightItem[];
 
-  // Highlighted component in toolbar (for AI suggestions)
-  highlightedToolbarComponent: string | null;
+  // Highlighted components in toolbar (for guided instructions / AI suggestions)
+  highlightedToolbarComponents: string[];
 }
 
 interface CircuitActions {
@@ -136,7 +168,11 @@ interface CircuitActions {
   addWireBendPoint: (x: number, y: number) => void;
   removeLastWireBendPoint: () => boolean; // Returns true if a point was removed, false if wire should be canceled
   setWireDrawingColor: (color: string) => void;
-  completeWireDrawing: (endComponentId: string, endPinId: string) => void;
+  completeWireDrawing: (
+    endComponentId: string,
+    endPinId: string,
+    bendPointsOverride?: { x: number; y: number }[]
+  ) => void;
   cancelWireDrawing: () => void;
   addWire: (wire: Omit<Wire, 'id'>) => string;
   removeWire: (wireId: string) => void;
@@ -197,7 +233,9 @@ interface CircuitActions {
   setHighlights: (items: HighlightItem[]) => void;
   clearHighlights: () => void;
 
-  // Toolbar highlight actions (for AI suggestions)
+  // Toolbar highlight actions (for guided instructions / AI suggestions)
+  setHighlightedToolbarComponents: (componentIds: string[] | null) => void;
+  // Convenience: keep single-component API
   setHighlightedToolbarComponent: (componentId: string | null) => void;
 }
 
@@ -224,7 +262,7 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
       bendPoints: [],
       currentX: 0,
       currentY: 0,
-      color: '#666666',
+      color: DEFAULT_WIRE_COLOR,
     },
     clickToPlace: {
       isActive: false,
@@ -258,7 +296,7 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
       isInputFocused: false,
     },
     highlightedItems: [],
-    highlightedToolbarComponent: null,
+    highlightedToolbarComponents: [],
 
     // Component actions
     addComponent: (definition, x, y, properties = {}) => {
@@ -414,6 +452,10 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
     // Wire drawing
     startWireDrawing: (componentId, pinId, x, y) => {
       set((state) => {
+        const def = state.componentDefinitions.get(componentId);
+        const suggested = suggestWireColorForPin(def, pinId);
+        const nextColor = suggested;
+
         state.wireDrawing = {
           isDrawing: true,
           startComponentId: componentId,
@@ -423,7 +465,7 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
           bendPoints: [],
           currentX: x,
           currentY: y,
-          color: state.wireDrawing.color, // Preserve selected color
+          color: nextColor,
         };
       });
     },
@@ -466,7 +508,7 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
       });
     },
 
-    completeWireDrawing: (endComponentId, endPinId) => {
+    completeWireDrawing: (endComponentId, endPinId, bendPointsOverride) => {
       const { wireDrawing } = get();
 
       if (
@@ -506,12 +548,16 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
       }
 
       // Add wire with bendPoints and color
+      const bendPoints =
+        bendPointsOverride !== undefined
+          ? bendPointsOverride
+          : [...wireDrawing.bendPoints];
       get().addWire({
         startComponentId: wireDrawing.startComponentId,
         startPinId: wireDrawing.startPinId,
         endComponentId,
         endPinId,
-        bendPoints: [...wireDrawing.bendPoints],
+        bendPoints,
         color: wireDrawing.color,
       });
 
@@ -529,7 +575,7 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
           bendPoints: [],
           currentX: 0,
           currentY: 0,
-          color: state.wireDrawing.color, // Preserve selected color
+          color: state.wireDrawing.color || DEFAULT_WIRE_COLOR, // Preserve selected color
         };
       });
     },
@@ -624,7 +670,7 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
           id,
           ...wire,
           bendPoints: wire.bendPoints || [],
-          color: wire.color || '#666666',
+          color: wire.color || DEFAULT_WIRE_COLOR,
         });
       });
 
@@ -1038,21 +1084,15 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
     },
 
     // Toolbar highlight actions
-    setHighlightedToolbarComponent: (componentId) => {
+    setHighlightedToolbarComponents: (componentIds) => {
       set((state) => {
-        state.highlightedToolbarComponent = componentId;
+        state.highlightedToolbarComponents = componentIds
+          ? Array.from(new Set(componentIds)).filter(Boolean)
+          : [];
       });
-      // Auto-clear after 3 seconds
-      if (componentId) {
-        setTimeout(() => {
-          set((state) => {
-            // Only clear if it's still the same component
-            if (state.highlightedToolbarComponent === componentId) {
-              state.highlightedToolbarComponent = null;
-            }
-          });
-        }, 3000);
-      }
+    },
+    setHighlightedToolbarComponent: (componentId) => {
+      get().setHighlightedToolbarComponents(componentId ? [componentId] : null);
     },
   }))
 );
@@ -1106,5 +1146,9 @@ export const useIsInputFocused = () =>
 export const useHighlightedItems = () =>
   useCircuitStore((state) => state.highlightedItems);
 
+export const useHighlightedToolbarComponents = () =>
+  useCircuitStore((state) => state.highlightedToolbarComponents);
+
+// Backwards-compatible selector: returns first highlighted component (or null)
 export const useHighlightedToolbarComponent = () =>
-  useCircuitStore((state) => state.highlightedToolbarComponent);
+  useCircuitStore((state) => state.highlightedToolbarComponents[0] ?? null);
