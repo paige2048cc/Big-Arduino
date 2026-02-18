@@ -12,6 +12,7 @@ import './ComponentOnboarding.css';
 const ONBOARDING_IMAGES: Record<string, string> = {
   'breadboard': 'Breadboard-Onboarding.png',
   'led-5mm': 'LED-Onboarding.png',
+  'buzzer': 'Buzzer-Onboarding.png',
 };
 
 interface ComponentOnboardingProps {
