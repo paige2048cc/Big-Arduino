@@ -729,8 +729,15 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
         }
       }
 
-      const startRect =
-        wireDrawing.startComponentId ? componentRects.get(wireDrawing.startComponentId) : undefined;
+      // Only use startRect for obstacle components (Arduino UNO) to compute exit points.
+      // For other components, wires can start directly from the pin without detours.
+      let startRect: RouterRect | undefined;
+      if (wireDrawing.startComponentId) {
+        const startDef = getComponentDefinition(wireDrawing.startComponentId);
+        if (startDef?.id === 'arduino-uno') {
+          startRect = componentRects.get(wireDrawing.startComponentId);
+        }
+      }
 
       routeContextRef.current = { componentRects, obstacles, startRect };
     } else {
@@ -1802,7 +1809,15 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
         const anchors: RouterPoint[] = [start, ...wireDrawing.bendPoints, end];
 
         const ctx = routeContextRef.current;
-        const endRect = hoveredPin?.componentId ? ctx?.componentRects.get(hoveredPin.componentId) : undefined;
+        // Only use endRect for obstacle components (Arduino UNO) to compute exit points.
+        // For other components, wires can end directly at the pin without detours.
+        let endRect: RouterRect | undefined;
+        if (hoveredPin?.componentId) {
+          const endDef = getComponentDefinition(hoveredPin.componentId);
+          if (endDef?.id === 'arduino-uno') {
+            endRect = ctx?.componentRects.get(hoveredPin.componentId);
+          }
+        }
         const startRect = ctx?.startRect;
         const obstacles = ctx?.obstacles ?? [];
 
