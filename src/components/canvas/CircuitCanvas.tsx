@@ -708,10 +708,6 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
         const def = getComponentDefinition(comp.instanceId);
         if (!def) continue;
 
-        // Breadboard is effectively the "table" we wire on top of.
-        // Treat other components (including Arduino UNO) as obstacles.
-        if (def.id === 'breadboard') continue;
-
         const obj = instanceToFabricMap.current.get(comp.instanceId);
         if (!obj) continue;
 
@@ -724,7 +720,13 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
         };
 
         componentRects.set(comp.instanceId, rect);
-        obstacles.push(rect);
+
+        // Only treat Arduino UNO as an obstacle for wire routing.
+        // Breadboard is the wiring surface, and small components (LEDs, resistors, etc.)
+        // don't need to be avoided - wires can pass over/around them naturally.
+        if (def.id === 'arduino-uno') {
+          obstacles.push(rect);
+        }
       }
 
       const startRect =
