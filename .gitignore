@@ -43,6 +43,7 @@ Thumbs.db
 .claude/
 tmpclaude-*
 tmpclaude-*-cwd
+nul
 
 # Temporary and backup files
 *.tmp
