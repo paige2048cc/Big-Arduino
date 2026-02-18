@@ -285,7 +285,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
   const [dragPreviewDimensions, setDragPreviewDimensions] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [selectedObject, setSelectedObject] = useState<fabric.FabricObject | null>(null);
-  const [viewportVersion, setViewportVersion] = useState(0); // Triggers re-render on viewport change
+  const [, setViewportVersion] = useState(0); // Triggers re-render on viewport change
 
   // Zustand store
   const {
