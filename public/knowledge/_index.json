@@ -40,6 +40,22 @@
       "path": "boards/breadboard.md",
       "aliases": ["breadboard", "solderless breadboard", "protoboard"],
       "summary": "Reusable platform for building circuits without soldering. Has power rails and terminal strips with internal connections."
+    },
+    {
+      "id": "vibration-motor",
+      "name": "Vibration Motor",
+      "category": "output",
+      "path": "output/vibration-motor.md",
+      "aliases": ["coin motor", "ERM motor", "haptic motor", "pancake motor", "vibrator motor"],
+      "summary": "A small DC motor with eccentric mass that creates vibration. Used for haptic feedback. Requires transistor driver circuit."
+    },
+    {
+      "id": "buzzer",
+      "name": "Piezo Buzzer",
+      "category": "output",
+      "path": "output/buzzer.md",
+      "aliases": ["piezo buzzer", "beeper", "speaker", "passive buzzer", "active buzzer"],
+      "summary": "An electronic component that produces sound using piezoelectric effect. Active type has fixed tone, passive type supports variable frequencies with tone()."
     }
   ],
   "concepts": []

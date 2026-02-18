@@ -276,6 +276,14 @@ export function routeOrthogonalManhattan(input: RouteOrthogonalInput): Point[] |
   const bendPenalty = input.bendPenalty ?? 6; // grid steps
   const maxExpanded = input.maxExpanded ?? 200_000;
 
+  // Short-circuit: when start and end are very close, use a direct connection
+  // instead of running the full A* router (avoids detours caused by inflated obstacles).
+  const dx = Math.abs(input.end.x - input.start.x);
+  const dy = Math.abs(input.end.y - input.start.y);
+  if (dx + dy < clearance * 3) {
+    return simplifyCollinear(dedupeConsecutive(orthogonalConnect(input.start, input.end)));
+  }
+
   // Create exit points outside the start/end component bodies (if available).
   // Important: we offset by (clearance + grid) so exits are outside the inflated obstacles,
   // which avoids tiny "micro bends" right at the endpoints.

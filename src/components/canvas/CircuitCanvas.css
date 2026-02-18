@@ -7,7 +7,7 @@
 
 /* Floating Toolbar */
 .canvas-toolbar {
-  position: absolute;
+  position: fixed;
   bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
@@ -22,6 +22,8 @@
   box-shadow: 0 4px 16px rgba(60, 64, 67, 0.15);
   z-index: 50;
   pointer-events: auto;
+  max-width: calc(100vw - 40px);
+  overflow: hidden;
 }
 
 .toolbar-group {
@@ -128,13 +130,14 @@
 
 /* Placeholder content */
 .canvas-placeholder {
-  position: absolute;
-  top: 50%;
-  left: 50%;
+  position: fixed;
+  top: 50vh;
+  left: 50vw;
   transform: translate(-50%, -50%);
   text-align: center;
   color: var(--text-secondary, #5f6368);
   pointer-events: none;
+  max-width: min(560px, calc(100vw - 40px));
 }
 
 .canvas-placeholder svg {
@@ -240,7 +243,7 @@
 }
 
 .wire-drawing-indicator {
-  position: absolute;
+  position: fixed;
   bottom: 80px;  /* Above the floating toolbar */
   left: 50%;
   transform: translateX(-50%);
@@ -252,6 +255,8 @@
   font-weight: 500;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   z-index: 100;
+  max-width: calc(100vw - 40px);
+  text-align: center;
 }
 
 /* Simulation Button */
@@ -336,7 +341,7 @@
 
 /* Click-to-place indicator */
 .click-to-place-indicator {
-  position: absolute;
+  position: fixed;
   bottom: 80px;
   left: 50%;
   transform: translateX(-50%);
@@ -349,4 +354,6 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   z-index: 100;
   pointer-events: none;
+  max-width: calc(100vw - 40px);
+  text-align: center;
 }

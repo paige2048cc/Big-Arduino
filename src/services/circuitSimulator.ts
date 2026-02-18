@@ -16,9 +16,9 @@ export type CircuitErrorType =
   | 'short-circuit'
   | 'open-circuit';
 
-// Error information for a specific wire
+// Error information for a circuit issue (may be associated with a wire, a component, or both)
 export interface CircuitError {
-  wireId: string;
+  wireId?: string;
   errorType: CircuitErrorType;
   message: string;
   componentId?: string;
@@ -394,6 +394,51 @@ function tracePath(
 }
 
 /**
+ * Finds a wire "nearby" a component - checks direct connections first,
+ * then for breadboard-inserted components checks wires on the same breadboard rows.
+ * Returns wire ID or undefined if no nearby wire found.
+ */
+function findNearbyWire(
+  componentId: string,
+  wires: Wire[],
+  components: PlacedComponent[],
+  definitions: Map<string, ComponentDefinition>
+): string | undefined {
+  // First, check for wires directly connected to this component
+  const directWires = wires.filter(w =>
+    w.startComponentId === componentId || w.endComponentId === componentId
+  );
+  if (directWires.length > 0) return directWires[0].id;
+
+  // If component is inserted into a breadboard, find wires on the same rows
+  const comp = components.find(c => c.instanceId === componentId);
+  if (comp?.parentBreadboardId && comp.insertedPins) {
+    const bbId = comp.parentBreadboardId;
+    const bbDef = definitions.get(bbId);
+    if (bbDef) {
+      // Collect all breadboard pins connected (via net) to the LED's insertion points
+      const connectedBbPins = new Set<string>();
+      for (const bbPinId of Object.values(comp.insertedPins)) {
+        connectedBbPins.add(bbPinId);
+        const pinDef = bbDef.pins.find(p => p.id === bbPinId);
+        if (pinDef?.net) {
+          bbDef.pins.filter(p => p.net === pinDef.net).forEach(p => connectedBbPins.add(p.id));
+        }
+      }
+
+      // Find wires connected to any of these breadboard pins
+      const bbWires = wires.filter(w =>
+        (w.startComponentId === bbId && connectedBbPins.has(w.startPinId)) ||
+        (w.endComponentId === bbId && connectedBbPins.has(w.endPinId))
+      );
+      if (bbWires.length > 0) return bbWires[0].id;
+    }
+  }
+
+  return undefined;
+}
+
+/**
  * Validates an LED component
  */
 function validateLED(
@@ -421,81 +466,52 @@ function validateLED(
 
   if (cathodeHasPower && anodeHasGround) {
     // Wrong polarity
-    const errorWire = cathodePath.wires[0] || anodePath.wires[0];
-    if (errorWire) {
-      errors.push({
-        wireId: errorWire,
-        errorType: 'wrong-polarity',
-        message: 'LED connected backwards - swap anode (+) and cathode (–)',
-        componentId,
-      });
-    }
+    const errorWire = cathodePath.wires[0] || anodePath.wires[0]
+      || findNearbyWire(componentId, wires, components, definitions);
+    errors.push({
+      wireId: errorWire,
+      errorType: 'wrong-polarity',
+      message: 'LED connected backwards - swap anode (+) and cathode (–)',
+      componentId,
+    });
     return { isOn: false, errors };
   }
 
   if (!anodeHasPower) {
-    const errorWire = anodePath.lastWireId || anodePath.wires[anodePath.wires.length - 1];
-    if (errorWire) {
-      errors.push({
-        wireId: errorWire,
-        errorType: 'no-power',
-        message: 'LED anode (+) must connect to power source',
-        componentId,
-      });
-    } else {
-      // No wire connected to anode at all - find any wire connected to this LED
-      const ledWires = wires.filter(w =>
-        w.startComponentId === componentId || w.endComponentId === componentId
-      );
-      if (ledWires.length > 0) {
-        errors.push({
-          wireId: ledWires[0].id,
-          errorType: 'no-power',
-          message: 'LED anode (+) must connect to power source',
-          componentId,
-        });
-      }
-    }
+    const errorWire = anodePath.lastWireId || anodePath.wires[anodePath.wires.length - 1]
+      || findNearbyWire(componentId, wires, components, definitions);
+    errors.push({
+      wireId: errorWire,
+      errorType: 'no-power',
+      message: 'LED anode (+) must connect to power source',
+      componentId,
+    });
     return { isOn: false, errors };
   }
 
   if (!cathodeHasGround) {
-    const errorWire = cathodePath.lastWireId || cathodePath.wires[cathodePath.wires.length - 1];
-    if (errorWire) {
-      errors.push({
-        wireId: errorWire,
-        errorType: 'no-ground',
-        message: 'LED cathode (–) must connect to GND',
-        componentId,
-      });
-    } else {
-      const ledWires = wires.filter(w =>
-        w.startComponentId === componentId || w.endComponentId === componentId
-      );
-      if (ledWires.length > 0) {
-        errors.push({
-          wireId: ledWires[0].id,
-          errorType: 'no-ground',
-          message: 'LED cathode (–) must connect to GND',
-          componentId,
-        });
-      }
-    }
+    const errorWire = cathodePath.lastWireId || cathodePath.wires[cathodePath.wires.length - 1]
+      || findNearbyWire(componentId, wires, components, definitions);
+    errors.push({
+      wireId: errorWire,
+      errorType: 'no-ground',
+      message: 'LED cathode (–) must connect to GND',
+      componentId,
+    });
     return { isOn: false, errors };
   }
 
   // Check for resistor (combine both paths)
   const hasResistor = anodePath.hasResistor || cathodePath.hasResistor;
   if (!hasResistor) {
-    const errorWire = anodePath.wires[0] || cathodePath.wires[0];
-    if (errorWire) {
-      errors.push({
-        wireId: errorWire,
-        errorType: 'missing-resistor',
-        message: 'LED needs a resistor to prevent burnout',
-        componentId,
-      });
-    }
+    const errorWire = anodePath.wires[0] || cathodePath.wires[0]
+      || findNearbyWire(componentId, wires, components, definitions);
+    errors.push({
+      wireId: errorWire,
+      errorType: 'missing-resistor',
+      message: 'LED needs a resistor to prevent burnout',
+      componentId,
+    });
     // Still turn on but with warning
     return { isOn: true, errors };
   }
@@ -716,14 +732,14 @@ export function getDetailedDiagnostics(
     }
 
     issues.push({
-      id: `error-${error.wireId}-${error.errorType}`,
+      id: `error-${error.wireId || error.componentId || 'unknown'}-${error.errorType}`,
       severity: 'error',
       type: error.errorType,
       title,
       description: error.message,
       fix,
       affectedComponentIds: error.componentId ? [error.componentId] : [],
-      affectedWireIds: [error.wireId]
+      affectedWireIds: error.wireId ? [error.wireId] : []
     });
   }
 

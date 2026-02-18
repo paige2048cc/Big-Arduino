@@ -1,16 +1,16 @@
 import type { Project } from '../../types';
 
-export const ledButtonProject: Project = {
-  id: 'led-button',
-  title: 'Button-Powered LED',
-  description: 'Build your first circuit — press a button to light up an LED. No coding required, just drag, wire, and simulate!',
+export const buzzerButtonProject: Project = {
+  id: 'buzzer-button',
+  title: 'Press to Buzz!',
+  description: 'Build a simple interactive circuit where pressing a button triggers a buzzer.',
   difficulty: 'beginner',
-  image: '/projects/led-button.png',
+  image: '/projects/buzzer-button.png',
   estimatedTime: '10-15 min',
   components: [
     { name: 'Arduino Uno', quantity: 1 },
-    { name: 'LED (any color)', quantity: 1 },
-    { name: '220Ω Resistor', quantity: 1 },
+    { name: 'Piezo Buzzer', quantity: 1 },
+    { name: '100\u03A9 Resistor', quantity: 1 },
     { name: 'Push Button', quantity: 1 },
     { name: 'Breadboard', quantity: 1 },
     { name: 'Jumper Wires', quantity: 4 },
@@ -23,9 +23,9 @@ export const ledButtonProject: Project = {
       instructions: [
         'Arduino Uno',
         'Breadboard',
-        'LED',
+        'Buzzer',
         'Button',
-        '220\u03A9 Resistor',
+        '100\u03A9 Resistor',
       ],
     },
     {
@@ -39,19 +39,19 @@ export const ledButtonProject: Project = {
     },
     {
       id: 3,
-      title: 'Place the LED',
-      description: 'Insert the LED onto the breadboard.',
+      title: 'Place the Buzzer',
+      description: 'Insert the buzzer onto the breadboard.',
       instructions: [
-        'The long leg (anode, +) goes into one row',
-        'The short leg (cathode, -) goes into a different row',
+        'The anode leg (+) goes into one row',
+        'The cathode leg (-) goes into a different row',
       ],
     },
     {
       id: 4,
       title: 'Add the Resistor',
-      description: 'Now insert the 220\u03A9 resistor into breadboard. The resistor helps protect your LED from too much current. Without a resistor, the LED could be damaged.',
+      description: 'Now insert the 100\u03A9 resistor into breadboard. The resistor helps limit the electrical flow to keep the Arduino safe.',
       instructions: [
-        'Rotate and then place one leg of the resistor in the same row as the LED\'s long leg (anode, +)',
+        'Place one leg of the resistor in the same row as the buzzer\'s anode (+)',
       ],
       tips: [
         'If two legs share the same row, they are already connected. No extra wire is needed.',
@@ -82,8 +82,8 @@ export const ledButtonProject: Project = {
       description: 'Finish the path so electricity can return to ground.',
       instructions: [
         'Connect the other side of the button to the resistor (if not already connected)',
-        'Ensure the resistor connects to the LED\'s long leg (anode, +)',
-        'Connect the LED\'s short leg (cathode, -) to the blue ground rail (-)',
+        'Ensure the resistor connects to the buzzer\'s anode (+)',
+        'Connect the buzzer\'s cathode (\u2013) to the blue ground rail (\u2013)',
       ],
       tips: [
         'If components share the same row, they are already connected. No wire needed.',
@@ -96,10 +96,10 @@ export const ledButtonProject: Project = {
       instructions: [
         'Click "Start Simulation" in the top bar',
         'Now press the button',
-        'You should see the LED light up!',
+        'You should hear a soft buzzing sound',
       ],
       tips: [
-        'Release the button and the LED turns off. That\'s your first working circuit!',
+        'That sound is normal! Because there is no code controlling the tone, the buzzer is simply receiving raw electrical signals instead of playing a defined note.',
       ],
     },
   ],

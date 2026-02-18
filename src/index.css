@@ -16,7 +16,8 @@ body {
   margin: 0;
   padding: 0;
   height: 100%;
-  background-color: #0f0f1a;
+  background-color: var(--bg-primary, #ffffff);
+  color: var(--text-primary, #202124);
 }
 
 #root {
@@ -30,16 +31,16 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #1a1a2e;
+  background: rgba(241, 243, 244, 0.9);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #333355;
+  background: rgba(154, 160, 166, 0.7);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #444466;
+  background: rgba(95, 99, 104, 0.8);
 }
 
 /* Selection */

@@ -98,8 +98,11 @@ export function DockablePanel({
           {icon && <span className="dockable-panel-icon">{icon}</span>}
           <span className="dockable-panel-title-text">{title}</span>
         </div>
-        <div className="dockable-panel-drag-handle">
-          <GripHorizontal size={14} />
+        <div className="dockable-panel-header-right">
+          <div className="dockable-panel-header-actions" />
+          <div className="dockable-panel-drag-handle">
+            <GripHorizontal size={14} />
+          </div>
         </div>
       </div>
 

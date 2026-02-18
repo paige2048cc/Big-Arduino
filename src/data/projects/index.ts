@@ -1,29 +1,11 @@
 import type { Project } from '../../types';
 import { ledButtonProject } from './ledButton';
+import { buzzerButtonProject } from './buzzerButton';
 
 // All preset projects
 export const presetProjects: Project[] = [
   ledButtonProject,
-  // Placeholder projects for MVP - will be implemented later
-  {
-    id: 'traffic-light',
-    title: 'Traffic Light System',
-    description: 'Build a realistic traffic light with timed sequences. Learn about timing and state machines.',
-    difficulty: 'intermediate',
-    image: '/projects/traffic-light.png',
-    estimatedTime: '30-40 min',
-    components: [
-      { name: 'Arduino Uno', quantity: 1 },
-      { name: 'Red LED', quantity: 1 },
-      { name: 'Yellow LED', quantity: 1 },
-      { name: 'Green LED', quantity: 1 },
-      { name: '220Ω Resistor', quantity: 3 },
-      { name: 'Breadboard', quantity: 1 },
-      { name: 'Jumper Wires', quantity: 6 },
-    ],
-    steps: [],
-    arduinoCode: '// Coming soon',
-  },
+  buzzerButtonProject,
   {
     id: 'plant-monitor',
     title: 'Smart Plant Monitor',
@@ -45,4 +27,4 @@ export const presetProjects: Project[] = [
   },
 ];
 
-export { ledButtonProject };
+export { ledButtonProject, buzzerButtonProject };

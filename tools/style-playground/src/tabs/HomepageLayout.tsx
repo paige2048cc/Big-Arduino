@@ -703,10 +703,115 @@ function StyleG() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// Main Export — Shows all 7 styles
+// STYLE H — Dark Lime Dashboard (Based on Image #7)
+// Deep black background, lime green (#9EFF00) accent, glass cards, modern
+// ════════════════════════════════════════════════════════════════════════════
+function StyleH() {
+  const [idea, setIdea] = useState('')
+
+  return (
+    <div className="style-h">
+      {/* Navigation */}
+      <nav className="h-nav">
+        <div className="h-logo">
+          <Zap size={20} />
+          <span>Big Arduino</span>
+        </div>
+        <div className="h-nav-links">
+          <a href="#" className="h-nav-link active">Home</a>
+          <a href="#" className="h-nav-link">Projects</a>
+          <a href="#" className="h-nav-link">Learn</a>
+          <a href="#" className="h-nav-link">Community</a>
+        </div>
+        <div className="h-nav-right">
+          <button className="h-nav-btn">
+            <Search size={18} />
+          </button>
+          <button className="h-cta-btn">Get Started</button>
+        </div>
+      </nav>
+
+      {/* Hero Section */}
+      <section className="h-hero">
+        <div className="h-hero-badge">
+          <Sparkles size={14} />
+          <span>AI-Powered Learning</span>
+        </div>
+        <h1>Build Amazing<br/><span className="h-accent">Arduino Projects</span></h1>
+        <p className="h-hero-sub">From blinking LEDs to IoT devices. Learn electronics with AI guidance.</p>
+
+        {/* AI Input */}
+        <div className="h-input-area">
+          <div className="h-input-box">
+            <Sparkles size={20} className="h-input-icon" />
+            <input
+              type="text"
+              placeholder="Describe your project idea..."
+              value={idea}
+              onChange={(e) => setIdea(e.target.value)}
+            />
+            <button className="h-send-btn">
+              <Send size={18} />
+            </button>
+          </div>
+          <div className="h-input-hints">
+            <span>Try:</span>
+            <button className="h-hint-chip">LED blink project</button>
+            <button className="h-hint-chip">Temperature sensor</button>
+            <button className="h-hint-chip">Smart plant monitor</button>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Grid */}
+      <section className="h-features">
+        <div className="h-feature-card">
+          <div className="h-feature-icon">
+            <Lightbulb size={24} />
+          </div>
+          <h3>Guided Tutorials</h3>
+          <p>Step-by-step instructions for every skill level</p>
+        </div>
+        <div className="h-feature-card">
+          <div className="h-feature-icon">
+            <CircuitBoard size={24} />
+          </div>
+          <h3>Virtual Canvas</h3>
+          <p>Design circuits before building them</p>
+        </div>
+        <div className="h-feature-card">
+          <div className="h-feature-icon">
+            <MessageSquare size={24} />
+          </div>
+          <h3>AI Assistant</h3>
+          <p>Get help anytime you're stuck</p>
+        </div>
+      </section>
+
+      {/* Stats Row */}
+      <section className="h-stats">
+        <div className="h-stat">
+          <span className="h-stat-value">12+</span>
+          <span className="h-stat-label">Projects</span>
+        </div>
+        <div className="h-stat">
+          <span className="h-stat-value">2.5k</span>
+          <span className="h-stat-label">Makers</span>
+        </div>
+        <div className="h-stat">
+          <span className="h-stat-value">50+</span>
+          <span className="h-stat-label">Components</span>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Main Export — Shows all 8 styles
 // ════════════════════════════════════════════════════════════════════════════
 export default function HomepageLayout() {
-  const [activeStyle, setActiveStyle] = useState<'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G'>('A')
+  const [activeStyle, setActiveStyle] = useState<'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H'>('A')
 
   const styles = [
     { id: 'A' as const, name: 'Bento Grid', desc: 'Light, agency-style, asymmetric layout' },
@@ -716,6 +821,7 @@ export default function HomepageLayout() {
     { id: 'E' as const, name: 'Editorial', desc: 'Serif typography, portfolio gallery' },
     { id: 'F' as const, name: 'Platform', desc: 'Search-focused, marketplace style' },
     { id: 'G' as const, name: 'AI Chat', desc: 'Centered input, ChatGPT-inspired' },
+    { id: 'H' as const, name: 'Dark Lime', desc: 'Deep black, #9EFF00 accent, modern' },
   ]
 
   return (
@@ -723,7 +829,7 @@ export default function HomepageLayout() {
       {/* Style Selector */}
       <div className="style-selector">
         <h2>Homepage Style Explorations</h2>
-        <p>Seven visual directions for the Big Arduino homepage</p>
+        <p>Eight visual directions for the Big Arduino homepage</p>
         <div className="style-options">
           {styles.map((s) => (
             <button
@@ -742,7 +848,7 @@ export default function HomepageLayout() {
       </div>
 
       {/* Preview Container */}
-      <div className="preview-container">
+      <div className={`preview-container ${activeStyle === 'H' ? 'dark' : ''}`}>
         <div className="preview-frame">
           {activeStyle === 'A' && <StyleA />}
           {activeStyle === 'B' && <StyleB />}
@@ -751,6 +857,7 @@ export default function HomepageLayout() {
           {activeStyle === 'E' && <StyleE />}
           {activeStyle === 'F' && <StyleF />}
           {activeStyle === 'G' && <StyleG />}
+          {activeStyle === 'H' && <StyleH />}
         </div>
       </div>
     </div>

@@ -16,7 +16,7 @@ export interface ComponentImage {
   hasJson: boolean;
 }
 
-const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp'];
+const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.svg'];
 
 /**
  * Recursively scan directory for component images
@@ -64,7 +64,7 @@ export async function scanForNewComponents(baseDir: string): Promise<ComponentIm
 
 /**
  * Get image dimensions using native Node.js
- * (Works for PNG files - reads header)
+ * (Works for PNG and SVG files)
  */
 export function getImageDimensions(imagePath: string): { width: number; height: number } | null {
   try {
@@ -82,6 +82,33 @@ export function getImageDimensions(imagePath: string): { width: number; height: 
 
     if (ext === '.jpg' || ext === '.jpeg') {
       // JPEG is more complex - skip for now, use default
+      return null;
+    }
+
+    if (ext === '.svg') {
+      // Parse SVG width/height or viewBox attributes
+      const svgContent = buffer.toString('utf-8');
+
+      // Try to get width and height attributes
+      const widthMatch = svgContent.match(/\bwidth=["'](\d+(?:\.\d+)?)/);
+      const heightMatch = svgContent.match(/\bheight=["'](\d+(?:\.\d+)?)/);
+
+      if (widthMatch && heightMatch) {
+        return {
+          width: Math.round(parseFloat(widthMatch[1])),
+          height: Math.round(parseFloat(heightMatch[1]))
+        };
+      }
+
+      // Fallback to viewBox
+      const viewBoxMatch = svgContent.match(/viewBox=["'][\d.]+\s+[\d.]+\s+([\d.]+)\s+([\d.]+)/);
+      if (viewBoxMatch) {
+        return {
+          width: Math.round(parseFloat(viewBoxMatch[1])),
+          height: Math.round(parseFloat(viewBoxMatch[2]))
+        };
+      }
+
       return null;
     }
 

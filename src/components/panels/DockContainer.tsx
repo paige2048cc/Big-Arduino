@@ -152,7 +152,7 @@ export function DockContainer({ renderAIChat }: DockContainerProps) {
       case 'instructions':
         return <Lightbulb size={20} style={{ color: '#F5A623' }} />;
       case 'ai-assistant':
-        return <img src={characterIcon} alt="" style={{ width: 32, height: 32 }} />;
+        return <img src={characterIcon} alt="" style={{ width: 28, height: 28 }} />;
       default:
         return <MessageCircle size={16} />;
     }

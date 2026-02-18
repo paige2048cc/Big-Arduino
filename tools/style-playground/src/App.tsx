@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Palette } from 'lucide-react'
 import HomepageLayout from './tabs/HomepageLayout'
+import SecondaryPage from './tabs/SecondaryPage'
 import CardStyles from './tabs/CardStyles'
 import ButtonStyles from './tabs/ButtonStyles'
 
@@ -12,6 +13,7 @@ interface Tab {
 
 const tabs: Tab[] = [
   { id: 'homepage', label: 'Homepage Layout', component: HomepageLayout },
+  { id: 'secondary', label: 'Secondary Page', component: SecondaryPage },
   { id: 'cards', label: 'Card Styles', component: CardStyles },
   { id: 'buttons', label: 'Button Styles', component: ButtonStyles },
 ]

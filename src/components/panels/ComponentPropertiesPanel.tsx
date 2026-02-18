@@ -6,8 +6,9 @@
  */
 
 import { useEffect, useState } from 'react';
-import { X, Trash2 } from 'lucide-react';
+import { X, Trash2, HelpCircle } from 'lucide-react';
 import { useCircuitStore, useSelectedComponent } from '../../store/circuitStore';
+import { hasOnboardingImage } from '../canvas/ComponentOnboarding';
 import type { ComponentDefinition } from '../../types/components';
 import './ComponentPropertiesPanel.css';
 
@@ -22,6 +23,7 @@ export function ComponentPropertiesPanel({ onClose }: ComponentPropertiesPanelPr
     updateComponentProperty,
     removeComponent,
     selectComponent,
+    triggerOnboardingForComponent,
   } = useCircuitStore();
 
   const [definition, setDefinition] = useState<ComponentDefinition | null>(null);
@@ -59,6 +61,15 @@ export function ComponentPropertiesPanel({ onClose }: ComponentPropertiesPanelPr
       <div className="properties-header">
         <h3>{definition.name}</h3>
         <div className="properties-actions">
+          {hasOnboardingImage(definition.id) && (
+            <button
+              className="help-btn"
+              onClick={() => triggerOnboardingForComponent(selectedComponent.instanceId)}
+              title="Show Guide"
+            >
+              <HelpCircle size={16} />
+            </button>
+          )}
           <button className="delete-btn" onClick={handleDelete} title="Delete Component">
             <Trash2 size={16} />
           </button>

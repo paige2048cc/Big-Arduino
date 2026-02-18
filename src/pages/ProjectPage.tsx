@@ -270,6 +270,8 @@ export function ProjectPage() {
         {/* Three Panel Layout */}
         <main className="project-main">
           <ThreePanelLayout
+            initialLeftWidth={320}
+            initialRightWidth={320}
             leftPanel={
               <LeftPanel
                 code={currentCode}

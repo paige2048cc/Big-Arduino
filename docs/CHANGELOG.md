@@ -10,6 +10,64 @@ All notable changes to Big Arduino App will be documented in this file.
 
 ---
 
+## [8.0.1] - 2026-02-16
+
+### Fixed
+- **Simulation error highlighting for breadboard components**: Fixed bug where circuit errors (no-power, no-ground, wrong-polarity, missing-resistor) were silently dropped when components were inserted into a breadboard. Errors are now always reported and highlighted.
+- **Component-level error overlays**: Added red dashed border around components with simulation errors, so errors are visible even when there's no specific wire to blame (e.g., completely disconnected components on a breadboard).
+- **Error tooltip on component hover**: Hovering over a component's error overlay now shows the error message tooltip, matching wire error tooltip behavior.
+
+---
+
+## [8.0.0] - 2026-02-11
+
+### Added
+- **Dockable panel system**: Photoshop-like docking for right sidebar panels
+  - Drag panels by title bar to rearrange order (vertical stack)
+  - Drag panels to side of another for horizontal split layout
+  - Drag panels out of sidebar (>50px) to create floating windows
+  - Drag floating panels back to sidebar to re-dock
+  - Resizable divider between docked panels
+- **Instructions panel**: Step-by-step guided instructions for "Light Up an LED" project
+  - 6 beginner-friendly steps with auto-detection of completion
+  - Step dropdown (1/6) for quick navigation to any step
+  - Previous/Next buttons for step navigation
+  - Green checkmark and encouraging message when step is completed
+  - Component library highlighting for required components (#FCC049 stroke, #FFF8E2 background)
+- **Floating panel windows**: Fixed-size (360x400) floating panels with draggable header
+- **Drop zone indicators**: Visual feedback (blue highlight) during panel drag showing where panel will dock
+
+### New Files
+- `src/contexts/DockingContext.tsx` - State management for dockable panel system
+- `src/contexts/index.ts` - Context exports
+- `src/components/panels/InstructionsPanel.tsx` - Step-by-step instructions UI
+- `src/components/panels/InstructionsPanel.css` - Instructions styling (Figma reference)
+- `src/components/panels/DockablePanel.tsx` - Draggable panel wrapper
+- `src/components/panels/DockablePanel.css` - Panel wrapper styling
+- `src/components/panels/FloatingPanel.tsx` - Floating window component
+- `src/components/panels/FloatingPanel.css` - Floating window styling
+- `src/components/panels/DockContainer.tsx` - Container for docked panels with divider
+- `src/components/panels/DockContainer.css` - Dock container styling
+
+### Changed
+- **Right sidebar**: Now uses DockContainer with Instructions (top) and AI Chat (bottom)
+- **Component highlighting**: Updated from blue to orange/cream (#FCC049/#FFF8E2) for guided steps
+- **ProjectPage**: Wrapped with DockingProvider for docking state management
+
+---
+
+## [7.0.2] - 2026-02-09
+
+### Changed
+- **Homepage visual redesign**: Updated the `/` homepage layout and styles to match the latest Figma dashboard design (sidebar + hero + featured projects) without changing existing navigation behavior.
+- **Homepage background polish**: Tuned the light blue gradient and added a subtle drifting yellow radial "bubble" near the hero input (motion is intentionally gentle).
+- **Bubble motion tuning**: Increased bubble movement visibility and speed slightly while keeping it non-distracting.
+- **Decorative characters restored**: Added the two hero characters and made their eyes subtly follow the cursor direction within the sockets.
+- **Collapsible homepage sidebar**: Hamburger button now collapses the sidebar to icon-only; when collapsed, hovering the logo reveals the hamburger to expand.
+- **Desktop layout fit**: Adjusted desktop sizing so a 1920px-wide screen can see the full homepage content without scrolling in typical viewports.
+
+---
+
 ## [7.0.1] - 2026-02-04
 
 ### Security

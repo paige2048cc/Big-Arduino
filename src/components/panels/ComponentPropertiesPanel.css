@@ -260,3 +260,13 @@
   font-weight: 500;
   color: var(--text-primary, #202124);
 }
+
+/* Help Button - Question mark in circle */
+.properties-actions .help-btn {
+  color: var(--accent-primary, #1a73e8);
+}
+
+.properties-actions .help-btn:hover {
+  background: rgba(26, 115, 232, 0.1);
+  color: var(--accent-primary, #1a73e8);
+}

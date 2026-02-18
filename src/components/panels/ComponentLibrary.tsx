@@ -5,31 +5,37 @@ import { ComponentItem } from '../shared/ComponentItem';
 import './ComponentLibrary.css';
 
 // Component categories with images from public/components/
+// Note: 'folder' specifies the actual file location, UI grouping is separate
 const componentCategories = [
-  {
-    id: 'microcontrollers',
-    name: 'Microcontrollers',
-    folder: 'microcontrollers',
-    components: [
-      { id: 'arduino-uno', name: 'Arduino Uno', image: 'arduino-uno.png' },
-    ]
-  },
   {
     id: 'boards',
     name: 'Boards',
-    folder: 'boards',
     components: [
-      { id: 'breadboard', name: 'Half-Size Breadboard', image: 'breadboard.png' },
+      { id: 'arduino-uno', name: 'Arduino Uno', image: 'arduino-uno.png', folder: 'microcontrollers' },
+      { id: 'breadboard', name: 'Half-Size Breadboard', image: 'breadboard.png', folder: 'boards' },
+    ]
+  },
+  {
+    id: 'input',
+    name: 'Input',
+    components: [
+      { id: 'pushbutton', name: 'Push Button', image: 'pushbutton_OFF.png', folder: 'passive' },
+    ]
+  },
+  {
+    id: 'output',
+    name: 'Output',
+    components: [
+      { id: 'led-5mm', name: 'LED (5mm)', image: 'LED_Red_OFF.png', folder: 'passive' },
+      { id: 'buzzer', name: 'Piezo Buzzer', image: 'Buzzer.svg', folder: 'Output' },
+      { id: 'vibration-motor', name: 'Vibration Motor', image: 'Vibration Motor.svg', folder: 'Output' },
     ]
   },
   {
     id: 'passive',
-    name: 'Passive Components',
-    folder: 'passive',
+    name: 'Passive',
     components: [
-      { id: 'led-5mm', name: 'LED (5mm)', image: 'LED_Red_OFF.png' },
-      { id: 'Registor_220Ω', name: 'Resistor 220Ω', image: 'Registor_220Ω.png' },
-      { id: 'pushbutton', name: 'Push Button', image: 'pushbutton_OFF.png' },
+      { id: 'Registor_220Ω', name: 'Resistor 220Ω', image: 'Registor_220Ω.png', folder: 'passive' },
     ]
   },
 ];
@@ -42,7 +48,7 @@ export function ComponentLibrary({ onComponentDragStart }: ComponentLibraryProps
   const [searchQuery, setSearchQuery] = useState('');
   const highlightedComponents = useHighlightedToolbarComponents();
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
-    new Set(['microcontrollers', 'boards', 'passive'])
+    new Set(['boards', 'input', 'output', 'passive'])
   );
 
   const toggleCategory = (categoryId: string) => {
@@ -100,7 +106,7 @@ export function ComponentLibrary({ onComponentDragStart }: ComponentLibraryProps
                   <ComponentItem
                     key={component.id}
                     component={component}
-                    category={category.folder}
+                    category={component.folder}
                     highlighted={highlightedComponents.includes(component.id)}
                     onDragStart={onComponentDragStart}
                   />

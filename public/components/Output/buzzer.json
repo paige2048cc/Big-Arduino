@@ -1,0 +1,28 @@
+{
+  "id": "buzzer",
+  "name": "Piezo Buzzer",
+  "category": "Output",
+  "image": "Buzzer.svg",
+  "width": 80,
+  "height": 87,
+  "pins": [
+    {
+      "id": "POSITIVE",
+      "label": "Positive (+)",
+      "description": "Signal input. Connect to digital or PWM pin.",
+      "type": "terminal",
+      "x": 11,
+      "y": 86,
+      "hitRadius": 8
+    },
+    {
+      "id": "NEGATIVE",
+      "label": "Negative (-)",
+      "description": "Ground. Connect to GND.",
+      "type": "terminal",
+      "x": 70,
+      "y": 86,
+      "hitRadius": 8
+    }
+  ]
+}

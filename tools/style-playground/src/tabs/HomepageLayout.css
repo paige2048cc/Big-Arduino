@@ -2136,3 +2136,315 @@
   color: #999;
   margin-left: 12px;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   STYLE H — Dark Lime Dashboard (Based on Image #7)
+   Deep black background, lime green (#9EFF00) accent, modern
+   ══════════════════════════════════════════════════════════════════════════ */
+.preview-container.dark {
+  background: #0a0a0a;
+}
+
+.style-h {
+  --h-bg: #0a0a0a;
+  --h-surface: #111111;
+  --h-surface-elevated: #1a1a1a;
+  --h-border: #222222;
+  --h-text: #ffffff;
+  --h-text-muted: #888888;
+  --h-text-dim: #555555;
+  --h-accent: #9EFF00;
+  --h-accent-dim: rgba(158, 255, 0, 0.15);
+  --h-accent-glow: rgba(158, 255, 0, 0.3);
+
+  background: var(--h-bg);
+  min-height: 600px;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: var(--h-text);
+}
+
+/* Navigation */
+.h-nav {
+  display: flex;
+  align-items: center;
+  padding: 16px 32px;
+  border-bottom: 1px solid var(--h-border);
+}
+
+.h-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--h-text);
+}
+
+.h-logo svg {
+  color: var(--h-accent);
+}
+
+.h-nav-links {
+  display: flex;
+  gap: 32px;
+  margin-left: 48px;
+}
+
+.h-nav-link {
+  font-size: 14px;
+  color: var(--h-text-muted);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.h-nav-link:hover,
+.h-nav-link.active {
+  color: var(--h-text);
+}
+
+.h-nav-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.h-nav-btn {
+  width: 40px;
+  height: 40px;
+  background: var(--h-surface);
+  border: 1px solid var(--h-border);
+  border-radius: 10px;
+  color: var(--h-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.h-nav-btn:hover {
+  border-color: var(--h-accent);
+  color: var(--h-accent);
+}
+
+.h-cta-btn {
+  padding: 10px 20px;
+  background: var(--h-accent);
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #000;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.h-cta-btn:hover {
+  background: #b4ff33;
+  box-shadow: 0 4px 20px var(--h-accent-glow);
+}
+
+/* Hero Section */
+.h-hero {
+  text-align: center;
+  padding: 64px 32px 48px;
+}
+
+.h-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--h-accent-dim);
+  border: 1px solid rgba(158, 255, 0, 0.3);
+  border-radius: 24px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--h-accent);
+  margin-bottom: 24px;
+}
+
+.h-hero h1 {
+  font-size: 52px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--h-text);
+  margin-bottom: 16px;
+}
+
+.h-accent {
+  color: var(--h-accent);
+  text-shadow: 0 0 40px var(--h-accent-glow);
+}
+
+.h-hero-sub {
+  font-size: 18px;
+  color: var(--h-text-muted);
+  max-width: 500px;
+  margin: 0 auto 40px;
+}
+
+/* AI Input Area */
+.h-input-area {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.h-input-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--h-surface);
+  border: 1px solid var(--h-border);
+  border-radius: 16px;
+  padding: 8px 8px 8px 20px;
+  margin-bottom: 16px;
+  transition: border-color 0.15s;
+}
+
+.h-input-box:focus-within {
+  border-color: var(--h-accent);
+}
+
+.h-input-icon {
+  color: var(--h-accent);
+  flex-shrink: 0;
+}
+
+.h-input-box input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  font-size: 15px;
+  color: var(--h-text);
+  outline: none;
+}
+
+.h-input-box input::placeholder {
+  color: var(--h-text-dim);
+}
+
+.h-send-btn {
+  width: 44px;
+  height: 44px;
+  background: var(--h-accent);
+  border: none;
+  border-radius: 12px;
+  color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.h-send-btn:hover {
+  background: #b4ff33;
+  box-shadow: 0 4px 20px var(--h-accent-glow);
+}
+
+.h-input-hints {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.h-input-hints > span {
+  font-size: 13px;
+  color: var(--h-text-dim);
+}
+
+.h-hint-chip {
+  padding: 6px 14px;
+  background: var(--h-surface);
+  border: 1px solid var(--h-border);
+  border-radius: 20px;
+  font-size: 13px;
+  color: var(--h-text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.h-hint-chip:hover {
+  border-color: var(--h-accent);
+  color: var(--h-accent);
+}
+
+/* Features Grid */
+.h-features {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  padding: 0 32px 48px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.h-feature-card {
+  background: var(--h-surface);
+  border: 1px solid var(--h-border);
+  border-radius: 16px;
+  padding: 24px;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.h-feature-card:hover {
+  border-color: var(--h-accent);
+  transform: translateY(-4px);
+}
+
+.h-feature-icon {
+  width: 48px;
+  height: 48px;
+  background: var(--h-accent-dim);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--h-accent);
+  margin: 0 auto 16px;
+}
+
+.h-feature-card h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--h-text);
+  margin-bottom: 8px;
+}
+
+.h-feature-card p {
+  font-size: 13px;
+  color: var(--h-text-muted);
+  line-height: 1.5;
+}
+
+/* Stats Row */
+.h-stats {
+  display: flex;
+  justify-content: center;
+  gap: 64px;
+  padding: 32px;
+  border-top: 1px solid var(--h-border);
+}
+
+.h-stat {
+  text-align: center;
+}
+
+.h-stat-value {
+  display: block;
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--h-accent);
+  text-shadow: 0 0 20px var(--h-accent-glow);
+}
+
+.h-stat-label {
+  font-size: 13px;
+  color: var(--h-text-muted);
+}

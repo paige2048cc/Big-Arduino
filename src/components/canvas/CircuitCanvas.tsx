@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import * as fabric from 'fabric';
 import { ZoomIn, ZoomOut, Undo2, Trash2, Move, RotateCw, FlipHorizontal, FlipVertical } from 'lucide-react';
-import { useCircuitStore, useHoveredPin, useWireDrawing, useWires, useSimulationErrors, useSelectedWire, useClickToPlace, useDragPreview, useHighlightedItems } from '../../store/circuitStore';
+import { useCircuitStore, useHoveredPin, useWireDrawing, useWires, useSimulationErrors, useSelectedWire, useClickToPlace, useDragPreview, useHighlightedItems, useActiveOnboarding } from '../../store/circuitStore';
 import {
   useOnboardingStore,
   useIsOnboardingActive,
@@ -13,6 +13,7 @@ import { createComponentReference, createWireReference } from '../../types/chat'
 import { loadComponentByFileName, getPinAtPosition } from '../../services/componentService';
 import { calculateSnapPosition, shouldRemoveFromBreadboard } from '../../services/breadboardSnapping';
 import { routeOrthogonalManhattan, type Rect as RouterRect, type Point as RouterPoint } from '../../services/routing/orthogonalRouter';
+import { ComponentOnboarding, hasOnboardingImage } from './ComponentOnboarding';
 import './CircuitCanvas.css';
 
 // Helper functions for wire path generation
@@ -284,6 +285,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
   const [dragPreviewDimensions, setDragPreviewDimensions] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [selectedObject, setSelectedObject] = useState<fabric.FabricObject | null>(null);
+  const [viewportVersion, setViewportVersion] = useState(0); // Triggers re-render on viewport change
 
   // Zustand store
   const {
@@ -318,6 +320,9 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     updateDragPreview,
     endDragPreview,
     addPendingReference,
+    showOnboarding,
+    hideOnboarding,
+    hasShownOnboarding,
   } = useCircuitStore();
 
   const hoveredPin = useHoveredPin();
@@ -328,6 +333,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
   const simulationErrors = useSimulationErrors();
   const selectedWire = useSelectedWire();
   const highlightedItems = useHighlightedItems();
+  const activeOnboarding = useActiveOnboarding();
 
   // Onboarding hooks
   const isOnboardingActive = useIsOnboardingActive();
@@ -664,6 +670,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       fabricCanvas.zoomToPoint(pointer, newZoom);
 
       setZoom(newZoom);
+      setViewportVersion(v => v + 1);
       e.preventDefault();
       e.stopPropagation();
     });
@@ -839,6 +846,8 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
         vpt[5] += mouseEvent.clientY - lastPanPointRef.current.y;
         canvas.setViewportTransform(vpt);
         lastPanPointRef.current = { x: mouseEvent.clientX, y: mouseEvent.clientY };
+        // Trigger re-render for onboarding overlay
+        setViewportVersion(v => v + 1);
       }
       return;
     }
@@ -2301,6 +2310,16 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       // Remove from pending loads
       pendingLoadsRef.current.delete(instanceId);
 
+      // Trigger onboarding for first-time placement of this component type
+      if (hasOnboardingImage(definition.id) && !hasShownOnboarding(definition.id)) {
+        // Get final position (may have been snapped)
+        const finalX = fabricImg.left ?? x;
+        const finalY = fabricImg.top ?? y;
+        const centerX = finalX + definition.width / 2;
+        const centerY = finalY + definition.height / 2;
+        showOnboarding(instanceId, definition.id, centerX, centerY);
+      }
+
       onComponentDrop?.(componentId, x, y);
     };
 
@@ -2314,7 +2333,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     };
 
     img.src = imageUrl;
-  }, [addComponent, setComponentDefinition, onComponentDrop, placedComponents, getComponentDefinition, updateComponentPosition, insertIntoBreadboard, showInsertionHighlights]);
+  }, [addComponent, setComponentDefinition, onComponentDrop, placedComponents, getComponentDefinition, updateComponentPosition, insertIntoBreadboard, showInsertionHighlights, hasShownOnboarding, showOnboarding]);
 
   // Fallback component when image fails to load
   const createFallbackComponent = (
@@ -2360,6 +2379,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     const newZoom = Math.min(zoom + 0.25, 3);
     canvas.setZoom(newZoom);
     setZoom(newZoom);
+    setViewportVersion(v => v + 1);
     canvas.renderAll();
   };
 
@@ -2370,6 +2390,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     const newZoom = Math.max(zoom - 0.25, 0.5);
     canvas.setZoom(newZoom);
     setZoom(newZoom);
+    setViewportVersion(v => v + 1);
     canvas.renderAll();
   };
 
@@ -3301,6 +3322,33 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
             Click to place | ESC to cancel
           </div>
         )}
+
+        {/* Component Onboarding Overlay */}
+        {activeOnboarding && (() => {
+          const canvas = fabricCanvasRef.current;
+          const vpt = canvas?.viewportTransform || [1, 0, 0, 1, 0, 0];
+
+          // Get real-time component position from store
+          const component = placedComponents.find(c => c.instanceId === activeOnboarding.instanceId);
+          const definition = getComponentDefinition(activeOnboarding.instanceId);
+
+          if (!component || !definition) return null;
+
+          // Calculate current center position
+          const centerX = component.x + definition.width / 2;
+          const centerY = component.y + definition.height / 2;
+
+          return (
+            <ComponentOnboarding
+              instanceId={activeOnboarding.instanceId}
+              definitionId={activeOnboarding.definitionId}
+              centerX={centerX}
+              centerY={centerY}
+              viewportTransform={vpt}
+              onComplete={hideOnboarding}
+            />
+          );
+        })()}
 
         {placedComponents.length === 0 && !isDragOver && (
           <div className="canvas-placeholder">

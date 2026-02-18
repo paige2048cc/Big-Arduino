@@ -137,6 +137,15 @@ interface CircuitState {
 
   // Highlighted components in toolbar (for guided instructions / AI suggestions)
   highlightedToolbarComponents: string[];
+
+  // Component onboarding state
+  shownOnboardings: Set<string>;  // Set of definitionIds that have shown onboarding
+  activeOnboarding: {
+    instanceId: string;
+    definitionId: string;
+    centerX: number;
+    centerY: number;
+  } | null;
 }
 
 interface CircuitActions {
@@ -237,6 +246,12 @@ interface CircuitActions {
   setHighlightedToolbarComponents: (componentIds: string[] | null) => void;
   // Convenience: keep single-component API
   setHighlightedToolbarComponent: (componentId: string | null) => void;
+
+  // Component onboarding actions
+  showOnboarding: (instanceId: string, definitionId: string, centerX: number, centerY: number) => void;
+  hideOnboarding: () => void;
+  hasShownOnboarding: (definitionId: string) => boolean;
+  triggerOnboardingForComponent: (instanceId: string) => void;
 }
 
 // Generate unique IDs
@@ -297,6 +312,8 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
     },
     highlightedItems: [],
     highlightedToolbarComponents: [],
+    shownOnboardings: new Set(),
+    activeOnboarding: null,
 
     // Component actions
     addComponent: (definition, x, y, properties = {}) => {
@@ -1094,6 +1111,45 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
     setHighlightedToolbarComponent: (componentId) => {
       get().setHighlightedToolbarComponents(componentId ? [componentId] : null);
     },
+
+    // Component onboarding actions
+    showOnboarding: (instanceId, definitionId, centerX, centerY) => {
+      set((state) => {
+        state.activeOnboarding = { instanceId, definitionId, centerX, centerY };
+        state.shownOnboardings.add(definitionId);
+      });
+    },
+
+    hideOnboarding: () => {
+      set((state) => {
+        state.activeOnboarding = null;
+      });
+    },
+
+    hasShownOnboarding: (definitionId) => {
+      return get().shownOnboardings.has(definitionId);
+    },
+
+    triggerOnboardingForComponent: (instanceId) => {
+      const state = get();
+      const component = state.placedComponents.find(c => c.instanceId === instanceId);
+      const definition = state.componentDefinitions.get(instanceId);
+
+      if (component && definition) {
+        // Calculate center position
+        const centerX = component.x + definition.width / 2;
+        const centerY = component.y + definition.height / 2;
+
+        set((s) => {
+          s.activeOnboarding = {
+            instanceId,
+            definitionId: definition.id,
+            centerX,
+            centerY,
+          };
+        });
+      }
+    },
   }))
 );
 
@@ -1152,3 +1208,7 @@ export const useHighlightedToolbarComponents = () =>
 // Backwards-compatible selector: returns first highlighted component (or null)
 export const useHighlightedToolbarComponent = () =>
   useCircuitStore((state) => state.highlightedToolbarComponents[0] ?? null);
+
+// Component onboarding selector
+export const useActiveOnboarding = () =>
+  useCircuitStore((state) => state.activeOnboarding);

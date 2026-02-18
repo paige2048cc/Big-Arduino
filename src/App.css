@@ -85,6 +85,7 @@ body {
 
 .home-shell {
   height: 100vh;
+  height: 100dvh;
   display: flex;
   overflow: hidden;
   background: #f8fafc;
@@ -100,6 +101,7 @@ body {
   height: 100%;
   flex: 0 0 auto;
   transition: width 180ms ease;
+  overflow-x: hidden;
 }
 
 .sidebar-header {
@@ -231,21 +233,39 @@ body {
   display: none;
 }
 
-.home-sidebar.collapsed .sidebar-nav-item:hover svg,
-.home-sidebar.collapsed .sidebar-nav-item:focus-visible svg {
-  display: none;
+.home-sidebar.collapsed .sidebar-nav-item {
+  position: relative;
 }
 
-.home-sidebar.collapsed .sidebar-nav-item:hover span,
-.home-sidebar.collapsed .sidebar-nav-item:focus-visible span {
-  display: block;
-  width: 100%;
-  max-width: 56px;
+.home-sidebar.collapsed .sidebar-nav-item > svg {
+  opacity: 1;
+  transition: opacity 140ms ease;
+}
+
+.home-sidebar.collapsed .sidebar-nav-item > span {
+  display: flex;
+  position: absolute;
+  inset: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
   font-size: 12px;
   line-height: 14px;
   text-align: center;
   white-space: normal;
   word-break: keep-all;
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+
+.home-sidebar.collapsed .sidebar-nav-item:hover > svg,
+.home-sidebar.collapsed .sidebar-nav-item:focus-visible > svg {
+  opacity: 0;
+}
+
+.home-sidebar.collapsed .sidebar-nav-item:hover > span,
+.home-sidebar.collapsed .sidebar-nav-item:focus-visible > span {
+  opacity: 1;
 }
 
 .home-sidebar.collapsed .sidebar-footer {
@@ -383,6 +403,30 @@ body {
   align-items: center;
 }
 
+/* Smaller desktop (e.g. 1920px wide) should start lower to avoid clipping */
+@media (max-width: 1980px) {
+  .home-main {
+    align-items: flex-start;
+  }
+
+  .home-main-inner {
+    justify-content: flex-start;
+    padding-top: clamp(28px, 6vh, 80px);
+  }
+}
+
+/* Shorter viewports should also start lower to avoid top clipping */
+@media (max-height: 980px) {
+  .home-main {
+    align-items: flex-start;
+  }
+
+  .home-main-inner {
+    justify-content: flex-start;
+    padding-top: clamp(20px, 5vh, 72px);
+  }
+}
+
 .home-main::before {
   content: '';
   position: absolute;
@@ -451,7 +495,7 @@ body {
   border-radius: 16px;
   height: auto;
   min-height: 340px;
-  padding: 52px 32px 48px;
+  padding: 44px 32px 44px;
   background: rgba(255, 255, 255, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.6);
   box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1);
@@ -1048,7 +1092,7 @@ body {
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  padding: var(--spacing-xl);
+  padding: 16px;
   overflow-y: auto;
   max-height: calc(100vh - 250px);
   box-shadow: var(--shadow-sm);

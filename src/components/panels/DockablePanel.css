@@ -30,7 +30,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px;
+  padding: 10px 12px;
   background: var(--bg-secondary, #f8f9fa);
   border-bottom: 1px solid var(--border-color, #e8eaed);
   cursor: grab;
@@ -52,7 +52,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-primary, #202124);
 }
@@ -62,15 +62,27 @@
   align-items: center;
   justify-content: center;
   color: var(--text-secondary, #5f6368);
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
 }
 
 .dockable-panel-icon img {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   display: block;
+}
+
+.dockable-panel-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dockable-panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .dockable-panel-title-text {

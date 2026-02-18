@@ -36,6 +36,11 @@ const variantMappings: Record<string, VariantMapping> = {
 // Component categories and their members
 const componentCategories: ComponentCategory[] = [
   {
+    id: 'boards',
+    name: 'Boards',
+    components: ['breadboard'],
+  },
+  {
     id: 'microcontrollers',
     name: 'Microcontrollers',
     components: ['arduino-uno'],
@@ -44,6 +49,11 @@ const componentCategories: ComponentCategory[] = [
     id: 'passive',
     name: 'Passive Components',
     components: ['led-5mm', 'pushbutton', 'resistor-220'],
+  },
+  {
+    id: 'Output',
+    name: 'Output',
+    components: ['buzzer', 'vibration-motor'],
   },
 ];
 
@@ -139,6 +149,9 @@ function getCategoryForComponent(componentId: string): string | null {
   if (id.includes('arduino') || id.includes('esp') || id.includes('nano')) {
     return 'microcontrollers';
   }
+  if (id.includes('breadboard')) {
+    return 'boards';
+  }
   if (
     id.includes('led') ||
     id.includes('resistor') ||
@@ -146,6 +159,14 @@ function getCategoryForComponent(componentId: string): string | null {
     id.includes('capacitor')
   ) {
     return 'passive';
+  }
+  if (
+    id.includes('buzzer') ||
+    id.includes('motor') ||
+    id.includes('speaker') ||
+    id.includes('servo')
+  ) {
+    return 'Output';
   }
 
   return null;

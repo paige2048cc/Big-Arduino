@@ -54,11 +54,11 @@ function scanAllComponents(): Array<{
     const files = fs.readdirSync(categoryPath);
 
     // Find image files
-    const imageFiles = files.filter(f => /\.(png|jpg|jpeg|webp)$/i.test(f));
+    const imageFiles = files.filter(f => /\.(png|jpg|jpeg|webp|svg)$/i.test(f));
 
     for (const imageFile of imageFiles) {
       const imagePath = path.join(categoryPath, imageFile);
-      const baseName = imageFile.replace(/\.(png|jpg|jpeg|webp)$/i, '');
+      const baseName = imageFile.replace(/\.(png|jpg|jpeg|webp|svg)$/i, '');
       const jsonPath = path.join(categoryPath, `${baseName}.json`);
 
       // Load or create default definition
@@ -241,7 +241,7 @@ function serveComponentImage(pathname: string, res: http.ServerResponse) {
   const ext = path.extname(imagePath).toLowerCase();
   const contentType = ext === '.png' ? 'image/png' :
                       ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' :
-                      ext === '.webp' ? 'image/webp' : 'application/octet-stream';
+                      ext === '.webp' ? 'image/webp' : ext === '.svg' ? 'image/svg+xml' : 'application/octet-stream';
 
   res.setHeader('Content-Type', contentType);
   res.writeHead(200);
