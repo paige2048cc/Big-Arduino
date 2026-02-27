@@ -1747,10 +1747,71 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
 
   // ── Design-mode animation trigger ─────────────────────────────────────────
   // Fires when wires are added / removed (not during simulation).
+  // Track previous wires to detect newly added wires
+  const prevWiresRef = useRef<typeof wires>([]);
+
   // Uses placedComponents / wires / definitionsMap from the current render closure.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (isSimulating) return;
+
+    // Find newly added wire
+    let newWire = null;
+    const prevWires = prevWiresRef.current;
+    if (wires.length > prevWires.length) {
+      const prevWireIds = new Set(prevWires.map(w => w.id));
+      newWire = wires.find(w => !prevWireIds.has(w.id));
+    }
+    prevWiresRef.current = wires;
+
+    // If there's a new wire, check if its start point was already powered (using old wires)
+    if (newWire) {
+      // Collect all powered component/pin pairs from the old circuit
+      const poweredNodes = new Set<string>();
+      const powerPins = findAllPowerPins(placedComponents, definitionsMap);
+
+      for (const pp of powerPins) {
+        const oldPath = tracePowerPath(
+          pp.componentId,
+          pp.pinId,
+          placedComponents,
+          definitionsMap,
+          prevWires
+        );
+
+        // Add all wired connections in the old power path
+        for (const wireId of oldPath.wireIds) {
+          const wire = prevWires.find(w => w.id === wireId);
+          if (wire) {
+            poweredNodes.add(`${wire.startComponentId}:${wire.startPinId}`);
+            poweredNodes.add(`${wire.endComponentId}:${wire.endPinId}`);
+          }
+        }
+
+        // Also add the power pin itself
+        poweredNodes.add(`${pp.componentId}:${pp.pinId}`);
+      }
+
+      // Check if the new wire's start point was already powered
+      const startKey = `${newWire.startComponentId}:${newWire.startPinId}`;
+      if (poweredNodes.has(startKey)) {
+        // Start point was powered! Animate from the new wire's start point to GND
+        const path = tracePowerPath(
+          newWire.startComponentId,
+          newWire.startPinId,
+          placedComponents,
+          definitionsMap,
+          wires
+        );
+        if (path.wireIds.length > 0) {
+          setAnimPath(path);
+          setAnimLooping(false);
+          return;
+        }
+      }
+    }
+
+    // Otherwise, animate from power source as usual
     const powerPins = findAllPowerPins(placedComponents, definitionsMap);
     for (const pp of powerPins) {
       const hasWire = wires.some(
