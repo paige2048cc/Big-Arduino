@@ -1,0 +1,28 @@
+{
+  "id": "vibration-motor",
+  "name": "Vibration Motor",
+  "category": "Output",
+  "image": "Vibration Motor.svg",
+  "width": 100,
+  "height": 100,
+  "pins": [
+    {
+      "id": "pin_1771358846984",
+      "label": "Negative (-)",
+      "description": "",
+      "type": "digital",
+      "x": 30,
+      "y": 100,
+      "hitRadius": 8
+    },
+    {
+      "id": "pin_1771358855114",
+      "label": "Positive (+)",
+      "description": "",
+      "type": "terminal",
+      "x": 67,
+      "y": 100,
+      "hitRadius": 8
+    }
+  ]
+}

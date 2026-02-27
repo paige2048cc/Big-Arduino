@@ -1,0 +1,195 @@
+.three-panel-layout {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: var(--bg-canvas, #e8eaed);
+  position: relative;
+}
+
+/* Panel Base Styles */
+.panel {
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.left-panel {
+  background: var(--bg-primary, #ffffff);
+  border-right: 1px solid var(--border-color, #dadce0);
+  flex-shrink: 0;
+  position: relative;
+  transition: width 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: visible !important;
+}
+
+/* Floating/overlay behavior: left panel does not participate in layout flow */
+.left-panel--floating {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  height: auto;
+  border: none;
+  border-right: 1px solid var(--border-color, #dadce0);
+  border-radius: 0;
+  box-shadow: 0 8px 20px rgba(60, 64, 67, 0.14);
+  z-index: 30;
+  /* Collapse/expand via transform so the handle stays clickable */
+  transition: transform 250ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.left-panel:not(.left-panel--floating).collapsed {
+  width: 0 !important;
+  min-width: 0;
+  border-right: none;
+}
+
+/* Floating collapsed: slide out, keep the handle visible */
+.left-panel--floating.is-collapsed {
+  transform: translateX(calc(-100% + 14px));
+}
+
+/* Inner content wrapper - clips content during collapse */
+.left-panel-content {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  /* Smooth transition when not collapsing; inline styles override during collapse */
+  transition: none;
+}
+
+.center-panel {
+  flex: 1;
+  min-width: 400px;
+  background: var(--bg-canvas, #e8eaed);
+  position: relative;
+}
+
+.right-panel {
+  background: var(--bg-primary, #ffffff);
+  border-left: 1px solid var(--border-color, #dadce0);
+  flex-shrink: 0;
+}
+
+/* Panel Resizer */
+.panel-resizer {
+  width: 4px;
+  background: transparent;
+  cursor: col-resize;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+  transition: background-color 0.15s ease;
+}
+
+.panel-resizer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  right: -4px;
+}
+
+.panel-resizer:hover,
+.panel-resizer.active {
+  background: var(--accent-primary, #1a73e8);
+}
+
+.left-resizer {
+  margin-left: -2px;
+  margin-right: -2px;
+}
+
+.right-resizer {
+  margin-left: -2px;
+  margin-right: -2px;
+}
+
+/* Floating left resizer - absolute, overlays workspace */
+.left-resizer--floating {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 35;
+}
+
+/* Prevent text selection during drag */
+.three-panel-layout.dragging {
+  user-select: none;
+  cursor: col-resize;
+}
+
+.three-panel-layout.dragging * {
+  cursor: col-resize;
+}
+
+/* Collapse/Expand Handle - protruding tab on panel edge */
+.panel-collapse-btn {
+  position: absolute;
+  top: 50%;
+  right: -14px;
+  transform: translateY(-50%);
+  z-index: 20;
+  width: 14px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary, #ffffff);
+  border: 1px solid var(--border-color, #dadce0);
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+  cursor: pointer;
+  color: var(--accent-primary, #1a73e8);
+  box-shadow: 2px 0 4px rgba(60, 64, 67, 0.1);
+  transition: all 0.15s ease;
+}
+
+/* Raise handle above floating panel + resizer */
+.left-panel--floating .panel-collapse-btn {
+  z-index: 40;
+}
+
+.panel-collapse-btn:hover {
+  background: var(--bg-tertiary, #f1f3f4);
+  color: var(--accent-primary, #1a73e8);
+  box-shadow: 2px 0 8px rgba(60, 64, 67, 0.15);
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+  .center-panel {
+    min-width: 300px;
+  }
+}
+
+@media (max-width: 900px) {
+  .three-panel-layout {
+    flex-direction: column;
+  }
+
+  .panel {
+    width: 100% !important;
+    height: auto;
+    min-height: 200px;
+  }
+
+  .center-panel {
+    min-width: unset;
+    flex: 1;
+    min-height: 400px;
+  }
+
+  .panel-resizer {
+    display: none;
+  }
+
+  .left-panel,
+  .right-panel {
+    border: none;
+    border-bottom: 1px solid var(--border-color, #dadce0);
+  }
+}

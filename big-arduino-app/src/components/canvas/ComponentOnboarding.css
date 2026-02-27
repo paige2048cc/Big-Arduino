@@ -1,0 +1,19 @@
+/* Component Onboarding Overlay */
+.component-onboarding {
+  position: absolute;
+  transform-origin: center center;
+  z-index: 25; /* Above canvas components but below sidebars (which use z-index: 30) */
+  pointer-events: none; /* Allow workspace interaction through the overlay */
+  opacity: 1;
+  transition: opacity 0.5s ease-out;
+}
+
+.component-onboarding.fading {
+  opacity: 0;
+}
+
+.component-onboarding img {
+  display: block;
+  max-width: none;
+  transform-origin: center center;
+}

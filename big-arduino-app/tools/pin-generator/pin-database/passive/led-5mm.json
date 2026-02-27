@@ -1,0 +1,21 @@
+{
+  "componentId": "led-5mm",
+  "componentName": "LED (5mm)",
+  "category": "passive",
+  "source": "Generic LED datasheet",
+  "description": "Standard 5mm LED. Works for all colors (red, green, blue, yellow, etc.) and states (ON/OFF). Forward voltage varies by color. Always use with current-limiting resistor.",
+  "pins": [
+    {
+      "id": "ANODE",
+      "label": "Anode (+)",
+      "description": "Positive terminal. Connect to power through a current-limiting resistor. Longer leg on physical LED.",
+      "type": "terminal"
+    },
+    {
+      "id": "CATHODE",
+      "label": "Cathode (-)",
+      "description": "Negative terminal. Connect to ground. Shorter leg on physical LED, flat side of LED case.",
+      "type": "terminal"
+    }
+  ]
+}

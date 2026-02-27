@@ -1,0 +1,359 @@
+.circuit-canvas-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-canvas, #e8eaed);
+}
+
+/* Floating Toolbar */
+.canvas-toolbar {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-color, #dadce0);
+  border-radius: 24px;
+  box-shadow: 0 4px 16px rgba(60, 64, 67, 0.15);
+  z-index: 50;
+  pointer-events: auto;
+  max-width: calc(100vw - 40px);
+  overflow: hidden;
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--border-color, #dadce0);
+  margin: 0 8px;
+}
+
+.canvas-toolbar button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-secondary, #5f6368);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.canvas-toolbar button:hover {
+  background: var(--bg-tertiary, #f1f3f4);
+  color: var(--text-primary, #202124);
+}
+
+.canvas-toolbar button.active {
+  background: rgba(26, 115, 232, 0.1);
+  color: var(--accent-primary, #1a73e8);
+  border-color: var(--accent-primary, #1a73e8);
+}
+
+.zoom-level {
+  min-width: 50px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary, #5f6368);
+}
+
+/* Canvas Area */
+.canvas-area {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.canvas-area canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.canvas-area.drag-over {
+  background: rgba(26, 115, 232, 0.05);
+}
+
+.canvas-area.drag-over::after {
+  content: '';
+  position: absolute;
+  inset: 16px;
+  border: 2px dashed var(--accent-primary, #1a73e8);
+  border-radius: 12px;
+  pointer-events: none;
+}
+
+/* Drop Indicator */
+.drop-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 16px 32px;
+  background: var(--accent-primary, #1a73e8);
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 8px;
+  pointer-events: none;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: translate(-50%, -50%) scale(1.02);
+  }
+}
+
+/* Placeholder content */
+.canvas-placeholder {
+  position: fixed;
+  top: 50vh;
+  left: 50vw;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: var(--text-secondary, #5f6368);
+  pointer-events: none;
+  max-width: min(560px, calc(100vw - 40px));
+}
+
+.canvas-placeholder svg {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.canvas-placeholder h3 {
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0 0 8px 0;
+}
+
+.canvas-placeholder p {
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+/* Pin Tooltip */
+.pin-tooltip {
+  position: absolute;
+  background: #1f2937;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  max-width: 250px;
+  z-index: 100;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.pin-tooltip-label {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.pin-tooltip-desc {
+  font-size: 11px;
+  opacity: 0.85;
+  line-height: 1.4;
+}
+
+/* Minimal tooltip - short ID only, centered above pin */
+.pin-tooltip-minimal {
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-align: center;
+  max-width: none;
+  background: rgba(26, 43, 195, 0.7); /* #1A2BC3 at 70% opacity */
+}
+
+/* Pin Highlight Square */
+.pin-highlight {
+  position: absolute;
+  background: rgba(26, 115, 232, 0.3);
+  border: 2px solid #1a73e8;
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 99;
+  box-sizing: border-box;
+}
+
+/* Net-connected pin highlight (breadboard internal connections) */
+/* Uses blue like other components, but with reduced opacity for visual hierarchy */
+.pin-highlight-net {
+  background: rgba(26, 115, 232, 0.1);
+  border-color: rgba(26, 115, 232, 0.25);
+  box-shadow: none;
+}
+
+/* Insertion success highlight (green pulse animation) */
+.pin-highlight-insertion {
+  background: rgba(76, 175, 80, 0.5);
+  border-color: #4caf50;
+  box-shadow: 0 0 12px rgba(76, 175, 80, 0.8);
+  animation: insertion-pulse 0.4s ease-out forwards;
+}
+
+@keyframes insertion-pulse {
+  0% {
+    transform: translate(-50%, -50%) scale(1.3);
+    opacity: 1;
+    box-shadow: 0 0 20px rgba(76, 175, 80, 1);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.1);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0;
+  }
+}
+
+/* Wire Drawing */
+.canvas-area.wire-drawing {
+  cursor: crosshair;
+}
+
+.wire-drawing-indicator {
+  position: fixed;
+  bottom: 80px;  /* Above the floating toolbar */
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(26, 115, 232, 0.95);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  z-index: 100;
+  max-width: calc(100vw - 40px);
+  text-align: center;
+}
+
+/* Simulation Button */
+.toolbar-label {
+  margin-left: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.canvas-toolbar button.simulation-active {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+  border-color: #dc2626;
+}
+
+.canvas-toolbar button.simulation-active:hover {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+/* Button with label */
+.canvas-toolbar .toolbar-group button:has(.toolbar-label) {
+  width: auto;
+  padding: 0 12px;
+  gap: 4px;
+}
+
+/* Wire color picker */
+.wire-colors {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolbar-label-text {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary, #5f6368);
+  margin-right: 4px;
+}
+
+.wire-colors .color-btn {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  padding: 0;
+  border-radius: 4px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.wire-colors .color-btn:hover {
+  transform: scale(1.1);
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+.wire-colors .color-btn.active {
+  border-color: #202124;
+  box-shadow: 0 0 0 2px white, 0 0 0 4px #202124;
+}
+
+/* Wire Error Tooltip */
+.wire-error-tooltip {
+  position: absolute;
+  background: #dc2626;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  max-width: 280px;
+  z-index: 100;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+  white-space: nowrap;
+}
+
+/* Click-to-place cursor */
+.canvas-area.click-to-place {
+  cursor: copy;
+}
+
+/* Click-to-place indicator */
+.click-to-place-indicator {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(76, 175, 80, 0.95);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  z-index: 100;
+  pointer-events: none;
+  max-width: calc(100vw - 40px);
+  text-align: center;
+}

@@ -1,0 +1,168 @@
+/**
+ * DockablePanel Styles
+ *
+ * Styles for the dockable panel wrapper with draggable header
+ */
+
+/* ==================== */
+/* Panel Container      */
+/* ==================== */
+
+.dockable-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--bg-primary, #ffffff);
+  overflow: hidden;
+}
+
+.dockable-panel.dragging {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* ==================== */
+/* Panel Header         */
+/* ==================== */
+
+.dockable-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--bg-secondary, #f8f9fa);
+  border-bottom: 1px solid var(--border-color, #e8eaed);
+  cursor: grab;
+  user-select: none;
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+}
+
+.dockable-panel-header:hover {
+  background: var(--bg-tertiary, #f1f3f4);
+}
+
+.dockable-panel-header:active {
+  cursor: grabbing;
+  background: var(--bg-tertiary, #f1f3f4);
+}
+
+.dockable-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, #202124);
+}
+
+.dockable-panel-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary, #5f6368);
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+.dockable-panel-icon img {
+  width: 28px;
+  height: 28px;
+  display: block;
+}
+
+.dockable-panel-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dockable-panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dockable-panel-title-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dockable-panel-drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary, #9aa0a6);
+  opacity: 0.5;
+  transition: opacity 0.15s ease;
+}
+
+.dockable-panel-header:hover .dockable-panel-drag-handle {
+  opacity: 1;
+}
+
+/* ==================== */
+/* Panel Content        */
+/* ==================== */
+
+.dockable-panel-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ==================== */
+/* Drag Preview         */
+/* ==================== */
+
+.dock-drag-preview {
+  position: fixed;
+  pointer-events: none;
+  z-index: 10000;
+  background: var(--bg-primary, #ffffff);
+  border: 2px solid var(--accent-primary, #1a73e8);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  opacity: 0.9;
+  width: 300px;
+  max-height: 200px;
+  overflow: hidden;
+}
+
+.dock-drag-preview .dockable-panel-header {
+  background: var(--accent-primary, #1a73e8);
+  color: white;
+}
+
+.dock-drag-preview .dockable-panel-title {
+  color: white;
+}
+
+.dock-drag-preview .dockable-panel-icon,
+.dock-drag-preview .dockable-panel-drag-handle {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* ==================== */
+/* Global Drag Overlay  */
+/* ==================== */
+
+.dock-drag-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  cursor: grabbing;
+}
+
+/* Body class during drag */
+body.panel-dragging {
+  cursor: grabbing !important;
+  user-select: none !important;
+}
+
+body.panel-dragging * {
+  cursor: grabbing !important;
+}

@@ -1,0 +1,24 @@
+{
+  "name": "style-playground",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Standalone playground for exploring visual styles and UI patterns (not part of the Big Arduino app)",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "lucide-react": "^0.562.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.6.0",
+    "typescript": "~5.9.3",
+    "vite": "^7.2.4"
+  }
+}

@@ -1,0 +1,1854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Component Pin Editor</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f8f9fa;
+      color: #202124;
+      min-height: 100vh;
+    }
+
+    .header {
+      background: white;
+      border-bottom: 1px solid #dadce0;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header h1 {
+      font-size: 20px;
+      font-weight: 600;
+      color: #1a73e8;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      border: none;
+    }
+
+    .btn-primary {
+      background: #1a73e8;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #1557b0;
+    }
+
+    .btn-secondary {
+      background: white;
+      color: #5f6368;
+      border: 1px solid #dadce0;
+    }
+
+    .btn-secondary:hover {
+      background: #f1f3f4;
+    }
+
+    .main-container {
+      display: flex;
+      height: calc(100vh - 65px);
+    }
+
+    .sidebar {
+      width: 320px;
+      background: white;
+      border-right: 1px solid #dadce0;
+      overflow-y: auto;
+      padding: 16px;
+    }
+
+    .component-selector {
+      margin-bottom: 24px;
+    }
+
+    .component-selector label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #5f6368;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .component-selector select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #dadce0;
+      border-radius: 8px;
+      font-size: 14px;
+      background: white;
+    }
+
+    .pin-list {
+      margin-top: 16px;
+    }
+
+    .pin-list h3 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .pin-item {
+      background: #f8f9fa;
+      border: 1px solid #dadce0;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .pin-item:hover {
+      border-color: #1a73e8;
+    }
+
+    .pin-item.selected {
+      border-color: #1a73e8;
+      background: rgba(26, 115, 232, 0.1);
+    }
+
+    .pin-item.unplaced {
+      background: #fff3e0;
+      border-color: #ffb74d;
+    }
+
+    .pin-item.unplaced:hover {
+      border-color: #f57c00;
+      background: #ffe0b2;
+    }
+
+    .pin-item.placing {
+      border-color: #f57c00;
+      background: #ffe0b2;
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(245, 124, 0, 0.4); }
+      50% { box-shadow: 0 0 0 6px rgba(245, 124, 0, 0); }
+    }
+
+    .pin-status {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 8px;
+      margin-left: 6px;
+    }
+
+    .pin-status.unplaced {
+      background: #ffcc80;
+      color: #e65100;
+    }
+
+    .pin-status.placed {
+      background: #c8e6c9;
+      color: #2e7d32;
+    }
+
+    .pin-section {
+      margin-bottom: 16px;
+    }
+
+    .pin-section-header {
+      font-size: 12px;
+      font-weight: 600;
+      color: #5f6368;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pin-section-count {
+      background: #e8eaed;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+    }
+
+    .placement-banner {
+      background: #fff3e0;
+      border: 2px solid #f57c00;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 16px;
+      text-align: center;
+      display: none;
+    }
+
+    .placement-banner.visible {
+      display: block;
+    }
+
+    .placement-banner strong {
+      color: #e65100;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .placement-banner button {
+      margin-top: 8px;
+      padding: 4px 12px;
+      font-size: 12px;
+    }
+
+    .pin-item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .pin-label {
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    .pin-type {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: #e8eaed;
+      color: #5f6368;
+    }
+
+    .pin-type.power { background: #fce8e6; color: #c5221f; }
+    .pin-type.ground { background: #e8f0fe; color: #1967d2; }
+    .pin-type.digital { background: #e6f4ea; color: #137333; }
+    .pin-type.analog { background: #fef7e0; color: #b06000; }
+
+    .pin-coords {
+      font-size: 12px;
+      color: #5f6368;
+    }
+
+    .pin-delete {
+      background: none;
+      border: none;
+      color: #ea4335;
+      cursor: pointer;
+      padding: 4px;
+      font-size: 16px;
+    }
+
+    .canvas-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Alignment Toolbar */
+    .alignment-toolbar {
+      background: white;
+      border-bottom: 1px solid #dadce0;
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .toolbar-group {
+      display: flex;
+      gap: 4px;
+      padding-right: 12px;
+      border-right: 1px solid #dadce0;
+    }
+
+    .toolbar-group:last-child {
+      border-right: none;
+    }
+
+    .toolbar-btn {
+      width: 32px;
+      height: 32px;
+      border: 1px solid #dadce0;
+      border-radius: 6px;
+      background: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      color: #5f6368;
+      transition: all 0.15s ease;
+    }
+
+    .toolbar-btn:hover {
+      background: #f1f3f4;
+      border-color: #1a73e8;
+      color: #1a73e8;
+    }
+
+    .toolbar-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .toolbar-btn[title]:hover::after {
+      content: attr(title);
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #202124;
+      color: white;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      white-space: nowrap;
+      margin-top: 4px;
+      z-index: 1000;
+    }
+
+    .toolbar-label {
+      font-size: 12px;
+      color: #5f6368;
+      margin-right: 8px;
+    }
+
+    .selection-info {
+      margin-left: auto;
+      font-size: 12px;
+      color: #5f6368;
+    }
+
+    .canvas-container {
+      flex: 1;
+      position: relative;
+      overflow: auto;
+      background: #e8eaed;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 100px; /* Extra space around the image for pins outside bounds */
+    }
+
+    .canvas-wrapper {
+      position: relative;
+      display: inline-block;
+      overflow: visible; /* Allow pins to be visible outside image bounds */
+    }
+
+    .component-image {
+      max-width: 100%;
+      max-height: calc(100vh - 150px);
+      display: block;
+    }
+
+    .canvas-wrapper.placing-mode {
+      cursor: crosshair;
+    }
+
+    .canvas-wrapper.placing-mode .component-image {
+      cursor: crosshair;
+    }
+
+    .pin-marker {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 2px solid #1a73e8;
+      background: rgba(26, 115, 232, 0.3);
+      transform: translate(-50%, -50%);
+      cursor: move;
+      transition: all 0.15s ease;
+    }
+
+    .pin-marker:hover {
+      transform: translate(-50%, -50%) scale(1.2);
+      background: rgba(26, 115, 232, 0.5);
+    }
+
+    .pin-marker.selected {
+      border-color: #ea4335;
+      background: rgba(234, 67, 53, 0.3);
+      box-shadow: 0 0 0 3px rgba(234, 67, 53, 0.2);
+    }
+
+    .pin-marker.dragging {
+      opacity: 0.8;
+      transform: translate(-50%, -50%) scale(1.3);
+    }
+
+    .pin-marker.net-highlight {
+      border-color: #9c27b0;
+      background: rgba(156, 39, 176, 0.4);
+      box-shadow: 0 0 8px rgba(156, 39, 176, 0.6);
+    }
+
+    .pin-item.net-highlight {
+      border-color: #9c27b0 !important;
+      background: rgba(156, 39, 176, 0.1) !important;
+    }
+
+    .pin-net-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 8px;
+      background: #e1bee7;
+      color: #6a1b9a;
+      margin-left: 4px;
+    }
+
+    .pin-item.bulk-selected {
+      border-color: #ff9800 !important;
+      background: #fff3e0 !important;
+    }
+
+    .bulk-actions {
+      background: #fff3e0;
+      border: 1px solid #ffb74d;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 16px;
+    }
+
+    .select-by-net {
+      margin-bottom: 12px;
+    }
+
+    .select-by-net select {
+      width: 100%;
+      padding: 6px;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+
+    /* Marquee selection box */
+    .selection-box {
+      position: absolute;
+      border: 1px dashed #1a73e8;
+      background: rgba(26, 115, 232, 0.1);
+      pointer-events: none;
+    }
+
+    .pin-tooltip {
+      position: absolute;
+      background: #202124;
+      color: white;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 1000;
+      transform: translate(-50%, -100%);
+      margin-top: -10px;
+    }
+
+    .edit-panel {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      padding: 20px;
+      min-width: 400px;
+      z-index: 200;
+      display: none;
+    }
+
+    .edit-panel.visible {
+      display: block;
+    }
+
+    .edit-panel h4 {
+      margin-bottom: 16px;
+      font-size: 16px;
+    }
+
+    .edit-field {
+      margin-bottom: 12px;
+    }
+
+    .edit-field label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: #5f6368;
+      margin-bottom: 4px;
+    }
+
+    .edit-field input, .edit-field select, .edit-field textarea {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #dadce0;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    .edit-field textarea {
+      resize: vertical;
+      min-height: 60px;
+    }
+
+    .edit-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #34a853;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.3s ease;
+      z-index: 1000;
+    }
+
+    .toast.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .toast.error {
+      background: #ea4335;
+    }
+
+    .instructions {
+      background: #e8f0fe;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: #1967d2;
+    }
+
+    .instructions strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .shortcuts {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 16px;
+      font-size: 12px;
+      color: #5f6368;
+    }
+
+    .shortcuts strong {
+      display: block;
+      margin-bottom: 8px;
+      color: #202124;
+    }
+
+    .shortcut-item {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+
+    .shortcut-key {
+      font-family: monospace;
+      background: #e8eaed;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .add-pin-btn {
+      width: 100%;
+      padding: 10px;
+      background: #f1f3f4;
+      border: 2px dashed #dadce0;
+      border-radius: 8px;
+      color: #5f6368;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.15s ease;
+    }
+
+    .add-pin-btn:hover {
+      border-color: #1a73e8;
+      color: #1a73e8;
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <h1>Component Pin Editor</h1>
+    <div class="header-actions">
+      <button class="btn btn-secondary" onclick="resetChanges()">Reset</button>
+      <button class="btn btn-primary" onclick="saveComponent()">Save Component</button>
+    </div>
+  </header>
+
+  <div class="main-container">
+    <aside class="sidebar">
+      <div class="component-selector">
+        <label>Select Component</label>
+        <select id="componentSelect" onchange="loadComponent(this.value)">
+          <option value="">Loading...</option>
+        </select>
+      </div>
+
+      <div class="component-selector">
+        <label>Pin Template (auto-matched)</label>
+        <div style="display: flex; gap: 8px;">
+          <select id="templateSelect" style="flex: 1;">
+            <option value="">-- Select template --</option>
+          </select>
+          <button class="btn btn-secondary" onclick="loadTemplate()" style="padding: 8px 12px;">Load</button>
+        </div>
+        <div id="templateInfo" style="margin-top: 8px; font-size: 12px; color: #5f6368;"></div>
+        <div style="margin-top: 4px; font-size: 11px; color: #5f6368;">
+          Variants (colors, ON/OFF) share pin definitions
+        </div>
+      </div>
+
+      <div class="placement-banner" id="placementBanner">
+        <strong>Placement Mode</strong>
+        <span id="placingPinName">Click on the image to place this pin</span>
+        <br>
+        <button class="btn btn-secondary" onclick="cancelPlacement()">Cancel</button>
+      </div>
+
+      <div class="instructions">
+        <strong>Instructions:</strong>
+        1. Select a template to load pin definitions<br>
+        2. Click an unplaced pin, then click on image<br>
+        3. Drag on canvas to marquee-select multiple pins<br>
+        4. Use alignment tools for rows
+      </div>
+
+      <div class="bulk-actions" id="bulkActions" style="display: none;">
+        <div class="pin-section-header">
+          Bulk Place Selected
+          <span class="pin-section-count" id="bulkSelectedCount">0</span>
+        </div>
+        <div style="font-size: 12px; margin-bottom: 8px;">
+          Place selected unplaced pins in a grid:
+        </div>
+        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+          <div style="flex: 1;">
+            <label style="font-size: 11px;">Cols</label>
+            <input type="number" id="bulkCols" value="5" min="1" max="30" style="width: 100%; padding: 4px;">
+          </div>
+          <div style="flex: 1;">
+            <label style="font-size: 11px;">Spacing</label>
+            <input type="number" id="bulkSpacing" value="20" min="5" max="100" style="width: 100%; padding: 4px;">
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="bulkPlaceSelected()" style="width: 100%; padding: 8px;">
+          Place at Click Position
+        </button>
+        <button class="btn btn-secondary" onclick="clearBulkSelection()" style="width: 100%; padding: 8px; margin-top: 4px;">
+          Clear Selection
+        </button>
+      </div>
+
+      <div class="shortcuts">
+        <strong>Keyboard Shortcuts</strong>
+        <div class="shortcut-item"><span>Delete selected</span><span class="shortcut-key">Delete</span></div>
+        <div class="shortcut-item"><span>Nudge 1px</span><span class="shortcut-key">Arrow keys</span></div>
+        <div class="shortcut-item"><span>Nudge 10px</span><span class="shortcut-key">Shift+Arrow</span></div>
+        <div class="shortcut-item"><span>Select all</span><span class="shortcut-key">Ctrl+A</span></div>
+        <div class="shortcut-item"><span>Save</span><span class="shortcut-key">Ctrl+S</span></div>
+        <div class="shortcut-item"><span>Clear selection</span><span class="shortcut-key">Escape</span></div>
+      </div>
+
+      <div class="pin-list">
+        <div class="pin-section" id="unplacedSection">
+          <div class="pin-section-header">
+            Pins to Place
+            <span class="pin-section-count" id="unplacedCount">0</span>
+          </div>
+          <div class="select-by-net" id="selectByNetContainer" style="display: none;">
+            <div style="display: flex; gap: 4px; margin-bottom: 8px;">
+              <select id="netSelect" style="flex: 1;">
+                <option value="">-- Select by Net --</option>
+              </select>
+              <button class="btn btn-secondary" onclick="selectByNet()" style="padding: 4px 8px; font-size: 12px;">Select</button>
+            </div>
+            <div style="display: flex; gap: 4px;">
+              <button class="btn btn-secondary" onclick="selectAllUnplaced()" style="flex: 1; padding: 4px; font-size: 11px;">Select All</button>
+              <button class="btn btn-secondary" onclick="clearBulkSelection()" style="flex: 1; padding: 4px; font-size: 11px;">Clear</button>
+            </div>
+          </div>
+          <div id="unplacedPinsContainer"></div>
+        </div>
+
+        <div class="pin-section">
+          <div class="pin-section-header">
+            Placed Pins
+            <span class="pin-section-count" id="placedCount">0</span>
+          </div>
+          <div id="placedPinsContainer"></div>
+        </div>
+
+        <button class="add-pin-btn" onclick="startAddingPin()">+ Add Custom Pin</button>
+      </div>
+    </aside>
+
+    <div class="canvas-area">
+      <!-- Alignment Toolbar -->
+      <div class="alignment-toolbar">
+        <span class="toolbar-label">Align:</span>
+        <div class="toolbar-group">
+          <button class="toolbar-btn" onclick="alignPins('left')" title="Align Left">⬅</button>
+          <button class="toolbar-btn" onclick="alignPins('right')" title="Align Right">➡</button>
+          <button class="toolbar-btn" onclick="alignPins('top')" title="Align Top">⬆</button>
+          <button class="toolbar-btn" onclick="alignPins('bottom')" title="Align Bottom">⬇</button>
+        </div>
+        <span class="toolbar-label">Distribute:</span>
+        <div class="toolbar-group">
+          <button class="toolbar-btn" onclick="distributePins('horizontal')" title="Distribute Horizontally">↔</button>
+          <button class="toolbar-btn" onclick="distributePins('vertical')" title="Distribute Vertically">↕</button>
+        </div>
+        <span class="selection-info" id="selectionInfo">No pins selected</span>
+      </div>
+
+      <main class="canvas-container" id="canvasContainer">
+        <div class="canvas-wrapper" id="canvasWrapper">
+          <img id="componentImage" class="component-image" src="" alt="Component">
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="edit-panel" id="editPanel">
+    <h4>Edit Pin</h4>
+    <div class="edit-field">
+      <label>ID</label>
+      <input type="text" id="editId" placeholder="unique_id">
+    </div>
+    <div class="edit-field">
+      <label>Label</label>
+      <input type="text" id="editLabel" placeholder="Display label">
+    </div>
+    <div class="edit-field">
+      <label>Description</label>
+      <textarea id="editDescription" placeholder="Pin function description"></textarea>
+    </div>
+    <div class="edit-field">
+      <label>Type</label>
+      <select id="editType">
+        <option value="digital">Digital</option>
+        <option value="analog">Analog</option>
+        <option value="power">Power</option>
+        <option value="ground">Ground</option>
+        <option value="pwm">PWM</option>
+        <option value="communication">Communication</option>
+        <option value="terminal">Terminal</option>
+      </select>
+    </div>
+    <div class="edit-field">
+      <label>Net/Group (optional)</label>
+      <input type="text" id="editNet" placeholder="e.g., row-1, power-rail-top">
+      <div style="font-size: 11px; color: #5f6368; margin-top: 4px;">
+        Pins with the same net are internally connected (e.g., breadboard rows)
+      </div>
+    </div>
+    <div class="edit-actions">
+      <button class="btn btn-secondary" onclick="closeEditPanel()">Cancel</button>
+      <button class="btn btn-primary" onclick="applyEdit()">Apply</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let components = [];
+    let currentComponent = null;
+    let selectedPins = new Set(); // Multi-select support
+    let lastSelectedIndex = -1;   // For shift-click range selection
+    let isDragging = false;
+    let isAddingPin = false;
+    let isMarqueeSelecting = false;
+    let marqueeStart = { x: 0, y: 0 };
+    let dragStartPositions = new Map();
+
+    let availableTemplates = [];
+    let placingPinIndex = -1;  // Index of pin being placed (-1 = not placing)
+    let bulkSelectedUnplaced = new Set();  // Indices of unplaced pins selected for bulk placement
+    let isBulkPlacing = false;  // Whether we're in bulk placement mode
+
+    // Load components and templates from server
+    async function init() {
+      try {
+        // Load components
+        const response = await fetch('/api/components');
+        components = await response.json();
+
+        const select = document.getElementById('componentSelect');
+        select.innerHTML = components.map((c, i) =>
+          `<option value="${i}">${c.category}/${c.name}</option>`
+        ).join('');
+
+        if (components.length > 0) {
+          loadComponent(0);
+        }
+
+        // Load templates
+        const templatesResponse = await fetch('/api/templates');
+        availableTemplates = await templatesResponse.json();
+
+        const templateSelect = document.getElementById('templateSelect');
+        templateSelect.innerHTML = '<option value="">-- Select template --</option>' +
+          availableTemplates.map(t =>
+            `<option value="${t.id}">${t.name} (${t.pinCount} pins)</option>`
+          ).join('');
+
+      } catch (error) {
+        showToast('Failed to load components', true);
+      }
+    }
+
+    /**
+     * Find the best matching template for a component name.
+     * Handles variants like LED_Red_ON, LED_Blue_OFF, pushbutton_ON, etc.
+     */
+    function findMatchingTemplate(componentName) {
+      const name = componentName.toLowerCase();
+
+      // Template matching patterns (order matters - more specific first)
+      const patterns = [
+        { pattern: /arduino.?uno/i, template: 'arduino-uno' },
+        { pattern: /arduino.?nano/i, template: 'arduino-nano' },
+        { pattern: /arduino.?mega/i, template: 'arduino-mega' },
+        { pattern: /led/i, template: 'led-5mm' },           // All LEDs use same pin config
+        { pattern: /push.?button|button|btn/i, template: 'pushbutton' },
+        { pattern: /resist|resistor|registor/i, template: 'resistor' },  // Include typo
+        { pattern: /breadboard|bread.?board/i, template: 'breadboard-half' },  // Breadboard
+      ];
+
+      for (const { pattern, template } of patterns) {
+        if (pattern.test(name)) {
+          // Verify template exists
+          const found = availableTemplates.find(t => t.id === template);
+          if (found) return template;
+        }
+      }
+
+      return null;
+    }
+
+    /**
+     * Auto-select the best matching template for the current component
+     */
+    function autoSelectTemplate() {
+      if (!currentComponent || availableTemplates.length === 0) return;
+
+      const matchedTemplate = findMatchingTemplate(currentComponent.name);
+      const templateSelect = document.getElementById('templateSelect');
+
+      if (matchedTemplate) {
+        templateSelect.value = matchedTemplate;
+        document.getElementById('templateInfo').innerHTML =
+          `<span style="color: #137333;">✓ Auto-matched: ${matchedTemplate}</span>`;
+      } else {
+        templateSelect.value = '';
+        document.getElementById('templateInfo').innerHTML = '';
+      }
+    }
+
+    async function loadTemplate() {
+      const templateId = document.getElementById('templateSelect').value;
+      if (!templateId) {
+        showToast('Please select a template first', true);
+        return;
+      }
+
+      if (!currentComponent) {
+        showToast('Please select a component first', true);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/templates/${templateId}`);
+        const template = await response.json();
+
+        if (template.error) {
+          showToast('Template not found', true);
+          return;
+        }
+
+        // Confirm if there are existing pins
+        if (currentComponent.definition.pins.length > 0) {
+          if (!confirm(`This will replace ${currentComponent.definition.pins.length} existing pins with ${template.pins.length} pins from the template. Continue?`)) {
+            return;
+          }
+        }
+
+        // Update component with template pins (all start as unplaced)
+        currentComponent.definition.name = template.componentName;
+        currentComponent.definition.pins = template.pins.map(pin => ({
+          ...pin,
+          x: pin.x || 50,
+          y: pin.y || 50,
+          hitRadius: pin.hitRadius || 8,
+          placed: false  // Mark as unplaced - user needs to position
+        }));
+
+        // Update template info
+        document.getElementById('templateInfo').innerHTML =
+          `Loaded: ${template.componentName}<br>Source: <a href="${template.source}" target="_blank" style="color: #1a73e8;">Official docs</a>`;
+
+        renderPins();
+        showToast(`Loaded ${template.pins.length} pins from template. Position them on the image.`);
+
+      } catch (error) {
+        showToast('Failed to load template', true);
+      }
+    }
+
+    function loadComponent(index) {
+      currentComponent = components[index];
+      if (!currentComponent) return;
+
+      // Ensure existing pins have 'placed' property (default to true for existing pins)
+      currentComponent.definition.pins.forEach(pin => {
+        if (pin.placed === undefined) {
+          pin.placed = true;  // Existing pins are considered placed
+        }
+      });
+
+      // Update image
+      const img = document.getElementById('componentImage');
+      img.src = currentComponent.imagePath;
+      img.onload = () => renderPins();
+
+      selectedPins.clear();
+      lastSelectedIndex = -1;
+      placingPinIndex = -1;
+      closeEditPanel();
+      updateSelectionInfo();
+
+      // Auto-select matching template
+      autoSelectTemplate();
+    }
+
+    function renderPins() {
+      const wrapper = document.getElementById('canvasWrapper');
+      const img = document.getElementById('componentImage');
+
+      // Remove existing markers and selection box
+      wrapper.querySelectorAll('.pin-marker, .selection-box').forEach(m => m.remove());
+
+      // Get image display size vs natural size
+      const scaleX = img.clientWidth / currentComponent.definition.width;
+      const scaleY = img.clientHeight / currentComponent.definition.height;
+
+      // Add pin markers ONLY for placed pins
+      currentComponent.definition.pins.forEach((pin, index) => {
+        // Skip unplaced pins - they don't appear on the image yet
+        if (pin.placed === false) return;
+
+        const marker = document.createElement('div');
+        marker.className = 'pin-marker' + (selectedPins.has(index) ? ' selected' : '');
+        marker.style.left = (pin.x * scaleX) + 'px';
+        marker.style.top = (pin.y * scaleY) + 'px';
+        marker.dataset.index = index;
+        if (pin.net) marker.dataset.net = pin.net;
+
+        marker.addEventListener('mousedown', (e) => handlePinMouseDown(e, index));
+        marker.addEventListener('click', (e) => {
+          e.stopPropagation();
+          handlePinClick(e, index);
+        });
+
+        // Tooltip and net highlighting
+        marker.addEventListener('mouseenter', (e) => showPinTooltip(e, pin));
+        marker.addEventListener('mouseleave', hidePinTooltip);
+
+        wrapper.appendChild(marker);
+      });
+
+      // Update pin list
+      renderPinList();
+      updateSelectionInfo();
+    }
+
+    function renderPinList() {
+      const pins = currentComponent.definition.pins;
+
+      // Separate unplaced and placed pins
+      const unplacedPins = [];
+      const placedPins = [];
+
+      pins.forEach((pin, index) => {
+        if (pin.placed === false) {
+          unplacedPins.push({ pin, index });
+        } else {
+          placedPins.push({ pin, index });
+        }
+      });
+
+      // Update counts
+      document.getElementById('unplacedCount').textContent = unplacedPins.length;
+      document.getElementById('placedCount').textContent = placedPins.length;
+
+      // Show/hide unplaced section
+      document.getElementById('unplacedSection').style.display =
+        unplacedPins.length > 0 ? 'block' : 'none';
+
+      // Update net dropdown for bulk selection
+      updateNetDropdown();
+
+      // Render unplaced pins (click to place, checkbox for bulk selection)
+      document.getElementById('unplacedPinsContainer').innerHTML = unplacedPins.map(({ pin, index }) => `
+        <div class="pin-item unplaced ${placingPinIndex === index ? 'placing' : ''} ${bulkSelectedUnplaced.has(index) ? 'bulk-selected' : ''}"
+             data-index="${index}">
+          <div class="pin-item-header">
+            <input type="checkbox"
+                   ${bulkSelectedUnplaced.has(index) ? 'checked' : ''}
+                   onclick="event.stopPropagation(); toggleBulkSelect(${index})"
+                   style="margin-right: 8px;">
+            <span class="pin-label" onclick="startPlacingPin(${index})" style="cursor: pointer; flex: 1;">${pin.label || pin.id}</span>
+            <span class="pin-type ${pin.type}">${pin.type}</span>
+          </div>
+          <div style="font-size: 11px; color: #5f6368; margin-top: 4px; margin-left: 24px;">
+            ${pin.net ? '<span class="pin-net-badge">' + pin.net + '</span> ' : ''}
+            ${pin.description ? pin.description.substring(0, 40) + (pin.description.length > 40 ? '...' : '') : 'Click label to place'}
+          </div>
+        </div>
+      `).join('');
+
+      // Render placed pins (can select, move, edit)
+      document.getElementById('placedPinsContainer').innerHTML = placedPins.map(({ pin, index }) => `
+        <div class="pin-item ${selectedPins.has(index) ? 'selected' : ''}"
+             onclick="handlePinListClick(event, ${index})"
+             onmouseenter="highlightNet('${pin.net || ''}')"
+             onmouseleave="clearNetHighlight()"
+             data-index="${index}"
+             data-net="${pin.net || ''}">
+          <div class="pin-item-header">
+            <span class="pin-label">${pin.label || pin.id}</span>
+            <span class="pin-type ${pin.type}">${pin.type}</span>
+            ${pin.net ? `<span class="pin-net-badge">${pin.net}</span>` : ''}
+          </div>
+          <div class="pin-coords">
+            x: ${Math.round(pin.x)}, y: ${Math.round(pin.y)}
+            <button class="pin-delete" onclick="event.stopPropagation(); deletePin(${index})">×</button>
+          </div>
+        </div>
+      `).join('');
+
+      // Show placement banner when placing
+      updatePlacementBanner();
+    }
+
+    function startPlacingPin(index) {
+      placingPinIndex = index;
+      const pin = currentComponent.definition.pins[index];
+      document.getElementById('placingPinName').textContent =
+        `Click on image to place: ${pin.label || pin.id}`;
+      document.getElementById('canvasWrapper').classList.add('placing-mode');
+      renderPinList();
+      showToast(`Click on the image to place "${pin.label || pin.id}"`);
+    }
+
+    function cancelPlacement() {
+      placingPinIndex = -1;
+      document.getElementById('canvasWrapper').classList.remove('placing-mode');
+      renderPinList();
+    }
+
+    function updatePlacementBanner() {
+      const banner = document.getElementById('placementBanner');
+      const wrapper = document.getElementById('canvasWrapper');
+      if (placingPinIndex >= 0 || isBulkPlacing) {
+        banner.classList.add('visible');
+        wrapper.classList.add('placing-mode');
+        if (isBulkPlacing) {
+          document.getElementById('placingPinName').textContent =
+            `Click on image to place ${bulkSelectedUnplaced.size} pins in a grid`;
+        }
+      } else {
+        banner.classList.remove('visible');
+        wrapper.classList.remove('placing-mode');
+      }
+    }
+
+    // Bulk selection functions
+    function toggleBulkSelect(index) {
+      if (bulkSelectedUnplaced.has(index)) {
+        bulkSelectedUnplaced.delete(index);
+      } else {
+        bulkSelectedUnplaced.add(index);
+      }
+      updateBulkActionsUI();
+      renderPinList();
+    }
+
+    function selectAllUnplacedByNet(netId) {
+      if (!netId) return;
+      const pins = currentComponent.definition.pins;
+      pins.forEach((pin, index) => {
+        if (pin.placed === false && pin.net === netId) {
+          bulkSelectedUnplaced.add(index);
+        }
+      });
+      updateBulkActionsUI();
+      renderPinList();
+    }
+
+    function selectAllUnplaced() {
+      const pins = currentComponent.definition.pins;
+      pins.forEach((pin, index) => {
+        if (pin.placed === false) {
+          bulkSelectedUnplaced.add(index);
+        }
+      });
+      updateBulkActionsUI();
+      renderPinList();
+    }
+
+    function clearBulkSelection() {
+      bulkSelectedUnplaced.clear();
+      isBulkPlacing = false;
+      updateBulkActionsUI();
+      renderPinList();
+    }
+
+    function updateBulkActionsUI() {
+      const bulkActions = document.getElementById('bulkActions');
+      const bulkCount = document.getElementById('bulkSelectedCount');
+
+      if (bulkSelectedUnplaced.size > 0) {
+        bulkActions.style.display = 'block';
+        bulkCount.textContent = bulkSelectedUnplaced.size;
+      } else {
+        bulkActions.style.display = 'none';
+        isBulkPlacing = false;
+      }
+      updatePlacementBanner();
+    }
+
+    function bulkPlaceSelected() {
+      if (bulkSelectedUnplaced.size === 0) {
+        showToast('No pins selected for bulk placement', true);
+        return;
+      }
+      isBulkPlacing = true;
+      updatePlacementBanner();
+      showToast(`Click on image to place ${bulkSelectedUnplaced.size} pins in a grid`);
+    }
+
+    function executeBulkPlacement(startX, startY) {
+      const cols = parseInt(document.getElementById('bulkCols').value) || 5;
+      const spacing = parseInt(document.getElementById('bulkSpacing').value) || 20;
+
+      const pins = currentComponent.definition.pins;
+      const indicesToPlace = Array.from(bulkSelectedUnplaced).sort((a, b) => {
+        // Sort by net first (to keep same-net pins together), then by index
+        const pinA = pins[a];
+        const pinB = pins[b];
+        if (pinA.net && pinB.net) {
+          const netCompare = pinA.net.localeCompare(pinB.net);
+          if (netCompare !== 0) return netCompare;
+        }
+        return a - b;
+      });
+
+      indicesToPlace.forEach((index, i) => {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        const pin = pins[index];
+        pin.x = Math.round(startX + col * spacing);
+        pin.y = Math.round(startY + row * spacing);
+        pin.placed = true;
+      });
+
+      const count = bulkSelectedUnplaced.size;
+      bulkSelectedUnplaced.clear();
+      isBulkPlacing = false;
+      updateBulkActionsUI();
+      renderPins();
+      showToast(`Placed ${count} pins. Use marquee selection and alignment tools to adjust.`);
+    }
+
+    function selectByNet() {
+      const netId = document.getElementById('netSelect').value;
+      if (!netId) {
+        showToast('Please select a net first', true);
+        return;
+      }
+      selectAllUnplacedByNet(netId);
+    }
+
+    function updateNetDropdown() {
+      const pins = currentComponent.definition.pins;
+      const unplacedNets = new Set();
+
+      pins.forEach(pin => {
+        if (pin.placed === false && pin.net) {
+          unplacedNets.add(pin.net);
+        }
+      });
+
+      const netSelect = document.getElementById('netSelect');
+      const selectByNetContainer = document.getElementById('selectByNetContainer');
+
+      if (unplacedNets.size > 0) {
+        selectByNetContainer.style.display = 'block';
+        const sortedNets = Array.from(unplacedNets).sort();
+        netSelect.innerHTML = '<option value="">-- Select by Net --</option>' +
+          sortedNets.map(net => {
+            const count = pins.filter(p => p.placed === false && p.net === net).length;
+            return `<option value="${net}">${net} (${count})</option>`;
+          }).join('');
+      } else {
+        selectByNetContainer.style.display = 'none';
+      }
+    }
+
+    function updateSelectionInfo() {
+      const info = document.getElementById('selectionInfo');
+      const count = selectedPins.size;
+      if (count === 0) {
+        info.textContent = 'No pins selected';
+      } else if (count === 1) {
+        info.textContent = '1 pin selected';
+      } else {
+        info.textContent = `${count} pins selected`;
+      }
+    }
+
+    // Selection handling
+    function handlePinClick(e, index) {
+      if (e.ctrlKey || e.metaKey) {
+        // Ctrl+Click: Toggle selection
+        if (selectedPins.has(index)) {
+          selectedPins.delete(index);
+        } else {
+          selectedPins.add(index);
+        }
+      } else if (e.shiftKey && lastSelectedIndex >= 0) {
+        // Shift+Click: Range selection
+        const start = Math.min(lastSelectedIndex, index);
+        const end = Math.max(lastSelectedIndex, index);
+        for (let i = start; i <= end; i++) {
+          selectedPins.add(i);
+        }
+      } else {
+        // Regular click: Single selection
+        selectedPins.clear();
+        selectedPins.add(index);
+      }
+
+      lastSelectedIndex = index;
+      renderPins();
+
+      // Open edit panel if single selection
+      if (selectedPins.size === 1) {
+        openEditPanel(currentComponent.definition.pins[index]);
+      } else {
+        closeEditPanel();
+      }
+    }
+
+    function handlePinListClick(e, index) {
+      handlePinClick(e, index);
+    }
+
+    function selectAllPins() {
+      const pins = currentComponent.definition.pins;
+      for (let i = 0; i < pins.length; i++) {
+        selectedPins.add(i);
+      }
+      renderPins();
+    }
+
+    function clearSelection() {
+      selectedPins.clear();
+      lastSelectedIndex = -1;
+      renderPins();
+      closeEditPanel();
+    }
+
+    // Dragging - group move
+    function handlePinMouseDown(e, index) {
+      if (e.button !== 0) return; // Left click only
+
+      // If clicking unselected pin without modifier, select it first
+      if (!selectedPins.has(index) && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        selectedPins.clear();
+        selectedPins.add(index);
+        lastSelectedIndex = index;
+        renderPins();
+      }
+
+      isDragging = true;
+      e.target.classList.add('dragging');
+
+      // Store start positions of all selected pins
+      dragStartPositions.clear();
+      selectedPins.forEach(i => {
+        const pin = currentComponent.definition.pins[i];
+        dragStartPositions.set(i, { x: pin.x, y: pin.y });
+      });
+
+      const wrapper = document.getElementById('canvasWrapper');
+      const img = document.getElementById('componentImage');
+      const rect = wrapper.getBoundingClientRect();
+      const startClientX = e.clientX;
+      const startClientY = e.clientY;
+
+      const scaleX = currentComponent.definition.width / img.clientWidth;
+      const scaleY = currentComponent.definition.height / img.clientHeight;
+
+      const onMove = (moveEvent) => {
+        const deltaX = (moveEvent.clientX - startClientX) * scaleX;
+        const deltaY = (moveEvent.clientY - startClientY) * scaleY;
+
+        // Move all selected pins
+        selectedPins.forEach(i => {
+          const startPos = dragStartPositions.get(i);
+          const pin = currentComponent.definition.pins[i];
+          // Allow pins to be placed anywhere in workspace (no bounds constraint)
+          pin.x = Math.round(startPos.x + deltaX);
+          pin.y = Math.round(startPos.y + deltaY);
+        });
+
+        renderPins();
+      };
+
+      const onUp = () => {
+        isDragging = false;
+        document.querySelectorAll('.pin-marker').forEach(m => m.classList.remove('dragging'));
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+
+      e.stopPropagation();
+    }
+
+    // Marquee selection
+    document.getElementById('canvasWrapper').addEventListener('mousedown', (e) => {
+      // Don't start marquee if clicking on a pin, adding a pin, or in placement mode
+      if (e.target.classList.contains('pin-marker') || isAddingPin || placingPinIndex >= 0) return;
+
+      // Only start marquee on left click
+      if (e.button !== 0) return;
+
+      isMarqueeSelecting = true;
+      const wrapper = document.getElementById('canvasWrapper');
+      const rect = wrapper.getBoundingClientRect();
+
+      marqueeStart = {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      };
+
+      // Create selection box
+      const selectionBox = document.createElement('div');
+      selectionBox.className = 'selection-box';
+      selectionBox.id = 'selectionBox';
+      wrapper.appendChild(selectionBox);
+
+      // Clear selection unless modifier key held
+      if (!e.ctrlKey && !e.metaKey) {
+        selectedPins.clear();
+      }
+
+      // Prevent default to avoid text selection
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isMarqueeSelecting) return;
+
+      const wrapper = document.getElementById('canvasWrapper');
+      const rect = wrapper.getBoundingClientRect();
+      const currentX = e.clientX - rect.left;
+      const currentY = e.clientY - rect.top;
+
+      const left = Math.min(marqueeStart.x, currentX);
+      const top = Math.min(marqueeStart.y, currentY);
+      const width = Math.abs(currentX - marqueeStart.x);
+      const height = Math.abs(currentY - marqueeStart.y);
+
+      const selectionBox = document.getElementById('selectionBox');
+      if (selectionBox) {
+        selectionBox.style.left = left + 'px';
+        selectionBox.style.top = top + 'px';
+        selectionBox.style.width = width + 'px';
+        selectionBox.style.height = height + 'px';
+      }
+    });
+
+    document.addEventListener('mouseup', (e) => {
+      if (!isMarqueeSelecting) return;
+      isMarqueeSelecting = false;
+
+      const wrapper = document.getElementById('canvasWrapper');
+      const img = document.getElementById('componentImage');
+      const rect = wrapper.getBoundingClientRect();
+      const currentX = e.clientX - rect.left;
+      const currentY = e.clientY - rect.top;
+
+      const left = Math.min(marqueeStart.x, currentX);
+      const top = Math.min(marqueeStart.y, currentY);
+      const right = Math.max(marqueeStart.x, currentX);
+      const bottom = Math.max(marqueeStart.y, currentY);
+
+      // Only process if drag was significant (> 5px in both directions)
+      const width = right - left;
+      const height = bottom - top;
+
+      if (width > 5 && height > 5) {
+        // Scale to component coordinates
+        const scaleX = currentComponent.definition.width / img.clientWidth;
+        const scaleY = currentComponent.definition.height / img.clientHeight;
+
+        const selectLeft = left * scaleX;
+        const selectTop = top * scaleY;
+        const selectRight = right * scaleX;
+        const selectBottom = bottom * scaleY;
+
+        // Find PLACED pins within selection box (unplaced pins aren't on canvas)
+        currentComponent.definition.pins.forEach((pin, index) => {
+          // Only select placed pins
+          if (pin.placed === false) return;
+
+          if (pin.x >= selectLeft && pin.x <= selectRight &&
+              pin.y >= selectTop && pin.y <= selectBottom) {
+            selectedPins.add(index);
+          }
+        });
+
+        // Show count of selected pins
+        if (selectedPins.size > 0) {
+          showToast(`Selected ${selectedPins.size} pin(s)`);
+        }
+      }
+
+      // Remove selection box
+      const selectionBox = document.getElementById('selectionBox');
+      if (selectionBox) selectionBox.remove();
+
+      renderPins();
+    });
+
+    // Alignment functions
+    function alignPins(direction) {
+      if (selectedPins.size < 2) {
+        showToast('Select at least 2 pins to align', true);
+        return;
+      }
+
+      const pins = currentComponent.definition.pins;
+      const selected = Array.from(selectedPins);
+      const positions = selected.map(i => pins[i]);
+
+      switch(direction) {
+        case 'left': {
+          const minX = Math.min(...positions.map(p => p.x));
+          selected.forEach(i => pins[i].x = minX);
+          break;
+        }
+        case 'right': {
+          const maxX = Math.max(...positions.map(p => p.x));
+          selected.forEach(i => pins[i].x = maxX);
+          break;
+        }
+        case 'top': {
+          const minY = Math.min(...positions.map(p => p.y));
+          selected.forEach(i => pins[i].y = minY);
+          break;
+        }
+        case 'bottom': {
+          const maxY = Math.max(...positions.map(p => p.y));
+          selected.forEach(i => pins[i].y = maxY);
+          break;
+        }
+      }
+
+      renderPins();
+      showToast(`Aligned ${selected.length} pins`);
+    }
+
+    function distributePins(direction) {
+      if (selectedPins.size < 3) {
+        showToast('Select at least 3 pins to distribute', true);
+        return;
+      }
+
+      const pins = currentComponent.definition.pins;
+      const selected = Array.from(selectedPins);
+
+      if (direction === 'horizontal') {
+        // Sort by X position
+        selected.sort((a, b) => pins[a].x - pins[b].x);
+        const minX = pins[selected[0]].x;
+        const maxX = pins[selected[selected.length - 1]].x;
+        const step = (maxX - minX) / (selected.length - 1);
+
+        selected.forEach((i, idx) => {
+          pins[i].x = Math.round(minX + step * idx);
+        });
+      } else {
+        // Sort by Y position
+        selected.sort((a, b) => pins[a].y - pins[b].y);
+        const minY = pins[selected[0]].y;
+        const maxY = pins[selected[selected.length - 1]].y;
+        const step = (maxY - minY) / (selected.length - 1);
+
+        selected.forEach((i, idx) => {
+          pins[i].y = Math.round(minY + step * idx);
+        });
+      }
+
+      renderPins();
+      showToast(`Distributed ${selected.length} pins`);
+    }
+
+    // Nudge pins with arrow keys
+    function nudgePins(dx, dy) {
+      if (selectedPins.size === 0) return;
+
+      const pins = currentComponent.definition.pins;
+      selectedPins.forEach(i => {
+        // Allow pins to be nudged anywhere (no bounds constraint)
+        pins[i].x = pins[i].x + dx;
+        pins[i].y = pins[i].y + dy;
+      });
+
+      renderPins();
+    }
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      // Don't trigger shortcuts when typing in input fields
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+      const step = e.shiftKey ? 10 : 1;
+
+      switch(e.key) {
+        case 'Delete':
+        case 'Backspace':
+          deleteSelectedPins();
+          e.preventDefault();
+          break;
+        case 'ArrowLeft':
+          nudgePins(-step, 0);
+          e.preventDefault();
+          break;
+        case 'ArrowRight':
+          nudgePins(step, 0);
+          e.preventDefault();
+          break;
+        case 'ArrowUp':
+          nudgePins(0, -step);
+          e.preventDefault();
+          break;
+        case 'ArrowDown':
+          nudgePins(0, step);
+          e.preventDefault();
+          break;
+        case 'a':
+          if (e.ctrlKey || e.metaKey) {
+            selectAllPins();
+            e.preventDefault();
+          }
+          break;
+        case 's':
+          if (e.ctrlKey || e.metaKey) {
+            saveComponent();
+            e.preventDefault();
+          }
+          break;
+        case 'Escape':
+          if (placingPinIndex >= 0) {
+            cancelPlacement();
+          } else {
+            clearSelection();
+          }
+          e.preventDefault();
+          break;
+      }
+    });
+
+    function openEditPanel(pin) {
+      document.getElementById('editId').value = pin.id;
+      document.getElementById('editLabel').value = pin.label;
+      document.getElementById('editDescription').value = pin.description || '';
+      document.getElementById('editType').value = pin.type;
+      document.getElementById('editNet').value = pin.net || '';
+      document.getElementById('editPanel').classList.add('visible');
+    }
+
+    function closeEditPanel() {
+      document.getElementById('editPanel').classList.remove('visible');
+    }
+
+    function applyEdit() {
+      if (selectedPins.size !== 1) return;
+
+      const index = Array.from(selectedPins)[0];
+      const pin = currentComponent.definition.pins[index];
+      pin.id = document.getElementById('editId').value;
+      pin.label = document.getElementById('editLabel').value;
+      pin.description = document.getElementById('editDescription').value;
+      pin.type = document.getElementById('editType').value;
+
+      // Handle net field - set or remove
+      const netValue = document.getElementById('editNet').value.trim();
+      if (netValue) {
+        pin.net = netValue;
+      } else {
+        delete pin.net;
+      }
+
+      renderPins();
+      showToast('Pin updated');
+    }
+
+    function deletePin(index) {
+      if (!confirm('Delete this pin?')) return;
+      currentComponent.definition.pins.splice(index, 1);
+
+      // Update selected indices
+      const newSelected = new Set();
+      selectedPins.forEach(i => {
+        if (i < index) newSelected.add(i);
+        else if (i > index) newSelected.add(i - 1);
+      });
+      selectedPins = newSelected;
+
+      closeEditPanel();
+      renderPins();
+      showToast('Pin deleted');
+    }
+
+    function deleteSelectedPins() {
+      if (selectedPins.size === 0) return;
+      if (!confirm(`Delete ${selectedPins.size} selected pin(s)?`)) return;
+
+      // Sort indices in descending order to avoid index shift issues
+      const indices = Array.from(selectedPins).sort((a, b) => b - a);
+      indices.forEach(i => {
+        currentComponent.definition.pins.splice(i, 1);
+      });
+
+      selectedPins.clear();
+      closeEditPanel();
+      renderPins();
+      showToast(`Deleted ${indices.length} pin(s)`);
+    }
+
+    // Adding pins
+    function startAddingPin() {
+      isAddingPin = true;
+      showToast('Click on the image to place a new pin');
+    }
+
+    document.getElementById('canvasWrapper').addEventListener('click', (e) => {
+      if (e.target.classList.contains('pin-marker')) return;
+
+      const wrapper = document.getElementById('canvasWrapper');
+      const img = document.getElementById('componentImage');
+      const rect = wrapper.getBoundingClientRect();
+
+      const scaleX = currentComponent.definition.width / img.clientWidth;
+      const scaleY = currentComponent.definition.height / img.clientHeight;
+
+      const x = (e.clientX - rect.left) * scaleX;
+      const y = (e.clientY - rect.top) * scaleY;
+
+      // Handle bulk placement
+      if (isBulkPlacing && bulkSelectedUnplaced.size > 0) {
+        executeBulkPlacement(Math.round(x), Math.round(y));
+        return;
+      }
+
+      // Handle placing a pin from template
+      if (placingPinIndex >= 0) {
+        const pin = currentComponent.definition.pins[placingPinIndex];
+        pin.x = Math.round(x);
+        pin.y = Math.round(y);
+        pin.placed = true;  // Mark as placed
+
+        const placedLabel = pin.label || pin.id;
+        placingPinIndex = -1;  // Exit placement mode
+        document.getElementById('canvasWrapper').classList.remove('placing-mode');
+
+        renderPins();
+        showToast(`Placed "${placedLabel}" at (${Math.round(x)}, ${Math.round(y)})`);
+        return;
+      }
+
+      // Handle adding a new custom pin
+      if (!isAddingPin) return;
+
+      const newPin = {
+        id: `pin_${Date.now()}`,
+        label: 'New Pin',
+        description: '',
+        type: 'digital',
+        x: Math.round(x),
+        y: Math.round(y),
+        hitRadius: 8,
+        placed: true  // Custom pins are immediately placed
+      };
+
+      currentComponent.definition.pins.push(newPin);
+      isAddingPin = false;
+
+      // Select the new pin
+      selectedPins.clear();
+      selectedPins.add(currentComponent.definition.pins.length - 1);
+      lastSelectedIndex = currentComponent.definition.pins.length - 1;
+
+      renderPins();
+      openEditPanel(newPin);
+    });
+
+    // Tooltips and Net Highlighting
+    let tooltipEl = null;
+
+    function showPinTooltip(e, pin) {
+      if (tooltipEl) tooltipEl.remove();
+      tooltipEl = document.createElement('div');
+      tooltipEl.className = 'pin-tooltip';
+      tooltipEl.textContent = `${pin.label} (${pin.type})${pin.net ? ' • Net: ' + pin.net : ''}`;
+      tooltipEl.style.left = e.target.style.left;
+      tooltipEl.style.top = e.target.style.top;
+      document.getElementById('canvasWrapper').appendChild(tooltipEl);
+
+      // Highlight all pins in the same net
+      if (pin.net) {
+        highlightNet(pin.net);
+      }
+    }
+
+    function hidePinTooltip() {
+      if (tooltipEl) {
+        tooltipEl.remove();
+        tooltipEl = null;
+      }
+      clearNetHighlight();
+    }
+
+    function highlightNet(netId) {
+      if (!netId) return;
+
+      // Find all pins in this net and highlight them
+      const pins = currentComponent.definition.pins;
+      pins.forEach((pin, index) => {
+        if (pin.net === netId && pin.placed !== false) {
+          // Highlight pin marker on canvas
+          const marker = document.querySelector(`.pin-marker[data-index="${index}"]`);
+          if (marker) marker.classList.add('net-highlight');
+
+          // Highlight pin item in sidebar
+          const item = document.querySelector(`.pin-item[data-index="${index}"]`);
+          if (item) item.classList.add('net-highlight');
+        }
+      });
+    }
+
+    function clearNetHighlight() {
+      document.querySelectorAll('.net-highlight').forEach(el => {
+        el.classList.remove('net-highlight');
+      });
+    }
+
+    // Save
+    async function saveComponent() {
+      // Check for unplaced pins
+      const unplacedCount = currentComponent.definition.pins.filter(p => p.placed === false).length;
+      if (unplacedCount > 0) {
+        if (!confirm(`There are ${unplacedCount} unplaced pin(s). Save anyway?\n\nUnplaced pins will be saved with placeholder positions.`)) {
+          return;
+        }
+      }
+
+      try {
+        // Create a clean copy without the 'placed' property (it's editor-only)
+        const cleanDefinition = {
+          ...currentComponent.definition,
+          pins: currentComponent.definition.pins.map(pin => {
+            const { placed, ...cleanPin } = pin;
+            return cleanPin;
+          })
+        };
+
+        const response = await fetch('/api/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonPath: currentComponent.jsonPath,
+            definition: cleanDefinition
+          })
+        });
+
+        if (response.ok) {
+          showToast('Component saved successfully!');
+        } else {
+          throw new Error('Save failed');
+        }
+      } catch (error) {
+        showToast('Failed to save component', true);
+      }
+    }
+
+    function resetChanges() {
+      if (confirm('Reset all changes? This will reload the component from disk.')) {
+        location.reload();
+      }
+    }
+
+    // Toast notification
+    function showToast(message, isError = false) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.className = 'toast visible' + (isError ? ' error' : '');
+      setTimeout(() => toast.classList.remove('visible'), 3000);
+    }
+
+    // Initialize
+    init();
+  </script>
+</body>
+</html>

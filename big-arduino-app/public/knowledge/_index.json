@@ -1,0 +1,62 @@
+{
+  "version": "1.0",
+  "components": [
+    {
+      "id": "led-5mm",
+      "name": "LED (5mm)",
+      "category": "passive",
+      "path": "passive/led-5mm.md",
+      "aliases": ["light emitting diode", "indicator LED", "5mm LED"],
+      "summary": "A semiconductor device that emits light when current flows through it. Requires current-limiting resistor."
+    },
+    {
+      "id": "pushbutton",
+      "name": "Pushbutton",
+      "category": "passive",
+      "path": "passive/pushbutton.md",
+      "aliases": ["push button", "tactile switch", "momentary switch", "button"],
+      "summary": "A mechanical switch that connects two contacts when pressed. Has 4 pins with internal connections."
+    },
+    {
+      "id": "resistor-220",
+      "name": "Resistor (220 ohm)",
+      "category": "passive",
+      "path": "passive/resistor-220.md",
+      "aliases": ["resistor", "220 ohm resistor", "current limiting resistor"],
+      "summary": "A passive component that limits current flow. Non-polarized. Commonly used with LEDs."
+    },
+    {
+      "id": "arduino-uno",
+      "name": "Arduino UNO R3",
+      "category": "microcontrollers",
+      "path": "microcontrollers/arduino-uno.md",
+      "aliases": ["Arduino", "UNO", "Arduino board", "microcontroller"],
+      "summary": "Popular microcontroller board with 14 digital I/O pins, 6 analog inputs, and USB connection."
+    },
+    {
+      "id": "breadboard",
+      "name": "Breadboard (Half-Size)",
+      "category": "boards",
+      "path": "boards/breadboard.md",
+      "aliases": ["breadboard", "solderless breadboard", "protoboard"],
+      "summary": "Reusable platform for building circuits without soldering. Has power rails and terminal strips with internal connections."
+    },
+    {
+      "id": "vibration-motor",
+      "name": "Vibration Motor",
+      "category": "output",
+      "path": "output/vibration-motor.md",
+      "aliases": ["coin motor", "ERM motor", "haptic motor", "pancake motor", "vibrator motor"],
+      "summary": "A small DC motor with eccentric mass that creates vibration. Used for haptic feedback. Requires transistor driver circuit."
+    },
+    {
+      "id": "buzzer",
+      "name": "Piezo Buzzer",
+      "category": "output",
+      "path": "output/buzzer.md",
+      "aliases": ["piezo buzzer", "beeper", "speaker", "passive buzzer", "active buzzer"],
+      "summary": "An electronic component that produces sound using piezoelectric effect. Active type has fixed tone, passive type supports variable frequencies with tone()."
+    }
+  ],
+  "concepts": []
+}

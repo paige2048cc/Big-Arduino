@@ -1,0 +1,284 @@
+/**
+ * InstructionsPanel Styles
+ *
+ * Design based on Figma reference:
+ * - Cream/yellow background (#FFF8E2)
+ * - Orange left border accent (#FCC049)
+ * - Green checkmark for completed steps
+ * - Blue/indigo encouraging messages (#1a2bc3)
+ */
+
+/* ==================== */
+/* Panel Container      */
+/* ==================== */
+
+.instructions-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  padding: 16px;
+  background: #FFF8E2;
+  border-left: 3px solid #FCC049;
+  overflow-y: auto;
+}
+
+/* ==================== */
+/* Step Indicator       */
+/* ==================== */
+
+.step-indicator {
+  position: relative;
+}
+
+.step-indicator-button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: var(--bg-secondary, #f8f9fa);
+  border: 1px solid var(--border-color, #dadce0);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary, #202124);
+  transition: all 0.15s ease;
+}
+
+.step-indicator-button:hover {
+  background: var(--bg-tertiary, #f1f3f4);
+  border-color: var(--accent-primary, #1a73e8);
+}
+
+.step-count {
+  font-variant-numeric: tabular-nums;
+}
+
+.dropdown-chevron {
+  transition: transform 0.2s ease;
+  color: var(--text-secondary, #5f6368);
+}
+
+.dropdown-chevron.open {
+  transform: rotate(180deg);
+}
+
+/* ==================== */
+/* Step Dropdown        */
+/* ==================== */
+
+.step-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 220px;
+  background: var(--bg-primary, #ffffff);
+  border: 1px solid var(--border-color, #dadce0);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  overflow: hidden;
+  animation: dropdownSlideIn 0.15s ease-out;
+}
+
+@keyframes dropdownSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.step-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-primary, #202124);
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.step-dropdown-item:hover {
+  background: var(--bg-secondary, #f8f9fa);
+}
+
+.step-dropdown-item.active {
+  background: rgba(26, 115, 232, 0.08);
+  color: var(--accent-primary, #1a73e8);
+}
+
+.step-dropdown-item.completed .step-dropdown-title {
+  color: var(--text-secondary, #5f6368);
+}
+
+.step-dropdown-number {
+  font-weight: 600;
+  min-width: 20px;
+}
+
+.step-dropdown-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.step-dropdown-check {
+  color: #34A853;
+  flex-shrink: 0;
+}
+
+/* ==================== */
+/* Checkmark            */
+/* ==================== */
+
+.step-checkmark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: #34A853;
+  border-radius: 50%;
+  color: white;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.step-checkmark--animate {
+  animation: checkmarkPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes checkmarkPop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.3);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ==================== */
+/* Step Content         */
+/* ==================== */
+
+.step-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary, #202124);
+  margin: 0 0 8px 0;
+}
+
+.step-description {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-primary, #202124);
+  margin: 0 0 12px 0;
+  white-space: pre-wrap;
+}
+
+.step-encouraging-message {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #1a2bc3;
+  font-weight: 500;
+  margin: 0 0 16px 0;
+  padding-top: 8px;
+  border-top: 1px solid rgba(252, 192, 73, 0.3);
+}
+
+/* ==================== */
+/* Navigation Buttons   */
+/* ==================== */
+
+.step-navigation {
+  display: flex;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 16px;
+}
+
+.step-nav-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex: 1;
+}
+
+.step-nav-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Previous button - outlined */
+.step-nav-previous {
+  background: transparent;
+  border: 1px solid var(--border-color, #dadce0);
+  color: var(--text-primary, #202124);
+}
+
+.step-nav-previous:hover:not(:disabled) {
+  background: var(--bg-secondary, #f8f9fa);
+  border-color: var(--text-secondary, #5f6368);
+}
+
+/* Next button - filled */
+.step-nav-next {
+  background: #1a2bc3;
+  border: none;
+  color: white;
+  box-shadow: 0 2px 8px rgba(26, 43, 195, 0.2);
+}
+
+.step-nav-next:hover:not(:disabled) {
+  background: #1423a8;
+  box-shadow: 0 4px 12px rgba(26, 43, 195, 0.3);
+}
+
+.step-nav-next:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* ==================== */
+/* Scrollbar Styling    */
+/* ==================== */
+
+.instructions-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.instructions-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.instructions-panel::-webkit-scrollbar-thumb {
+  background: rgba(252, 192, 73, 0.4);
+  border-radius: 3px;
+}
+
+.instructions-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(252, 192, 73, 0.6);
+}

@@ -1,0 +1,64 @@
+/**
+ * OnboardingOverlay Styles
+ */
+
+.onboarding-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+.onboarding-overlay:focus {
+  outline: none;
+}
+
+/* When hidden during animation phase */
+.onboarding-overlay--hidden {
+  /* Keep the container but hide the mask */
+}
+
+/* Transitioning state */
+.onboarding-overlay--transitioning {
+  /* Can add additional transition effects here */
+}
+
+/* Overlay regions surrounding the target (blocks clicks) */
+.onboarding-mask-region {
+  position: fixed;
+  background: rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
+  cursor: not-allowed;
+  /* Smooth transition for region changes */
+  transition: all 0.4s ease-out;
+}
+
+/* Full overlay mask for completion step */
+.onboarding-mask-full {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
+  cursor: default;
+}
+
+/* Fallback mask when target rect is not available */
+.onboarding-mask-fallback {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
+  cursor: not-allowed;
+}
+
+/* Ensure card is clickable */
+.onboarding-overlay .coachmark-card {
+  pointer-events: auto;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-mask-region {
+    transition: none;
+  }
+}

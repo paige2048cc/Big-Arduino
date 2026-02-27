@@ -1,0 +1,219 @@
+/**
+ * ReferenceTag Styles
+ *
+ * Styles for component/wire reference tags in the chat input.
+ */
+
+/* Base styles - match inline-chip from ChatInputField for consistency */
+.reference-tag {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  gap: 4px;
+  padding: 1px 8px;
+  margin: 0 2px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  transition: opacity 0.15s ease;
+  user-select: none;
+}
+
+/* Pending state - semi-transparent */
+.reference-tag--pending {
+  opacity: 0.6;
+}
+
+/* Confirmed state - fully opaque */
+.reference-tag--confirmed {
+  opacity: 1;
+}
+
+/* Icon styling */
+.reference-tag__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Name styling */
+.reference-tag__name {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Remove button */
+.reference-tag__remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin-left: 2px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.15s ease;
+  color: inherit;
+}
+
+.reference-tag__remove:hover {
+  opacity: 1;
+}
+
+/* Color variants */
+
+/* Color variants - match inline-chip from ChatInputField */
+
+/* LED - warm red */
+.reference-tag--led {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* Arduino - blue */
+.reference-tag--arduino {
+  background-color: rgba(59, 130, 246, 0.15);
+  color: #2563eb;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+/* Breadboard - green */
+.reference-tag--breadboard {
+  background-color: rgba(34, 197, 94, 0.15);
+  color: #16a34a;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+/* Resistor - amber */
+.reference-tag--resistor {
+  background-color: rgba(217, 119, 6, 0.15);
+  color: #b45309;
+  border: 1px solid rgba(217, 119, 6, 0.3);
+}
+
+/* Button - purple */
+.reference-tag--button {
+  background-color: rgba(168, 85, 247, 0.15);
+  color: #9333ea;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+/* Wire - gray */
+.reference-tag--wire {
+  background-color: rgba(107, 114, 128, 0.15);
+  color: #4b5563;
+  border: 1px solid rgba(107, 114, 128, 0.3);
+}
+
+/* Multi-component - indigo */
+.reference-tag--multi {
+  background-color: rgba(99, 102, 241, 0.15);
+  color: #4f46e5;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+/* Default - neutral gray */
+.reference-tag--default {
+  background-color: rgba(156, 163, 175, 0.15);
+  color: #6b7280;
+  border: 1px solid rgba(156, 163, 175, 0.3);
+}
+
+/* Tags inside message bubbles - constrain to bubble width */
+.chat-section .message-bubble .reference-tag {
+  max-width: 100%;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.chat-section .message-bubble .reference-tag .reference-tag__name {
+  max-width: none;
+  white-space: normal;
+  word-break: break-word;
+}
+
+/* Tags inside user message bubble - keep readable on light gray bubble */
+.chat-message.user .reference-tag {
+  background-color: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(32, 33, 36, 0.06);
+}
+
+.chat-message.user .reference-tag--led {
+  color: #dc2626;
+}
+
+.chat-message.user .reference-tag--arduino {
+  color: #2563eb;
+}
+
+.chat-message.user .reference-tag--breadboard {
+  color: #16a34a;
+}
+
+.chat-message.user .reference-tag--resistor {
+  color: #b45309;
+}
+
+.chat-message.user .reference-tag--button {
+  color: #9333ea;
+}
+
+.chat-message.user .reference-tag--wire {
+  color: #4b5563;
+}
+
+.chat-message.user .reference-tag--multi {
+  color: #4f46e5;
+}
+
+.chat-message.user .reference-tag--default {
+  color: #6b7280;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .reference-tag--led {
+    background-color: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+  }
+
+  .reference-tag--arduino {
+    background-color: rgba(59, 130, 246, 0.2);
+    color: #60a5fa;
+  }
+
+  .reference-tag--breadboard {
+    background-color: rgba(34, 197, 94, 0.2);
+    color: #4ade80;
+  }
+
+  .reference-tag--resistor {
+    background-color: rgba(217, 119, 6, 0.2);
+    color: #fbbf24;
+  }
+
+  .reference-tag--button {
+    background-color: rgba(168, 85, 247, 0.2);
+    color: #c084fc;
+  }
+
+  .reference-tag--wire {
+    background-color: rgba(107, 114, 128, 0.2);
+    color: #9ca3af;
+  }
+
+  .reference-tag--multi {
+    background-color: rgba(99, 102, 241, 0.2);
+    color: #a5b4fc;
+  }
+
+  .reference-tag--default {
+    background-color: rgba(156, 163, 175, 0.2);
+    color: #d1d5db;
+  }
+}

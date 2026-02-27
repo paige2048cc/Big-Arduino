@@ -1,0 +1,550 @@
+/* ======================================================================
+   SECONDARY PAGE STYLE EXPLORATION
+   Style A: Dark Lime (Image #7)
+   Style G: Light Purple (Homepage Style G UI)
+   ====================================================================== */
+
+/* -- Exploration Shell ------------------------------------------------- */
+.secondary-exploration {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* -- Style Selector (matching Homepage tab) ----------------------------- */
+.secondary-exploration .style-selector {
+  text-align: center;
+  padding: 24px 16px;
+}
+
+.secondary-exploration .style-selector h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #e1e4ed;
+  margin-bottom: 8px;
+}
+
+.secondary-exploration .style-selector > p {
+  color: #8b8fa3;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.secondary-exploration .style-options {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.secondary-exploration .style-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: #1a1d27;
+  border: 1px solid #2a2d3a;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+}
+
+.secondary-exploration .style-option:hover {
+  border-color: #3a3d4a;
+  background: #22252f;
+}
+
+.secondary-exploration .style-option.active {
+  border-color: #6c8cff;
+  background: rgba(108, 140, 255, 0.1);
+}
+
+.secondary-exploration .style-letter {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #2a2d3a;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6c8cff;
+}
+
+.secondary-exploration .style-option.active .style-letter {
+  background: #6c8cff;
+  color: #fff;
+}
+
+.secondary-exploration .style-info strong {
+  display: block;
+  font-size: 13px;
+  color: #e1e4ed;
+}
+
+.secondary-exploration .style-info small {
+  font-size: 11px;
+  color: #8b8fa3;
+}
+
+/* ======================================================================
+   Style G - Light Purple Workspace
+   Light theme, purple accent (#a78bfa), clean minimal aesthetic
+   ====================================================================== */
+
+/* -- Variables for Style G (Light Theme) ------------------------------- */
+.sp-workspace {
+  --sp-bg: #ffffff;
+  --sp-bg-secondary: #f8f8f8;
+  --sp-bg-tertiary: #f5f5f5;
+  --sp-border: #e8e8e8;
+  --sp-border-light: #f0f0f0;
+  --sp-text: #1a1a1a;
+  --sp-text-muted: #666666;
+  --sp-text-dim: #999999;
+  --sp-accent: #a78bfa;
+  --sp-accent-secondary: #6366f1;
+  --sp-accent-bg: rgba(167, 139, 250, 0.1);
+  --sp-primary-btn: #1a1a1a;
+  --sp-primary-btn-hover: #333333;
+
+  background: var(--sp-bg);
+  min-height: 600px;
+  display: grid;
+  grid-template-columns: 240px 1fr 280px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: var(--sp-text);
+}
+
+/* ======================================================================
+   Style A - Dark Lime Workspace (Image #7)
+   Dark theme, lime green accent (#9EFF00)
+   ====================================================================== */
+
+.sp-workspace.sp-dark {
+  --sp-bg: #0a0a0a;
+  --sp-bg-secondary: #111111;
+  --sp-bg-tertiary: #1a1a1a;
+  --sp-border: #222222;
+  --sp-border-light: #2a2a2a;
+  --sp-text: #ffffff;
+  --sp-text-muted: #a0a0a0;
+  --sp-text-dim: #666666;
+  --sp-accent: #9EFF00;
+  --sp-accent-secondary: #7acc00;
+  --sp-accent-bg: rgba(158, 255, 0, 0.1);
+  --sp-primary-btn: #9EFF00;
+  --sp-primary-btn-hover: #b4ff33;
+}
+
+.sp-workspace.sp-dark .sp-run-btn {
+  color: #0a0a0a;
+}
+
+.sp-workspace.sp-dark .sp-message-avatar {
+  background: linear-gradient(135deg, #9EFF00, #7acc00);
+  box-shadow: 0 2px 8px rgba(158, 255, 0, 0.3);
+}
+
+.sp-workspace.sp-dark .sp-message--user .sp-message-content {
+  background: var(--sp-accent-bg);
+  color: var(--sp-accent);
+  border: 1px solid rgba(158, 255, 0, 0.2);
+}
+
+.sp-workspace.sp-dark .sp-canvas-grid {
+  background-image:
+    linear-gradient(var(--sp-border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--sp-border) 1px, transparent 1px);
+}
+
+/* ── Left Panel - Component Library ─────────────────────────────────── */
+.sp-left-panel {
+  background: var(--sp-bg-tertiary);
+  border-right: 1px solid var(--sp-border);
+  display: flex;
+  flex-direction: column;
+}
+
+.sp-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--sp-border);
+  color: var(--sp-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sp-panel-header svg:first-child {
+  color: var(--sp-accent);
+}
+
+.sp-panel-action {
+  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--sp-text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.sp-panel-action:hover {
+  background: var(--sp-border);
+  color: var(--sp-text);
+}
+
+.sp-component-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.sp-category {
+  margin-bottom: 4px;
+}
+
+.sp-category-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--sp-text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.sp-category-header:hover {
+  background: var(--sp-border);
+}
+
+.sp-chevron {
+  color: var(--sp-text-dim);
+  transition: transform 0.15s;
+}
+
+.sp-category-header.expanded .sp-chevron {
+  transform: rotate(90deg);
+}
+
+.sp-count {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--sp-text-dim);
+  background: var(--sp-bg);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.sp-category-items {
+  padding: 4px 0 4px 24px;
+}
+
+.sp-component-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-size: 13px;
+  color: var(--sp-text-muted);
+}
+
+.sp-component-item:hover {
+  background: var(--sp-accent-bg);
+  color: var(--sp-accent-secondary);
+}
+
+.sp-component-icon {
+  width: 28px;
+  height: 28px;
+  background: var(--sp-bg);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--sp-accent);
+}
+
+.sp-component-item:hover .sp-component-icon {
+  background: var(--sp-accent);
+  color: white;
+}
+
+/* ── Center - Canvas Area ────────────────────────────────────────────── */
+.sp-canvas-area {
+  display: flex;
+  flex-direction: column;
+  background: var(--sp-bg);
+}
+
+.sp-canvas-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--sp-bg);
+  border-bottom: 1px solid var(--sp-border-light);
+}
+
+.sp-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sp-project-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sp-text);
+}
+
+.sp-project-status {
+  font-size: 11px;
+  color: var(--sp-accent-secondary);
+  background: var(--sp-accent-bg);
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.sp-toolbar-center {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sp-tool-btn {
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--sp-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.sp-tool-btn:hover {
+  background: var(--sp-bg-secondary);
+  color: var(--sp-text);
+}
+
+.sp-zoom-level {
+  font-size: 12px;
+  color: var(--sp-text-muted);
+  padding: 0 8px;
+}
+
+.sp-tool-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--sp-border);
+  margin: 0 8px;
+}
+
+.sp-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sp-run-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--sp-primary-btn);
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: white;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.sp-run-btn:hover {
+  background: var(--sp-primary-btn-hover);
+}
+
+.sp-canvas {
+  flex: 1;
+  position: relative;
+  background: var(--sp-bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sp-canvas-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--sp-border-light) 1px, transparent 1px),
+    linear-gradient(90deg, var(--sp-border-light) 1px, transparent 1px);
+  background-size: 20px 20px;
+  opacity: 0.5;
+}
+
+.sp-canvas-placeholder {
+  text-align: center;
+  color: var(--sp-text-dim);
+  z-index: 1;
+}
+
+.sp-canvas-placeholder svg {
+  margin-bottom: 12px;
+  color: var(--sp-border);
+}
+
+.sp-canvas-placeholder p {
+  font-size: 14px;
+}
+
+/* ── Right Panel - AI Chat ───────────────────────────────────────────── */
+.sp-right-panel {
+  background: var(--sp-bg-tertiary);
+  border-left: 1px solid var(--sp-border);
+  display: flex;
+  flex-direction: column;
+}
+
+.sp-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sp-message {
+  display: flex;
+  gap: 10px;
+}
+
+.sp-message--user {
+  flex-direction: row-reverse;
+}
+
+.sp-message-avatar {
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, var(--sp-accent), #ec4899);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(167, 139, 250, 0.3);
+}
+
+.sp-message-content {
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 85%;
+}
+
+.sp-message--assistant .sp-message-content {
+  background: var(--sp-bg);
+  color: var(--sp-text);
+  border: 1px solid var(--sp-border-light);
+}
+
+.sp-message--user .sp-message-content {
+  background: var(--sp-accent-bg);
+  color: var(--sp-accent-secondary);
+  border: 1px solid rgba(167, 139, 250, 0.2);
+}
+
+.sp-chat-input {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--sp-border);
+  background: var(--sp-bg);
+}
+
+.sp-input-box {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  background: var(--sp-bg-secondary);
+  border: 1px solid var(--sp-border);
+  border-radius: 10px;
+  padding: 0 12px;
+  transition: border-color 0.15s;
+}
+
+.sp-input-box:focus-within {
+  border-color: var(--sp-accent);
+}
+
+.sp-input-box input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 10px 0;
+  font-size: 13px;
+  color: var(--sp-text);
+  outline: none;
+}
+
+.sp-input-box input::placeholder {
+  color: var(--sp-text-dim);
+}
+
+.sp-attach-btn {
+  background: transparent;
+  border: none;
+  color: var(--sp-text-dim);
+  cursor: pointer;
+  padding: 4px;
+  transition: color 0.15s;
+}
+
+.sp-attach-btn:hover {
+  color: var(--sp-accent);
+}
+
+.sp-send-btn {
+  width: 40px;
+  height: 40px;
+  background: var(--sp-primary-btn);
+  border: none;
+  border-radius: 10px;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.sp-send-btn:hover {
+  background: var(--sp-primary-btn-hover);
+}

@@ -1,0 +1,9 @@
+{
+  "id": "pushbutton_on",
+  "name": "Pushbutton ON",
+  "category": "passive",
+  "image": "pushbutton_ON.png",
+  "width": 55,
+  "height": 68,
+  "pins": []
+}

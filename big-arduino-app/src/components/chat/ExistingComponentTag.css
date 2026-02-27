@@ -1,0 +1,106 @@
+/**
+ * ExistingComponentTag - Styles for existing component references
+ *
+ * Similar styling to ReferenceTag but optimized for inline display in AI messages.
+ */
+
+.existing-component-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  background: var(--bg-secondary, #f8f9fa);
+  color: var(--text-primary, #202124);
+  vertical-align: middle;
+  margin: 0 2px;
+}
+
+.existing-component-tag:hover {
+  transform: scale(1.02);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.existing-component-tag:active {
+  transform: scale(0.98);
+}
+
+.existing-tag__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.existing-tag__name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+/* Color variants based on component type */
+.existing-tag--led {
+  background: rgba(244, 67, 54, 0.1);
+  border-color: rgba(244, 67, 54, 0.3);
+  color: #c62828;
+}
+
+.existing-tag--led .existing-tag__icon {
+  color: #e53935;
+}
+
+.existing-tag--arduino {
+  background: rgba(0, 150, 136, 0.1);
+  border-color: rgba(0, 150, 136, 0.3);
+  color: #00796b;
+}
+
+.existing-tag--arduino .existing-tag__icon {
+  color: #00897b;
+}
+
+.existing-tag--breadboard {
+  background: rgba(158, 158, 158, 0.15);
+  border-color: rgba(158, 158, 158, 0.3);
+  color: #424242;
+}
+
+.existing-tag--breadboard .existing-tag__icon {
+  color: #616161;
+}
+
+.existing-tag--resistor {
+  background: rgba(121, 85, 72, 0.1);
+  border-color: rgba(121, 85, 72, 0.3);
+  color: #5d4037;
+}
+
+.existing-tag--resistor .existing-tag__icon {
+  color: #6d4c41;
+}
+
+.existing-tag--button {
+  background: rgba(103, 58, 183, 0.1);
+  border-color: rgba(103, 58, 183, 0.3);
+  color: #512da8;
+}
+
+.existing-tag--button .existing-tag__icon {
+  color: #5e35b1;
+}
+
+.existing-tag--default {
+  background: rgba(96, 125, 139, 0.1);
+  border-color: rgba(96, 125, 139, 0.3);
+  color: #455a64;
+}
+
+.existing-tag--default .existing-tag__icon {
+  color: #546e7a;
+}

@@ -1,0 +1,28 @@
+{
+  "id": "vibration-motor",
+  "name": "Vibration Motor",
+  "category": "Output",
+  "image": "Vibration Motor.svg",
+  "width": 57,
+  "height": 179,
+  "pins": [
+    {
+      "id": "CATHODE",
+      "label": "Cathode (-)",
+      "description": "Negative terminal. Connect to ground.",
+      "type": "terminal",
+      "x": 18,
+      "y": 172,
+      "hitRadius": 8
+    },
+    {
+      "id": "ANODE",
+      "label": "Anode (+)",
+      "description": "Positive terminal. Connect to power through transistor.",
+      "type": "terminal",
+      "x": 38,
+      "y": 172,
+      "hitRadius": 8
+    }
+  ]
+}
