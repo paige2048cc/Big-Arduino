@@ -1806,13 +1806,24 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
         );
 
         // Prepend the new wire itself to the path
-        if (path.waypoints.length > 0 || path.isComplete) {
+        // Get the start pin's actual canvas position
+        const startPos = getPinCanvasPosition(newWire.startComponentId, newWire.startPinId);
+        const endPos = getPinCanvasPosition(newWire.endComponentId, newWire.endPinId);
+
+        if (startPos && endPos) {
           const newWireWaypoints = [
-            ...newWire.bendPoints
+            startPos,  // Start from the actual pin position
+            ...newWire.bendPoints,  // Include any bend points in the wire
+            endPos  // End at the actual end pin position
           ];
 
+          // Combine with the rest of the path (if it continues to GND)
+          const fullWaypoints = path.waypoints.length > 0
+            ? [...newWireWaypoints.slice(0, -1), ...path.waypoints]  // Remove duplicate end point
+            : newWireWaypoints;
+
           setAnimPath({
-            waypoints: [...newWireWaypoints, ...path.waypoints],
+            waypoints: fullWaypoints,
             wireIds: [newWire.id, ...path.wireIds],
             breadboardHighlights: path.breadboardHighlights,
             isComplete: path.isComplete
