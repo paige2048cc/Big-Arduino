@@ -24,7 +24,7 @@ interface CircuitAnimationProps {
   onDone: () => void;
 }
 
-const BALL_SPEED = 180; // scene-units per second
+const BALL_SPEED = 300; // scene-units per second (increased from 180 for faster animation)
 const HOLD_MS    = 1000; // ms to hold highlights after ball finishes (design mode)
 const FADE_MS    = 800;  // ms for fade-out transition
 
@@ -206,7 +206,7 @@ export function CircuitAnimation({
               strokeWidth={10}
               strokeLinecap="round"
               fill="none"
-              style={{ opacity: highlightOpacity }}
+              style={{ opacity: highlightOpacity * 0.5 }}
             />
           ) : null
         )}

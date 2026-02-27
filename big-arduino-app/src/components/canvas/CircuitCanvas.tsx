@@ -1751,7 +1751,20 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (isSimulating) return;
+
+    // Check if any wire in the current animation path was deleted
+    if (animPath && animPath.wireIds.length > 0) {
+      const allWireIdsExist = animPath.wireIds.every(wireId =>
+        wires.some(w => w.id === wireId)
+      );
+      if (!allWireIdsExist) {
+        setAnimPath(null);
+        return;
+      }
+    }
+
     const powerPins = findAllPowerPins(placedComponents, definitionsMap);
+    let foundPath = false;
     for (const pp of powerPins) {
       const hasWire = wires.some(
         w =>
@@ -1769,10 +1782,16 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       if (path.wireIds.length > 0) {
         setAnimPath(path);
         setAnimLooping(false);
+        foundPath = true;
         break;
       }
     }
-  }, [wires.length]); // intentionally omit other deps – we want to trigger only on wire count change
+
+    // If no valid path found, clear animation
+    if (!foundPath && animPath) {
+      setAnimPath(null);
+    }
+  }, [wires.length, animPath]); // intentionally omit other deps – we want to trigger only on wire count change
 
   // ── Simulation-mode animation trigger ─────────────────────────────────────
   // Reruns whenever simulation starts/stops OR a button is pressed/released.
