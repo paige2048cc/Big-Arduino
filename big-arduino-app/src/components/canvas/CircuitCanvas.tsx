@@ -1795,16 +1795,28 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       // Check if the new wire's start point was already powered
       const startKey = `${newWire.startComponentId}:${newWire.startPinId}`;
       if (poweredNodes.has(startKey)) {
-        // Start point was powered! Animate from the new wire's start point to GND
+        // Start point was powered! Animate from the new wire's END point to GND
+        // This prevents the animation from flowing backwards to the power source
         const path = tracePowerPath(
-          newWire.startComponentId,
-          newWire.startPinId,
+          newWire.endComponentId,
+          newWire.endPinId,
           placedComponents,
           definitionsMap,
           wires
         );
-        if (path.wireIds.length > 0) {
-          setAnimPath(path);
+
+        // Prepend the new wire itself to the path
+        if (path.waypoints.length > 0 || path.isComplete) {
+          const newWireWaypoints = [
+            ...newWire.bendPoints
+          ];
+
+          setAnimPath({
+            waypoints: [...newWireWaypoints, ...path.waypoints],
+            wireIds: [newWire.id, ...path.wireIds],
+            breadboardHighlights: path.breadboardHighlights,
+            isComplete: path.isComplete
+          });
           setAnimLooping(false);
           return;
         }
