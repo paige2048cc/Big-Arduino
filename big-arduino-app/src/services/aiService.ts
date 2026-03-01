@@ -14,6 +14,14 @@ import {
   formatKnowledgeContext
 } from '../config/aiPrompts';
 
+// Internal connections within a component
+export interface InternalConnectionInfo {
+  always?: string[][];  // Pins always connected internally
+  whenPressed?: string[][]; // Connected when button pressed
+  whenPowered?: string[][]; // Connected when powered
+  notes?: string;
+}
+
 // Types for circuit state
 export interface PlacedComponent {
   instanceId: string;
@@ -24,6 +32,8 @@ export interface PlacedComponent {
   // Breadboard insertion info
   parentBreadboardId?: string;
   insertedPins?: Record<string, string>; // componentPinId -> breadboardPinId
+  // Internal connections for circuit analysis
+  internalConnections?: InternalConnectionInfo;
 }
 
 // Breadboard pin information for connectivity analysis
@@ -85,16 +95,27 @@ export interface ParsedAIResponse {
 // API endpoint - works for both local dev and production
 const API_ENDPOINT = '/api/chat';
 
+// Debug function - call from browser console: window.debugCircuitState()
+if (typeof window !== 'undefined') {
+  (window as unknown as { debugCircuitState?: () => void }).debugCircuitState = () => {
+    console.log('Call this after placing components and opening AI chat to see what data is being sent');
+  };
+}
+
 /**
  * Analyze breadboard connectivity - find which component pins share the same breadboard row/net
  */
 function analyzeBreadboardConnectivity(circuitState: CircuitState): Map<string, Array<{componentId: string, componentType: string, pinId: string}>> {
   const netGroups = new Map<string, Array<{componentId: string, componentType: string, pinId: string}>>();
 
-  if (!circuitState.breadboardPins) return netGroups;
+  if (!circuitState.breadboardPins) {
+    return netGroups;
+  }
 
   for (const component of circuitState.placedComponents) {
-    if (!component.parentBreadboardId || !component.insertedPins) continue;
+    if (!component.parentBreadboardId || !component.insertedPins) {
+      continue;
+    }
 
     const breadboardPins = circuitState.breadboardPins[component.parentBreadboardId] || [];
 
@@ -174,12 +195,30 @@ function buildAllComponentsContext(circuitState: CircuitState): string {
       insertionInfo = `\n  Inserted in breadboard: ${pins}`;
     }
 
+    // Internal connections info
+    let internalInfo = '';
+    if (component.internalConnections) {
+      const ic = component.internalConnections;
+      const parts: string[] = [];
+      if (ic.always && ic.always.length > 0) {
+        const alwaysStr = ic.always.map(group => group.join('↔')).join(', ');
+        parts.push(`Always connected: ${alwaysStr}`);
+      }
+      if (ic.whenPressed && ic.whenPressed.length > 0) {
+        const pressedStr = ic.whenPressed.map(group => group.join('↔')).join(', ');
+        parts.push(`Connected when pressed: ${pressedStr}`);
+      }
+      if (parts.length > 0) {
+        internalInfo = `\n  Internal wiring: ${parts.join('; ')}`;
+      }
+    }
+
     const allConnections = [...wireConnections, ...breadboardConnections];
     const connectionStr = allConnections.length > 0
       ? `\n  Connections:\n${allConnections.join('\n')}`
       : '\n  Connections: None';
 
-    contextParts.push(`- **${component.definitionId}** (ID: ${component.instanceId})${insertionInfo}${connectionStr}`);
+    contextParts.push(`- **${component.definitionId}** (ID: ${component.instanceId})${internalInfo}${insertionInfo}${connectionStr}`);
   }
 
   // Add summary of breadboard connectivity
@@ -418,6 +457,15 @@ export async function sendMessage(
   circuitState: CircuitState,
   projectContext?: ProjectContext
 ): Promise<AIResponse> {
+  // Debug: Log circuit state summary (keep this for debugging)
+  console.log('[AI Debug] Components:', circuitState.placedComponents.map(c => ({
+    type: c.definitionId,
+    hasParent: !!c.parentBreadboardId,
+    insertedPins: c.insertedPins,
+    internalConnections: c.internalConnections,
+  })));
+  console.log('[AI Debug] Breadboard pins available:', circuitState.breadboardPins ? Object.keys(circuitState.breadboardPins) : 'none');
+
   // Build context from ALL placed components (so AI can see the full circuit)
   const allComponentsContext = buildAllComponentsContext(circuitState);
 

@@ -5,6 +5,12 @@
   "image": "LED_Red_OFF.png",
   "width": 40,
   "height": 71,
+  "internalConnections": {
+    "always": [
+      ["ANODE", "CATHODE"]
+    ],
+    "notes": "Current flows from ANODE to CATHODE only (diode behavior). Requires forward voltage ~2V and current-limiting resistor."
+  },
   "pins": [
     {
       "id": "ANODE",

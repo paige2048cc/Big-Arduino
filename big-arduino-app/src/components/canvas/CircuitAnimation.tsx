@@ -56,11 +56,15 @@ export function CircuitAnimation({
   // ── Recompute path geometry when the path prop changes ────────────────────
   useEffect(() => {
     const { waypoints } = path;
+    // Filter out any invalid waypoints to prevent errors
+    const validWaypoints = waypoints.filter(
+      (wp): wp is { x: number; y: number } => wp != null && typeof wp.x === 'number' && typeof wp.y === 'number'
+    );
     const cumLengths: number[] = [0];
     let total = 0;
-    for (let i = 1; i < waypoints.length; i++) {
-      const dx = waypoints[i].x - waypoints[i - 1].x;
-      const dy = waypoints[i].y - waypoints[i - 1].y;
+    for (let i = 1; i < validWaypoints.length; i++) {
+      const dx = validWaypoints[i].x - validWaypoints[i - 1].x;
+      const dy = validWaypoints[i].y - validWaypoints[i - 1].y;
       total += Math.sqrt(dx * dx + dy * dy);
       cumLengths.push(total);
     }
@@ -74,13 +78,17 @@ export function CircuitAnimation({
 
   // ── rAF animation loop ────────────────────────────────────────────────────
   useEffect(() => {
-    const { waypoints } = path;
+    const { waypoints: rawWaypoints } = path;
+    // Filter out any invalid waypoints
+    const waypoints = rawWaypoints.filter(
+      (wp): wp is { x: number; y: number } => wp != null && typeof wp.x === 'number' && typeof wp.y === 'number'
+    );
     if (waypoints.length < 2) return;
 
     function interpolate(progress: number): { x: number; y: number } {
       const cumLengths = cumLengthsRef.current;
       const total = totalLengthRef.current;
-      if (total === 0) return waypoints[0];
+      if (total === 0) return waypoints[0] ?? { x: 0, y: 0 };
 
       const p = Math.max(0, Math.min(progress, total));
 
@@ -92,10 +100,11 @@ export function CircuitAnimation({
       }
 
       const segLen = cumLengths[lo + 1] - cumLengths[lo];
-      if (segLen === 0) return waypoints[lo];
+      if (segLen === 0) return waypoints[lo] ?? { x: 0, y: 0 };
       const t = (p - cumLengths[lo]) / segLen;
       const a = waypoints[lo];
       const b = waypoints[lo + 1];
+      if (!a || !b) return { x: 0, y: 0 };
       return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
     }
 

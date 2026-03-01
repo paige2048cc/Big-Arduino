@@ -55,6 +55,29 @@ export interface PropertyDefinition {
 }
 
 /**
+ * Internal electrical connections within a component
+ * Describes which pins are connected internally and under what conditions
+ */
+export interface InternalConnections {
+  /**
+   * Pins that are always connected internally (even without external power)
+   * Each array is a group of pins that are connected together
+   * e.g., [["TERM1", "TERM2"]] means TERM1 and TERM2 are always connected
+   */
+  always?: string[][];
+  /**
+   * Pins that are connected only when the component is activated
+   * e.g., button pressed, relay energized
+   */
+  whenPressed?: string[][];
+  whenPowered?: string[][];
+  /**
+   * Additional notes about internal behavior
+   */
+  notes?: string;
+}
+
+/**
  * Component definition loaded from JSON
  */
 export interface ComponentDefinition {
@@ -67,6 +90,8 @@ export interface ComponentDefinition {
   pins: Pin[];
   // Optional description for the component
   description?: string;
+  // Internal electrical connections within the component
+  internalConnections?: InternalConnections;
   // Variant support for different states/colors
   variants?: Record<string, ComponentVariant>;
   // Editable properties (LED color, resistor value, etc.)

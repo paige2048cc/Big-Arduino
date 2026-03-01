@@ -5,6 +5,12 @@
   "image": "Registor_220Ω.png",
   "width": 21,
   "height": 85,
+  "internalConnections": {
+    "always": [
+      ["TERM1", "TERM2"]
+    ],
+    "notes": "Non-polarized. Terminals are interchangeable. Limits current flow."
+  },
   "pins": [
     {
       "id": "TERM1",

@@ -161,7 +161,8 @@ export function ProjectPage() {
     const componentDefinitions = useCircuitStore.getState().componentDefinitions;
     for (const comp of placedComponents) {
       if (comp.definitionId.includes('breadboard')) {
-        const def = componentDefinitions.get(comp.definitionId);
+        // Note: componentDefinitions uses instanceId as key, not definitionId
+        const def = componentDefinitions.get(comp.instanceId);
         if (def) {
           breadboardPins[comp.instanceId] = def.pins
             .filter(p => p.net)
@@ -172,15 +173,20 @@ export function ProjectPage() {
 
     // Build circuit state for AI
     const circuitState: CircuitState = {
-      placedComponents: placedComponents.map(c => ({
-        instanceId: c.instanceId,
-        definitionId: c.definitionId,
-        x: c.x,
-        y: c.y,
-        rotation: c.rotation,
-        parentBreadboardId: c.parentBreadboardId,
-        insertedPins: c.insertedPins,
-      })),
+      placedComponents: placedComponents.map(c => {
+        // Get internal connections from component definition
+        const def = componentDefinitions.get(c.instanceId);
+        return {
+          instanceId: c.instanceId,
+          definitionId: c.definitionId,
+          x: c.x,
+          y: c.y,
+          rotation: c.rotation,
+          parentBreadboardId: c.parentBreadboardId,
+          insertedPins: c.insertedPins,
+          internalConnections: def?.internalConnections,
+        };
+      }),
       wires: wires.map(w => ({
         id: w.id,
         startComponentId: w.startComponentId,

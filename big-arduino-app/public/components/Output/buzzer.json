@@ -5,6 +5,12 @@
   "image": "Buzzer.svg",
   "width": 80,
   "height": 87,
+  "internalConnections": {
+    "always": [
+      ["POSITIVE", "NEGATIVE"]
+    ],
+    "notes": "Polarized. POSITIVE receives signal, NEGATIVE connects to ground. Produces sound when voltage is applied."
+  },
   "pins": [
     {
       "id": "POSITIVE",

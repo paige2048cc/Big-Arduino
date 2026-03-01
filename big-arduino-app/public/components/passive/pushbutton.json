@@ -5,6 +5,16 @@
   "image": "pushbutton_OFF.png",
   "width": 54,
   "height": 68,
+  "internalConnections": {
+    "always": [
+      ["PIN1A", "PIN2A"],
+      ["PIN1B", "PIN2B"]
+    ],
+    "whenPressed": [
+      ["PIN1A", "PIN1B"],
+      ["PIN2A", "PIN2B"]
+    ]
+  },
   "pins": [
     {
       "id": "PIN1A",
