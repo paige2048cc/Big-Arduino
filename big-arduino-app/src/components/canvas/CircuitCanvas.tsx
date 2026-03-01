@@ -3564,13 +3564,24 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
           );
         })()}
 
-        {/* AI Character overlay */}
+        {/* AI Character overlay - fixed position, does not scale with canvas zoom */}
         {aiCharacter.visible && (() => {
-          const vpt = viewportTransformRef.current;
+          // Calculate canvas center area bounds (exclude sidebars)
+          // Character stays at fixed screen position within the canvas area
+          const canvasEl = canvasContainerRef.current;
+          const canvasRect = canvasEl?.getBoundingClientRect();
+          const canvasWidth = canvasRect?.width || 800;
+          const canvasHeight = canvasRect?.height || 600;
+
+          // Constrain character to center 80% of canvas (avoid edges)
+          const margin = 80;
+          const characterX = Math.max(margin, Math.min(canvasWidth - margin, aiCharacter.x));
+          const characterY = Math.max(margin, Math.min(canvasHeight - margin, aiCharacter.y));
+
           return (
             <BlueCharacter
-              x={aiCharacter.x * vpt[0] + vpt[4]}
-              y={aiCharacter.y * vpt[3] + vpt[5]}
+              x={characterX}
+              y={characterY}
               message={aiCharacter.message}
               mood={aiCharacter.mood}
               visible={aiCharacter.visible}
