@@ -180,9 +180,52 @@ function analyzeBreadboardConnectivity(circuitState: CircuitState): Map<string, 
     }
 
     if (breadboardEndId && breadboardPinId && otherComponentId && otherPinId) {
-      // Skip if the other end is also a breadboard (breadboard-to-breadboard wires handled separately)
+      // Handle breadboard-to-breadboard wires (jump wires connecting rows to power rails)
       if (breadboardInstanceIds.has(otherComponentId)) {
-        console.log('[Wire-BB Debug] Skipping - both ends are breadboards');
+        console.log('[Wire-BB Debug] Breadboard-to-breadboard wire detected');
+
+        // Both ends are on a breadboard - this is a jump wire connecting two nets
+        const startPins = circuitState.breadboardPins[wire.startComponentId] || [];
+        const endPins = circuitState.breadboardPins[wire.endComponentId] || [];
+
+        const startPinInfo = startPins.find(p => p.pinId === wire.startPinId);
+        const endPinInfo = endPins.find(p => p.pinId === wire.endPinId);
+
+        console.log('[Wire-BB Debug] Jump wire connects:', startPinInfo?.net, '↔', endPinInfo?.net);
+
+        if (startPinInfo?.net && endPinInfo?.net && startPinInfo.net !== endPinInfo.net) {
+          // Add to both nets so the connectivity shows up
+          if (!netGroups.has(startPinInfo.net)) {
+            netGroups.set(startPinInfo.net, []);
+          }
+          if (!netGroups.has(endPinInfo.net)) {
+            netGroups.set(endPinInfo.net, []);
+          }
+
+          // Cross-reference: add entries from each net to the other
+          const startNetComponents = netGroups.get(startPinInfo.net)!;
+          const endNetComponents = netGroups.get(endPinInfo.net)!;
+
+          // Copy components from endNet to startNet (marking them as connected via jump wire)
+          for (const comp of endNetComponents) {
+            if (!startNetComponents.some(c => c.componentId === comp.componentId && c.pinId === comp.pinId)) {
+              startNetComponents.push({
+                ...comp,
+                pinId: `${comp.pinId} (via ${endPinInfo.net})`
+              });
+            }
+          }
+
+          // Copy components from startNet to endNet
+          for (const comp of startNetComponents) {
+            if (!comp.pinId.includes('via') && !endNetComponents.some(c => c.componentId === comp.componentId && c.pinId === comp.pinId)) {
+              endNetComponents.push({
+                ...comp,
+                pinId: `${comp.pinId} (via ${startPinInfo.net})`
+              });
+            }
+          }
+        }
         continue;
       }
 
