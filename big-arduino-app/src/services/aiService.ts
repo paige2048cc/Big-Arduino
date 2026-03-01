@@ -149,7 +149,7 @@ function analyzeBreadboardConnectivity(circuitState: CircuitState): Map<string, 
 
   // 2. Add wire endpoints connected to breadboard rows
   // When a wire connects to a breadboard row, the OTHER end of the wire is effectively in that net
-  console.log('[Wire-BB Debug] Checking wires for breadboard connections. Wires count:', circuitState.wires.length);
+  console.log('[Wire-BB Debug] === VERSION 2 === Checking wires. Count:', circuitState.wires.length);
   console.log('[Wire-BB Debug] Breadboard instance IDs:', Array.from(breadboardInstanceIds));
 
   for (const wire of circuitState.wires) {
@@ -182,7 +182,7 @@ function analyzeBreadboardConnectivity(circuitState: CircuitState): Map<string, 
     if (breadboardEndId && breadboardPinId && otherComponentId && otherPinId) {
       // Handle breadboard-to-breadboard wires (jump wires connecting rows to power rails)
       if (breadboardInstanceIds.has(otherComponentId)) {
-        console.log('[Wire-BB Debug] Breadboard-to-breadboard wire detected');
+        console.log('[Wire-BB Debug] *** JUMP WIRE DETECTED *** (V2) - NOT skipping!');
 
         // Both ends are on a breadboard - this is a jump wire connecting two nets
         const startPins = circuitState.breadboardPins[wire.startComponentId] || [];
