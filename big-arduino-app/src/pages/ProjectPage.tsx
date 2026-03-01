@@ -159,17 +159,23 @@ export function ProjectPage() {
     // Build breadboard pin info for connectivity analysis
     const breadboardPins: Record<string, Array<{pinId: string, net: string}>> = {};
     const componentDefinitions = useCircuitStore.getState().componentDefinitions;
+    console.log('[BB Pins Debug] componentDefinitions keys:', Array.from(componentDefinitions.keys()));
     for (const comp of placedComponents) {
       if (comp.definitionId.includes('breadboard')) {
+        console.log('[BB Pins Debug] Found breadboard:', comp.instanceId, 'definitionId:', comp.definitionId);
         // Note: componentDefinitions uses instanceId as key, not definitionId
         const def = componentDefinitions.get(comp.instanceId);
-        if (def) {
-          breadboardPins[comp.instanceId] = def.pins
-            .filter(p => p.net)
-            .map(p => ({ pinId: p.id, net: p.net! }));
+        console.log('[BB Pins Debug] Definition found:', !!def, 'pins count:', def?.pins?.length);
+        if (def && def.pins) {
+          const pinsWithNet = def.pins.filter(p => p.net);
+          console.log('[BB Pins Debug] Pins with net:', pinsWithNet.length, 'sample:', pinsWithNet.slice(0, 3));
+          breadboardPins[comp.instanceId] = pinsWithNet.map(p => ({ pinId: p.id, net: p.net! }));
+        } else {
+          console.log('[BB Pins Debug] No definition or pins found for breadboard');
         }
       }
     }
+    console.log('[BB Pins Debug] Final breadboardPins:', breadboardPins);
 
     // Build circuit state for AI
     const circuitState: CircuitState = {

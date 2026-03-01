@@ -10,6 +10,22 @@ All notable changes to Big Arduino App will be documented in this file.
 
 ---
 
+## [8.2.0] - 2026-03-01
+
+### Added
+- **Wire-to-breadboard row connectivity detection**: When a wire connects from any component (e.g., Arduino GND) to a breadboard row, that component pin is now recognized as electrically connected to all other pins/components in the same row. Previously, only component pins directly inserted into the breadboard were detected as connected.
+- **Short circuit detection**: AI now detects when a component has multiple pins inserted into the same breadboard row (same side), which causes a short circuit. For example, if an LED or resistor has both pins in the same row, the AI will warn about this circuit problem.
+- **Circuit problem priority in AI responses**: AI now prioritizes addressing circuit problems (short circuits, wrong connections) over following project instructions. When a problem is detected, AI will immediately alert the user instead of continuing with next steps.
+- **Adaptive teaching based on user state**: AI now detects user state and adjusts response style:
+  - Exploring/brainstorming → Socratic questions, offer choices
+  - Validating/confirming ("is this correct?") → Answer first, then guide
+  - Stuck/frustrated ("I don't know", "I give up") → Give direct hints immediately
+
+### Changed
+- **Improved breadboard connectivity summary**: The AI context now shows complete connectivity including wire endpoints, making it easier for AI to trace circuits and identify connection issues.
+
+---
+
 ## [8.1.0] - 2026-02-23
 
 ### Added

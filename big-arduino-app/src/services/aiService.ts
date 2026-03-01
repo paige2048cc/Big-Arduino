@@ -104,6 +104,9 @@ if (typeof window !== 'undefined') {
 
 /**
  * Analyze breadboard connectivity - find which component pins share the same breadboard row/net
+ * This includes:
+ * 1. Component pins inserted directly into breadboard rows
+ * 2. Wire endpoints connected to breadboard rows (the wire brings the other end into the net)
  */
 function analyzeBreadboardConnectivity(circuitState: CircuitState): Map<string, Array<{componentId: string, componentType: string, pinId: string}>> {
   const netGroups = new Map<string, Array<{componentId: string, componentType: string, pinId: string}>>();
@@ -112,6 +115,15 @@ function analyzeBreadboardConnectivity(circuitState: CircuitState): Map<string, 
     return netGroups;
   }
 
+  // Find all breadboard instance IDs
+  const breadboardInstanceIds = new Set<string>();
+  for (const comp of circuitState.placedComponents) {
+    if (comp.definitionId.includes('breadboard')) {
+      breadboardInstanceIds.add(comp.instanceId);
+    }
+  }
+
+  // 1. Add component pins inserted directly into breadboard
   for (const component of circuitState.placedComponents) {
     if (!component.parentBreadboardId || !component.insertedPins) {
       continue;
@@ -135,6 +147,83 @@ function analyzeBreadboardConnectivity(circuitState: CircuitState): Map<string, 
     }
   }
 
+  // 2. Add wire endpoints connected to breadboard rows
+  // When a wire connects to a breadboard row, the OTHER end of the wire is effectively in that net
+  console.log('[Wire-BB Debug] Checking wires for breadboard connections. Wires count:', circuitState.wires.length);
+  console.log('[Wire-BB Debug] Breadboard instance IDs:', Array.from(breadboardInstanceIds));
+
+  for (const wire of circuitState.wires) {
+    console.log('[Wire-BB Debug] Wire:', wire.startComponentId, '.', wire.startPinId, ' -> ', wire.endComponentId, '.', wire.endPinId);
+
+    let breadboardEndId: string | null = null;
+    let breadboardPinId: string | null = null;
+    let otherComponentId: string | null = null;
+    let otherPinId: string | null = null;
+
+    // Check if start is a breadboard
+    if (breadboardInstanceIds.has(wire.startComponentId)) {
+      breadboardEndId = wire.startComponentId;
+      breadboardPinId = wire.startPinId;
+      otherComponentId = wire.endComponentId;
+      otherPinId = wire.endPinId;
+      console.log('[Wire-BB Debug] Wire START is breadboard');
+    }
+    // Check if end is a breadboard
+    else if (breadboardInstanceIds.has(wire.endComponentId)) {
+      breadboardEndId = wire.endComponentId;
+      breadboardPinId = wire.endPinId;
+      otherComponentId = wire.startComponentId;
+      otherPinId = wire.startPinId;
+      console.log('[Wire-BB Debug] Wire END is breadboard');
+    } else {
+      console.log('[Wire-BB Debug] Wire does NOT connect to breadboard');
+    }
+
+    if (breadboardEndId && breadboardPinId && otherComponentId && otherPinId) {
+      // Skip if the other end is also a breadboard (breadboard-to-breadboard wires handled separately)
+      if (breadboardInstanceIds.has(otherComponentId)) {
+        console.log('[Wire-BB Debug] Skipping - both ends are breadboards');
+        continue;
+      }
+
+      // Find the net for this breadboard pin
+      const breadboardPins = circuitState.breadboardPins[breadboardEndId] || [];
+      const pinInfo = breadboardPins.find(p => p.pinId === breadboardPinId);
+
+      console.log('[Wire-BB Debug] Looking for pin', breadboardPinId, 'in breadboard', breadboardEndId);
+      console.log('[Wire-BB Debug] Found pinInfo:', pinInfo);
+
+      if (pinInfo && pinInfo.net) {
+        // Get the component type for the other end
+        const otherComponent = circuitState.placedComponents.find(c => c.instanceId === otherComponentId);
+        const otherComponentType = otherComponent?.definitionId || otherComponentId;
+
+        console.log('[Wire-BB Debug] Adding', otherComponentType, '.', otherPinId, 'to net', pinInfo.net);
+
+        if (!netGroups.has(pinInfo.net)) {
+          netGroups.set(pinInfo.net, []);
+        }
+
+        // Check if this component+pin is already in the net (avoid duplicates)
+        const existing = netGroups.get(pinInfo.net)!;
+        const alreadyExists = existing.some(
+          e => e.componentId === otherComponentId && e.pinId === otherPinId
+        );
+
+        if (!alreadyExists) {
+          existing.push({
+            componentId: otherComponentId,
+            componentType: otherComponentType,
+            pinId: otherPinId
+          });
+        }
+      } else {
+        console.log('[Wire-BB Debug] No net found for breadboard pin', breadboardPinId);
+      }
+    }
+  }
+
+  console.log('[Wire-BB Debug] Final netGroups:', Object.fromEntries(netGroups));
   return netGroups;
 }
 
@@ -207,6 +296,85 @@ function analyzePowerRailConnections(circuitState: CircuitState): Map<string, st
 }
 
 /**
+ * Detect potential short circuits - when a component has multiple pins in the same breadboard row
+ * This can cause short circuits (e.g., LED with both legs in same row, resistor with both terminals in same row)
+ */
+function detectShortCircuits(circuitState: CircuitState): Array<{
+  componentId: string;
+  componentType: string;
+  pins: string[];
+  net: string;
+  message: string;
+}> {
+  const shortCircuits: Array<{
+    componentId: string;
+    componentType: string;
+    pins: string[];
+    net: string;
+    message: string;
+  }> = [];
+
+  if (!circuitState.breadboardPins) {
+    console.log('[Short Circuit Debug] No breadboardPins in circuitState');
+    return shortCircuits;
+  }
+
+  for (const component of circuitState.placedComponents) {
+    // Skip breadboard itself
+    if (component.definitionId.includes('breadboard')) {
+      continue;
+    }
+
+    if (!component.parentBreadboardId || !component.insertedPins) {
+      console.log(`[Short Circuit Debug] Component ${component.definitionId} - no parentBreadboardId or insertedPins`, {
+        parentBreadboardId: component.parentBreadboardId,
+        insertedPins: component.insertedPins
+      });
+      continue;
+    }
+
+    const breadboardPins = circuitState.breadboardPins[component.parentBreadboardId] || [];
+    console.log(`[Short Circuit Debug] Component ${component.definitionId} inserted into breadboard ${component.parentBreadboardId}`, {
+      insertedPins: component.insertedPins,
+      breadboardPinsCount: breadboardPins.length
+    });
+
+    // Group this component's pins by their net
+    const pinsByNet = new Map<string, string[]>();
+
+    for (const [componentPinId, breadboardPinId] of Object.entries(component.insertedPins)) {
+      const pinInfo = breadboardPins.find(p => p.pinId === breadboardPinId);
+      console.log(`[Short Circuit Debug] Pin ${componentPinId} -> ${breadboardPinId}, net: ${pinInfo?.net || 'NOT FOUND'}`);
+      if (pinInfo && pinInfo.net) {
+        if (!pinsByNet.has(pinInfo.net)) {
+          pinsByNet.set(pinInfo.net, []);
+        }
+        pinsByNet.get(pinInfo.net)!.push(componentPinId);
+      }
+    }
+
+    // Check for multiple pins in the same net (potential short circuit)
+    for (const [net, pins] of pinsByNet.entries()) {
+      if (pins.length > 1) {
+        // This is a potential short circuit
+        const componentName = component.definitionId.replace(/-/g, ' ');
+        console.log(`[Short Circuit Debug] SHORT CIRCUIT DETECTED: ${componentName} pins ${pins.join(', ')} in ${net}`);
+        shortCircuits.push({
+          componentId: component.instanceId,
+          componentType: component.definitionId,
+          pins,
+          net,
+          message: `WARNING: ${componentName} has ${pins.length} pins (${pins.join(', ')}) in the same breadboard row (${net}). This creates a short circuit!`
+        });
+      }
+    }
+  }
+
+  console.log(`[Short Circuit Debug] Total short circuits found: ${shortCircuits.length}`);
+  return shortCircuits;
+}
+
+/**
  * Build component context from ALL placed components (not just referenced ones)
  */
 function buildAllComponentsContext(circuitState: CircuitState): string {
@@ -222,6 +390,9 @@ function buildAllComponentsContext(circuitState: CircuitState): string {
 
   // Analyze power rail connections (Arduino -> breadboard power rails)
   const powerRails = analyzePowerRailConnections(circuitState);
+
+  // Detect potential short circuits
+  const shortCircuits = detectShortCircuits(circuitState);
 
   for (const component of circuitState.placedComponents) {
     // Skip breadboard itself in component listing
@@ -356,6 +527,15 @@ function buildAllComponentsContext(circuitState: CircuitState): string {
         const desc = components.map(c => `${c.componentType}.${c.pinId}`).join(' ↔ ');
         contextParts.push(`- ${net}: ${desc}`);
       }
+    }
+  }
+
+  // Add short circuit warnings (CRITICAL for circuit safety)
+  if (shortCircuits.length > 0) {
+    contextParts.push('\n**⚠️ CIRCUIT PROBLEMS DETECTED:**');
+    contextParts.push('(The following issues will prevent the circuit from working correctly)');
+    for (const sc of shortCircuits) {
+      contextParts.push(`- ${sc.message}`);
     }
   }
 
