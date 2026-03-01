@@ -418,6 +418,84 @@ function detectShortCircuits(circuitState: CircuitState): Array<{
 }
 
 /**
+ * Detect button wiring issues - when a button is bypassed because both connections
+ * are on the same internally-connected side
+ */
+function detectButtonIssues(
+  circuitState: CircuitState,
+  netGroups: Map<string, Array<{componentId: string, componentType: string, pinId: string}>>
+): Array<{
+  componentId: string;
+  message: string;
+}> {
+  const issues: Array<{componentId: string; message: string}> = [];
+
+  for (const component of circuitState.placedComponents) {
+    // Only check pushbuttons
+    if (!component.definitionId.includes('pushbutton')) {
+      continue;
+    }
+
+    if (!component.internalConnections?.whenPressed || !component.insertedPins) {
+      continue;
+    }
+
+    // Get the always-connected pin groups
+    const alwaysConnected = component.internalConnections.always || [];
+    console.log(`[Button Debug] Checking button ${component.instanceId}, always connected groups:`, alwaysConnected);
+
+    // For each always-connected group, check if multiple external connections come to the same group
+    for (const group of alwaysConnected) {
+      // Find which nets these pins are in
+      const groupNets: string[] = [];
+      for (const pinId of group) {
+        const breadboardPinId = component.insertedPins[pinId];
+        if (breadboardPinId && component.parentBreadboardId) {
+          const breadboardPins = circuitState.breadboardPins?.[component.parentBreadboardId] || [];
+          const pinInfo = breadboardPins.find(p => p.pinId === breadboardPinId);
+          if (pinInfo?.net) {
+            groupNets.push(pinInfo.net);
+          }
+        }
+      }
+
+      console.log(`[Button Debug] Pin group ${group.join(',')} is in nets:`, groupNets);
+
+      // Check if any of these nets have other components connected
+      let externalConnectionCount = 0;
+      const connectedComponents: string[] = [];
+
+      for (const net of groupNets) {
+        const netComponents = netGroups.get(net) || [];
+        for (const comp of netComponents) {
+          // Skip the button itself
+          if (comp.componentId === component.instanceId) continue;
+          // Skip jump-wire markers
+          if (comp.componentId === 'jump-wire') continue;
+
+          externalConnectionCount++;
+          connectedComponents.push(`${comp.componentType}.${comp.pinId}`);
+        }
+      }
+
+      console.log(`[Button Debug] Group ${group.join(',')} has ${externalConnectionCount} external connections:`, connectedComponents);
+
+      // If more than one external component connects to the same always-connected group,
+      // the button might be bypassed
+      if (externalConnectionCount >= 2) {
+        issues.push({
+          componentId: component.instanceId,
+          message: `WARNING: Button pins ${group.join(' and ')} are always internally connected, but you have multiple circuit connections (${connectedComponents.join(', ')}) on this side. The button may not control the circuit properly - try connecting to opposite sides of the button (e.g., PIN1 side for power, PIN2 side for the next component).`
+        });
+      }
+    }
+  }
+
+  console.log(`[Button Debug] Total button issues found: ${issues.length}`);
+  return issues;
+}
+
+/**
  * Build component context from ALL placed components (not just referenced ones)
  */
 function buildAllComponentsContext(circuitState: CircuitState): string {
@@ -436,6 +514,9 @@ function buildAllComponentsContext(circuitState: CircuitState): string {
 
   // Detect potential short circuits
   const shortCircuits = detectShortCircuits(circuitState);
+
+  // Detect button wiring issues
+  const buttonIssues = detectButtonIssues(circuitState, breadboardNets);
 
   for (const component of circuitState.placedComponents) {
     // Skip breadboard itself in component listing
@@ -574,11 +655,14 @@ function buildAllComponentsContext(circuitState: CircuitState): string {
   }
 
   // Add short circuit warnings (CRITICAL for circuit safety)
-  if (shortCircuits.length > 0) {
+  if (shortCircuits.length > 0 || buttonIssues.length > 0) {
     contextParts.push('\n**⚠️ CIRCUIT PROBLEMS DETECTED:**');
     contextParts.push('(The following issues will prevent the circuit from working correctly)');
     for (const sc of shortCircuits) {
       contextParts.push(`- ${sc.message}`);
+    }
+    for (const bi of buttonIssues) {
+      contextParts.push(`- ${bi.message}`);
     }
   }
 
