@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Send, Zap, ChevronRight, Home, Folder, BookOpen, Users, Menu, Settings, Cpu } from 'lucide-react';
+import { Send, Camera, ChevronRight, Cpu } from 'lucide-react';
 import { presetProjects } from '../data/projects';
+import { Sidebar } from '../components/layout/Sidebar';
+import { ComponentScanner } from '../components/scanner/ComponentScanner';
+import type { DetectedComponent } from '../utils/componentMatcher';
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -15,7 +18,7 @@ type EyeRefs = {
 
 export function HomePage() {
   const [ideaInput, setIdeaInput] = useState('');
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+  const [scannerOpen, setScannerOpen] = useState(false);
   const navigate = useNavigate();
 
   const blueEye1SocketRef = useRef<HTMLDivElement>(null);
@@ -39,8 +42,9 @@ export function HomePage() {
     navigate(`/project/${projectId}`);
   };
 
-  const toggleSidebar = () => {
-    setIsSidebarCollapsed(prev => !prev);
+  const handleScanComplete = (detected: DetectedComponent[], screenshot: string) => {
+    setScannerOpen(false);
+    navigate('/scan-chat', { state: { detected, screenshot } });
   };
 
   const getDifficultyColor = (difficulty: string) => {
@@ -125,65 +129,13 @@ export function HomePage() {
   return (
     <div className="home-page">
       <div className="home-shell">
-        {/* Sidebar (visual only) */}
-        <aside className={`home-sidebar ${isSidebarCollapsed ? 'collapsed' : ''}`} aria-label="Primary navigation">
-          <div className="sidebar-header">
-            <button
-              className="sidebar-brand-toggle"
-              type="button"
-              aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Brand'}
-              tabIndex={isSidebarCollapsed ? 0 : -1}
-              onClick={() => isSidebarCollapsed && toggleSidebar()}
-            >
-              <span className="sidebar-brand-iconSwap" aria-hidden="true">
-                <Zap size={22} className="sidebar-brand-icon sidebar-brand-icon--zap" />
-                <Menu size={20} className="sidebar-brand-icon sidebar-brand-icon--menu" />
-              </span>
-              <span className="sidebar-brand-text">Big Arduino</span>
-            </button>
+        <Sidebar />
 
-            <button
-              className="sidebar-menu-button"
-              type="button"
-              aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              onClick={toggleSidebar}
-            >
-              <Menu size={20} />
-            </button>
-          </div>
-
-          <nav className="sidebar-nav">
-            <button className="sidebar-nav-item active" type="button" data-label="Home" aria-label="Home">
-              <Home size={18} />
-              <span>Home</span>
-            </button>
-            <button className="sidebar-nav-item" type="button" data-label="Projects" aria-label="Projects">
-              <Folder size={18} />
-              <span>Projects</span>
-            </button>
-            <button className="sidebar-nav-item" type="button" data-label="Learn" aria-label="Learn">
-              <BookOpen size={18} />
-              <span>Learn</span>
-            </button>
-            <button className="sidebar-nav-item" type="button" data-label="Community" aria-label="Community">
-              <Users size={18} />
-              <span>Community</span>
-            </button>
-          </nav>
-
-          <div className="sidebar-footer">
-            <div className="sidebar-user">
-              <div className="sidebar-avatar" aria-hidden="true">JD</div>
-              <div className="sidebar-user-meta">
-                <div className="sidebar-user-name">John Doe</div>
-                <div className="sidebar-user-plan">Free Plan</div>
-              </div>
-            </div>
-            <button className="sidebar-settings-button" type="button" aria-label="Settings">
-              <Settings size={18} />
-            </button>
-          </div>
-        </aside>
+        <ComponentScanner
+          open={scannerOpen}
+          onClose={() => setScannerOpen(false)}
+          onComplete={handleScanComplete}
+        />
 
         {/* Main */}
         <main className="home-main">
@@ -271,6 +223,15 @@ export function HomePage() {
                     onKeyDown={(e) => e.key === 'Enter' && handleCustomProject()}
                     className="home-idea-field"
                   />
+                  <button
+                    className="home-idea-camera"
+                    onClick={() => setScannerOpen(true)}
+                    aria-label="Scan components with camera"
+                    type="button"
+                    title="Scan components"
+                  >
+                    <Camera size={18} />
+                  </button>
                   <button
                     className="home-idea-send"
                     onClick={handleCustomProject}

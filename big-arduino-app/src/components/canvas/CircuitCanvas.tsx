@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import * as fabric from 'fabric';
 import { ZoomIn, ZoomOut, Undo2, Trash2, Move, RotateCw, FlipHorizontal, FlipVertical } from 'lucide-react';
-import { useCircuitStore, useHoveredPin, useWireDrawing, useWires, useSimulationErrors, useSelectedWire, useClickToPlace, useDragPreview, useHighlightedItems, useActiveOnboarding, useButtonStates } from '../../store/circuitStore';
+import { useCircuitStore, useHoveredPin, useWireDrawing, useWires, useSimulationErrors, useSelectedWire, useClickToPlace, useDragPreview, useHighlightedItems, useActiveOnboarding, useButtonStates, useAICharacter } from '../../store/circuitStore';
 import {
   useOnboardingStore,
   useIsOnboardingActive,
@@ -14,6 +14,7 @@ import { loadComponentByFileName, getPinAtPosition } from '../../services/compon
 import { calculateSnapPosition, shouldRemoveFromBreadboard } from '../../services/breadboardSnapping';
 import { routeOrthogonalManhattan, type Rect as RouterRect, type Point as RouterPoint } from '../../services/routing/orthogonalRouter';
 import { ComponentOnboarding, hasOnboardingImage } from './ComponentOnboarding';
+import { BlueCharacter } from '../ai/BlueCharacter';
 import { CircuitAnimation } from './CircuitAnimation';
 import { tracePowerPath, findAllPowerPins } from '../../services/circuitPathTracer';
 import type { CircuitAnimationPath } from '../../services/circuitPathTracer';
@@ -338,6 +339,8 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
   const selectedWire = useSelectedWire();
   const highlightedItems = useHighlightedItems();
   const activeOnboarding = useActiveOnboarding();
+  const aiCharacter = useAICharacter();
+  const hideAICharacter = useCircuitStore(state => state.hideAICharacter);
 
   // Onboarding hooks
   const isOnboardingActive = useIsOnboardingActive();
@@ -3557,6 +3560,23 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
               viewportTransform={vpt}
               onComplete={hideOnboarding}
               manual={activeOnboarding.manual}
+            />
+          );
+        })()}
+
+        {/* AI Character overlay */}
+        {aiCharacter.visible && (() => {
+          const vpt = viewportTransformRef.current;
+          return (
+            <BlueCharacter
+              x={aiCharacter.x * vpt[0] + vpt[4]}
+              y={aiCharacter.y * vpt[3] + vpt[5]}
+              message={aiCharacter.message}
+              mood={aiCharacter.mood}
+              visible={aiCharacter.visible}
+              bubblePosition={aiCharacter.bubblePosition}
+              onDismiss={hideAICharacter}
+              size="medium"
             />
           );
         })()}

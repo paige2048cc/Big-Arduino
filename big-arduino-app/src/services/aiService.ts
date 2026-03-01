@@ -50,6 +50,15 @@ export interface AIResponse {
   highlights?: HighlightItem[];
 }
 
+export type CharacterMood = 'thinking' | 'happy' | 'concerned' | 'celebrating';
+
+export interface ParsedAIResponse {
+  content: string;
+  highlights: HighlightItem[];
+  mood: CharacterMood;
+  targetComponentId: string | null;
+}
+
 // API endpoint - works for both local dev and production
 const API_ENDPOINT = '/api/chat';
 
@@ -224,6 +233,51 @@ function parseHighlights(response: string): HighlightItem[] {
   }
 
   return highlights;
+}
+
+/**
+ * Parse the full AI response to extract mood, target component, and clean content
+ */
+export function parseAIResponse(rawResponse: string): ParsedAIResponse {
+  // Extract mood from [MOOD:xxx] tag
+  const moodMatch = rawResponse.match(/\[MOOD:(\w+)\]/i);
+  let mood: CharacterMood = 'happy';
+  if (moodMatch) {
+    const moodValue = moodMatch[1].toLowerCase();
+    if (['thinking', 'happy', 'concerned', 'celebrating'].includes(moodValue)) {
+      mood = moodValue as CharacterMood;
+    }
+  }
+
+  // Remove mood tag from content
+  let content = rawResponse.replace(/\[MOOD:\w+\]/gi, '').trim();
+
+  // Extract component references [[ref:xxx]] to find target component
+  const refMatches = [...content.matchAll(/\[\[ref:([^\]]+)\]\]/g)];
+  const targetComponentId = refMatches.length > 0 ? refMatches[0][1] : null;
+
+  // Parse highlights using existing function
+  const highlights = parseHighlights(content);
+
+  // Also add highlights for [[ref:xxx]] patterns
+  for (const match of refMatches) {
+    const instanceId = match[1];
+    // Check if already in highlights
+    if (!highlights.some(h => h.id === instanceId)) {
+      highlights.push({
+        type: 'component',
+        id: instanceId,
+        severity: 'info',
+      });
+    }
+  }
+
+  return {
+    content,
+    highlights,
+    mood,
+    targetComponentId,
+  };
 }
 
 /**

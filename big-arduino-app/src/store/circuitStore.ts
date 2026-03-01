@@ -147,6 +147,17 @@ interface CircuitState {
     centerY: number;
     manual?: boolean;
   } | null;
+
+  // AI Character state (for visual feedback on canvas)
+  aiCharacter: {
+    visible: boolean;
+    x: number;
+    y: number;
+    message: string;
+    mood: 'thinking' | 'happy' | 'concerned' | 'celebrating';
+    targetComponentId: string | null;
+    bubblePosition: 'top' | 'bottom' | 'left' | 'right';
+  };
 }
 
 interface CircuitActions {
@@ -253,6 +264,23 @@ interface CircuitActions {
   hideOnboarding: () => void;
   hasShownOnboarding: (definitionId: string) => boolean;
   triggerOnboardingForComponent: (instanceId: string) => void;
+
+  // AI Character actions
+  showAICharacter: (
+    message: string,
+    targetComponentId?: string | null,
+    mood?: 'thinking' | 'happy' | 'concerned' | 'celebrating'
+  ) => void;
+  hideAICharacter: () => void;
+  updateAICharacterMessage: (
+    message: string,
+    mood?: 'thinking' | 'happy' | 'concerned' | 'celebrating'
+  ) => void;
+  updateAICharacterPosition: (
+    x: number,
+    y: number,
+    bubblePosition?: 'top' | 'bottom' | 'left' | 'right'
+  ) => void;
 }
 
 // Generate unique IDs
@@ -315,6 +343,15 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
     highlightedToolbarComponents: [],
     shownOnboardings: new Set(),
     activeOnboarding: null,
+    aiCharacter: {
+      visible: false,
+      x: 0,
+      y: 0,
+      message: '',
+      mood: 'happy' as const,
+      targetComponentId: null,
+      bubblePosition: 'right' as const,
+    },
 
     // Component actions
     addComponent: (definition, x, y, properties = {}) => {
@@ -1152,6 +1189,66 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
         });
       }
     },
+
+    // AI Character actions
+    showAICharacter: (message, targetComponentId = null, mood = 'happy') => {
+      const state = get();
+      let x = 200;
+      let y = 200;
+      let bubblePosition: 'top' | 'bottom' | 'left' | 'right' = 'right';
+
+      // If target component is specified, position near it
+      if (targetComponentId) {
+        const component = state.placedComponents.find(c => c.instanceId === targetComponentId);
+        const definition = state.componentDefinitions.get(targetComponentId);
+
+        if (component && definition) {
+          // Position to the right of the component
+          x = component.x + definition.width + 80;
+          y = component.y + definition.height / 2;
+          bubblePosition = 'left';
+        }
+      }
+
+      set((s) => {
+        s.aiCharacter = {
+          visible: true,
+          x,
+          y,
+          message,
+          mood,
+          targetComponentId,
+          bubblePosition,
+        };
+      });
+    },
+
+    hideAICharacter: () => {
+      set((s) => {
+        s.aiCharacter.visible = false;
+        s.aiCharacter.message = '';
+        s.aiCharacter.targetComponentId = null;
+      });
+    },
+
+    updateAICharacterMessage: (message, mood) => {
+      set((s) => {
+        s.aiCharacter.message = message;
+        if (mood) {
+          s.aiCharacter.mood = mood;
+        }
+      });
+    },
+
+    updateAICharacterPosition: (x, y, bubblePosition) => {
+      set((s) => {
+        s.aiCharacter.x = x;
+        s.aiCharacter.y = y;
+        if (bubblePosition) {
+          s.aiCharacter.bubblePosition = bubblePosition;
+        }
+      });
+    },
   }))
 );
 
@@ -1214,3 +1311,7 @@ export const useHighlightedToolbarComponent = () =>
 // Component onboarding selector
 export const useActiveOnboarding = () =>
   useCircuitStore((state) => state.activeOnboarding);
+
+// AI Character selector
+export const useAICharacter = () =>
+  useCircuitStore((state) => state.aiCharacter);

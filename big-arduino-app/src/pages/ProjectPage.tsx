@@ -9,7 +9,8 @@ import { CircuitCanvas } from '../components/canvas';
 import { useCircuitStore, useWires, useSimulationErrors } from '../store/circuitStore';
 import { DockingProvider, type PanelConfig } from '../contexts/DockingContext';
 import type { ChatReference } from '../types/chat';
-import { sendMessage, isAIServiceConfigured, getFallbackResponse, type CircuitState } from '../services/aiService';
+import { sendMessage, isAIServiceConfigured, getFallbackResponse, parseAIResponse, type CircuitState } from '../services/aiService';
+import { calculateCharacterPosition } from '../services/characterPositioning';
 import { OnboardingOverlay } from '../components/onboarding';
 import { useOnboardingStore } from '../store/onboardingStore';
 
@@ -36,7 +37,18 @@ export function ProjectPage() {
   const { isConnected, isSupported, connect, disconnect } = useSerial();
 
   // Circuit store
-  const { selectedComponentId, selectComponent, isSimulating, toggleSimulation, placedComponents, setHighlights } = useCircuitStore();
+  const {
+    selectedComponentId,
+    selectComponent,
+    isSimulating,
+    toggleSimulation,
+    placedComponents,
+    setHighlights,
+    showAICharacter,
+    hideAICharacter,
+    updateAICharacterPosition,
+    componentDefinitions,
+  } = useCircuitStore();
   const wires = useWires();
   const simulationErrors = useSimulationErrors();
 
@@ -172,20 +184,40 @@ export function ProjectPage() {
 
     setIsAILoading(true);
 
+    // Show thinking character while waiting for response
+    showAICharacter('Let me think about that...', null, 'thinking');
+
     try {
       const response = await sendMessage(message, references || [], circuitState);
 
+      // Parse the AI response to extract mood, target component, and cleaned content
+      const parsed = parseAIResponse(response.content);
+
       setChatMessages(prev => [...prev, {
         role: 'assistant',
-        content: response.content
+        content: parsed.content
       }]);
 
+      // Position character near target component if identified
+      if (parsed.targetComponentId) {
+        const position = calculateCharacterPosition(
+          parsed.targetComponentId,
+          placedComponents,
+          componentDefinitions
+        );
+        updateAICharacterPosition(position.x, position.y, position.bubblePosition);
+      }
+
+      // Update character with response message and mood
+      showAICharacter(parsed.content, parsed.targetComponentId, parsed.mood);
+
       // Apply highlights if any
-      if (response.highlights && response.highlights.length > 0) {
-        setHighlights(response.highlights);
+      if (parsed.highlights && parsed.highlights.length > 0) {
+        setHighlights(parsed.highlights);
       }
     } catch (error) {
       console.error('AI service error:', error);
+      hideAICharacter();
       setChatMessages(prev => [...prev, {
         role: 'assistant',
         content: 'Sorry, I encountered an error processing your request. Please try again.'
@@ -193,7 +225,7 @@ export function ProjectPage() {
     } finally {
       setIsAILoading(false);
     }
-  }, [placedComponents, wires, isSimulating, simulationErrors, setHighlights]);
+  }, [placedComponents, wires, isSimulating, simulationErrors, setHighlights, showAICharacter, hideAICharacter, updateAICharacterPosition, componentDefinitions]);
 
   // If project not found
   if (!project) {

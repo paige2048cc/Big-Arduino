@@ -13,24 +13,21 @@ interface ChatResponse {
   error?: string;
 }
 
-// Gemini API response structure
-interface GeminiResponse {
-  candidates?: Array<{
-    content?: {
-      parts?: Array<{
-        text?: string;
-      }>;
-    };
+// Claude API response structure
+interface ClaudeResponse {
+  content?: Array<{
+    type: string;
+    text?: string;
   }>;
   error?: {
+    type: string;
     message: string;
-    code: number;
   };
 }
 
-// Supported Gemini model
-const GEMINI_MODEL = 'gemini-2.0-flash';
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+// Claude API configuration
+const CLAUDE_MODEL = 'claude-sonnet-4-20250514';
+const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
 
 export default async function handler(
   req: VercelRequest,
@@ -53,9 +50,9 @@ export default async function handler(
   }
 
   // Get API key from environment variable (set in Vercel dashboard)
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.CLAUDE_API_KEY;
   if (!apiKey) {
-    console.error('GEMINI_API_KEY environment variable is not configured');
+    console.error('CLAUDE_API_KEY environment variable is not configured');
     return res.status(500).json({
       content: '',
       error: 'Server configuration error: API key not configured'
@@ -80,58 +77,57 @@ export default async function handler(
     return res.status(400).json({ content: '', error: 'Invalid request body' });
   }
 
-  // Build the full prompt
-  const fullPrompt = `${systemPrompt}
+  // Build the user message with context
+  const userMessage = context
+    ? `${context}\n\nUser Question: ${message}`
+    : message;
 
-${context}
-
-User Question: ${message}`;
-
-  // Call Gemini API
+  // Call Claude API
   let response: Response;
   try {
-    response = await fetch(GEMINI_API_URL, {
+    response = await fetch(CLAUDE_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey,
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: fullPrompt
-          }]
-        }],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 2048,
-        }
+        model: CLAUDE_MODEL,
+        max_tokens: 2048,
+        system: systemPrompt,
+        messages: [
+          {
+            role: 'user',
+            content: userMessage
+          }
+        ]
       })
     });
   } catch (fetchError) {
-    console.error('Network error calling Gemini API:', fetchError);
+    console.error('Network error calling Claude API:', fetchError);
     return res.status(502).json({
       content: '',
       error: 'Failed to connect to AI service'
     });
   }
 
-  // Parse Gemini response
-  let data: GeminiResponse;
+  // Parse Claude response
+  let data: ClaudeResponse;
   try {
-    data = await response.json() as GeminiResponse;
+    data = await response.json() as ClaudeResponse;
   } catch {
-    console.error('Failed to parse Gemini API response');
+    console.error('Failed to parse Claude API response');
     return res.status(502).json({
       content: '',
       error: 'Invalid response from AI service'
     });
   }
 
-  // Handle Gemini API errors
+  // Handle Claude API errors
   if (!response.ok) {
     const errorMessage = data.error?.message || `HTTP ${response.status}`;
-    console.error('Gemini API error:', errorMessage);
+    console.error('Claude API error:', errorMessage);
 
     // Map common error codes to user-friendly messages
     if (response.status === 401 || response.status === 403) {
@@ -160,10 +156,11 @@ User Question: ${message}`;
   }
 
   // Extract text from response
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  const textContent = data.content?.find(c => c.type === 'text');
+  const text = textContent?.text;
 
   if (!text) {
-    console.error('No text in Gemini response:', JSON.stringify(data));
+    console.error('No text in Claude response:', JSON.stringify(data));
     return res.status(502).json({
       content: '',
       error: 'AI service returned empty response'
