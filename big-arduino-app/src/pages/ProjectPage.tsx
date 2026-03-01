@@ -9,7 +9,7 @@ import { CircuitCanvas } from '../components/canvas';
 import { useCircuitStore, useWires, useSimulationErrors } from '../store/circuitStore';
 import { DockingProvider, type PanelConfig } from '../contexts/DockingContext';
 import type { ChatReference } from '../types/chat';
-import { sendMessage, isAIServiceConfigured, getFallbackResponse, parseAIResponse, type CircuitState } from '../services/aiService';
+import { sendMessage, isAIServiceConfigured, getFallbackResponse, parseAIResponse, type CircuitState, type ProjectContext } from '../services/aiService';
 // Character positioning is available for future debugging hints feature
 // import { calculateCharacterPosition } from '../services/characterPositioning';
 import { OnboardingOverlay } from '../components/onboarding';
@@ -186,8 +186,18 @@ export function ProjectPage() {
 
     setIsAILoading(true);
 
+    // Build project context so AI knows what project and step we're on
+    const projectContext: ProjectContext | undefined = project ? {
+      title: project.title,
+      description: project.description,
+      currentStepIndex: currentStep,
+      totalSteps: project.steps.length,
+      currentStepTitle: step?.title,
+      currentStepInstructions: step?.instructions,
+    } : undefined;
+
     try {
-      const response = await sendMessage(message, references || [], circuitState);
+      const response = await sendMessage(message, references || [], circuitState, projectContext);
 
       // Parse the AI response to extract mood, target component, and cleaned content
       const parsed = parseAIResponse(response.content);
@@ -210,7 +220,7 @@ export function ProjectPage() {
     } finally {
       setIsAILoading(false);
     }
-  }, [placedComponents, wires, isSimulating, simulationErrors, setHighlights]);
+  }, [placedComponents, wires, isSimulating, simulationErrors, setHighlights, project, currentStep, step]);
 
   // If project not found
   if (!project) {

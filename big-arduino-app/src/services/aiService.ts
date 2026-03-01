@@ -10,7 +10,6 @@ import { loadKnowledge } from './knowledgeService';
 import {
   getSystemPrompt,
   buildContextPrompt,
-  formatComponentContext,
   formatWireContext,
   formatKnowledgeContext
 } from '../config/aiPrompts';
@@ -45,6 +44,15 @@ export interface CircuitState {
   }>;
 }
 
+export interface ProjectContext {
+  title: string;
+  description?: string;
+  currentStepIndex: number;
+  totalSteps: number;
+  currentStepTitle?: string;
+  currentStepInstructions?: string[];
+}
+
 export interface AIResponse {
   content: string;
   highlights?: HighlightItem[];
@@ -63,9 +71,42 @@ export interface ParsedAIResponse {
 const API_ENDPOINT = '/api/chat';
 
 /**
- * Build component context from references
+ * Build component context from ALL placed components (not just referenced ones)
  */
-async function buildComponentContext(
+function buildAllComponentsContext(circuitState: CircuitState): string {
+  if (circuitState.placedComponents.length === 0) {
+    return 'No components placed on the canvas yet.';
+  }
+
+  const contextParts: string[] = [];
+  contextParts.push(`**${circuitState.placedComponents.length} Components on Canvas:**`);
+
+  for (const component of circuitState.placedComponents) {
+    // Get connections for this component
+    const connections = circuitState.wires
+      .filter(w => w.startComponentId === component.instanceId || w.endComponentId === component.instanceId)
+      .map(w => {
+        if (w.startComponentId === component.instanceId) {
+          return `    - ${w.startPinId} → ${w.endComponentId}.${w.endPinId}`;
+        } else {
+          return `    - ${w.endPinId} ← ${w.startComponentId}.${w.startPinId}`;
+        }
+      });
+
+    const connectionStr = connections.length > 0
+      ? `\n  Connections:\n${connections.join('\n')}`
+      : '\n  Connections: None';
+
+    contextParts.push(`- **${component.definitionId}** (ID: ${component.instanceId})${connectionStr}`);
+  }
+
+  return contextParts.join('\n');
+}
+
+/**
+ * Build component context from explicit references (for @-mentioned components)
+ */
+async function buildReferencedComponentContext(
   references: ChatReference[],
   circuitState: CircuitState
 ): Promise<string> {
@@ -77,27 +118,6 @@ async function buildComponentContext(
         c => c.instanceId === ref.instanceId
       );
       if (component) {
-        // Get connections for this component
-        const connections = circuitState.wires
-          .filter(w => w.startComponentId === ref.instanceId || w.endComponentId === ref.instanceId)
-          .map(w => {
-            if (w.startComponentId === ref.instanceId) {
-              return `  - ${w.startPinId} -> ${w.endComponentId}.${w.endPinId}`;
-            } else {
-              return `  - ${w.endPinId} <- ${w.startComponentId}.${w.startPinId}`;
-            }
-          })
-          .join('\n');
-
-        contextParts.push(formatComponentContext(
-          ref.displayName,
-          ref.instanceId,
-          ref.definitionId,
-          component.x,
-          component.y,
-          connections || '  - No connections'
-        ));
-
         // Load knowledge for this component
         const knowledge = await loadKnowledge(ref.definitionId);
         if (knowledge) {
@@ -109,37 +129,39 @@ async function buildComponentContext(
           ));
         }
       }
-    } else if (ref.type === 'multi') {
-      for (const comp of ref.components) {
-        const component = circuitState.placedComponents.find(
-          c => c.instanceId === comp.instanceId
-        );
-        if (component) {
-          const connections = circuitState.wires
-            .filter(w => w.startComponentId === comp.instanceId || w.endComponentId === comp.instanceId)
-            .map(w => {
-              if (w.startComponentId === comp.instanceId) {
-                return `  - ${w.startPinId} -> ${w.endComponentId}.${w.endPinId}`;
-              } else {
-                return `  - ${w.endPinId} <- ${w.startComponentId}.${w.startPinId}`;
-              }
-            })
-            .join('\n');
-
-          contextParts.push(formatComponentContext(
-            comp.definitionId,
-            comp.instanceId,
-            comp.definitionId,
-            component.x,
-            component.y,
-            connections || '  - No connections'
-          ));
-        }
-      }
     }
   }
 
   return contextParts.join('\n\n');
+}
+
+/**
+ * Build project context string
+ */
+function buildProjectContext(projectContext?: ProjectContext): string {
+  if (!projectContext) {
+    return '';
+  }
+
+  const parts: string[] = [];
+  parts.push(`## Current Project: ${projectContext.title}`);
+
+  if (projectContext.description) {
+    parts.push(`Description: ${projectContext.description}`);
+  }
+
+  parts.push(`\nProgress: Step ${projectContext.currentStepIndex + 1} of ${projectContext.totalSteps}`);
+
+  if (projectContext.currentStepTitle) {
+    parts.push(`Current Step: **${projectContext.currentStepTitle}**`);
+  }
+
+  if (projectContext.currentStepInstructions && projectContext.currentStepInstructions.length > 0) {
+    const instructionsText = projectContext.currentStepInstructions.map((instr, i) => `${i + 1}. ${instr}`).join('\n');
+    parts.push(`\nStep Instructions:\n${instructionsText}`);
+  }
+
+  return parts.join('\n');
 }
 
 /**
@@ -286,19 +308,38 @@ export function parseAIResponse(rawResponse: string): ParsedAIResponse {
 export async function sendMessage(
   content: string,
   references: ChatReference[],
-  circuitState: CircuitState
+  circuitState: CircuitState,
+  projectContext?: ProjectContext
 ): Promise<AIResponse> {
-  // Build context from references and circuit state
-  const componentContext = await buildComponentContext(references, circuitState);
+  // Build context from ALL placed components (so AI can see the full circuit)
+  const allComponentsContext = buildAllComponentsContext(circuitState);
+
+  // Build additional context for explicitly referenced components (knowledge)
+  const referencedContext = await buildReferencedComponentContext(references, circuitState);
+
+  // Combine component contexts
+  const componentContext = referencedContext
+    ? `${allComponentsContext}\n\n### Referenced Component Knowledge:\n${referencedContext}`
+    : allComponentsContext;
+
   const wireContext = buildWireContext(references, circuitState);
   const simulationStatus = buildSimulationStatus(circuitState);
 
-  const contextPrompt = buildContextPrompt(
+  // Build project context if available
+  const projectContextStr = buildProjectContext(projectContext);
+
+  // Combine all context
+  let fullContext = buildContextPrompt(
     componentContext,
     wireContext,
     simulationStatus,
     content
   );
+
+  // Prepend project context if available
+  if (projectContextStr) {
+    fullContext = `${projectContextStr}\n\n${fullContext}`;
+  }
 
   try {
     const response = await fetch(API_ENDPOINT, {
@@ -309,7 +350,7 @@ export async function sendMessage(
       body: JSON.stringify({
         message: content,
         systemPrompt: getSystemPrompt(),
-        context: contextPrompt,
+        context: fullContext,
       }),
     });
 
