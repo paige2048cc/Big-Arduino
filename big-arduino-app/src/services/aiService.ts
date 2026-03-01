@@ -21,6 +21,15 @@ export interface PlacedComponent {
   x: number;
   y: number;
   rotation?: number;
+  // Breadboard insertion info
+  parentBreadboardId?: string;
+  insertedPins?: Record<string, string>; // componentPinId -> breadboardPinId
+}
+
+// Breadboard pin information for connectivity analysis
+export interface BreadboardPinInfo {
+  pinId: string;
+  net: string; // e.g., "row-10-top", "power-positive", "power-negative"
 }
 
 export interface Wire {
@@ -42,11 +51,17 @@ export interface CircuitState {
     message: string;
     severity: 'error' | 'warning';
   }>;
+  // Breadboard pin definitions for connectivity analysis
+  breadboardPins?: Record<string, BreadboardPinInfo[]>; // breadboardInstanceId -> pins with nets
 }
 
 export interface ProjectContext {
   title: string;
   description?: string;
+  /** What the completed circuit should do */
+  goal?: string;
+  /** Key learning objectives */
+  learningObjectives?: string[];
   currentStepIndex: number;
   totalSteps: number;
   currentStepTitle?: string;
@@ -71,6 +86,38 @@ export interface ParsedAIResponse {
 const API_ENDPOINT = '/api/chat';
 
 /**
+ * Analyze breadboard connectivity - find which component pins share the same breadboard row/net
+ */
+function analyzeBreadboardConnectivity(circuitState: CircuitState): Map<string, Array<{componentId: string, componentType: string, pinId: string}>> {
+  const netGroups = new Map<string, Array<{componentId: string, componentType: string, pinId: string}>>();
+
+  if (!circuitState.breadboardPins) return netGroups;
+
+  for (const component of circuitState.placedComponents) {
+    if (!component.parentBreadboardId || !component.insertedPins) continue;
+
+    const breadboardPins = circuitState.breadboardPins[component.parentBreadboardId] || [];
+
+    for (const [componentPinId, breadboardPinId] of Object.entries(component.insertedPins)) {
+      // Find the net for this breadboard pin
+      const pinInfo = breadboardPins.find(p => p.pinId === breadboardPinId);
+      if (pinInfo && pinInfo.net) {
+        if (!netGroups.has(pinInfo.net)) {
+          netGroups.set(pinInfo.net, []);
+        }
+        netGroups.get(pinInfo.net)!.push({
+          componentId: component.instanceId,
+          componentType: component.definitionId,
+          pinId: componentPinId
+        });
+      }
+    }
+  }
+
+  return netGroups;
+}
+
+/**
  * Build component context from ALL placed components (not just referenced ones)
  */
 function buildAllComponentsContext(circuitState: CircuitState): string {
@@ -81,23 +128,70 @@ function buildAllComponentsContext(circuitState: CircuitState): string {
   const contextParts: string[] = [];
   contextParts.push(`**${circuitState.placedComponents.length} Components on Canvas:**`);
 
+  // Analyze breadboard connectivity
+  const breadboardNets = analyzeBreadboardConnectivity(circuitState);
+
   for (const component of circuitState.placedComponents) {
-    // Get connections for this component
-    const connections = circuitState.wires
+    // Skip breadboard itself in component listing
+    if (component.definitionId.includes('breadboard')) {
+      continue;
+    }
+
+    // Get wire connections for this component
+    const wireConnections = circuitState.wires
       .filter(w => w.startComponentId === component.instanceId || w.endComponentId === component.instanceId)
       .map(w => {
         if (w.startComponentId === component.instanceId) {
-          return `    - ${w.startPinId} → ${w.endComponentId}.${w.endPinId}`;
+          return `    - ${w.startPinId} → ${w.endComponentId}.${w.endPinId} (wire)`;
         } else {
-          return `    - ${w.endPinId} ← ${w.startComponentId}.${w.startPinId}`;
+          return `    - ${w.endPinId} ← ${w.startComponentId}.${w.startPinId} (wire)`;
         }
       });
 
-    const connectionStr = connections.length > 0
-      ? `\n  Connections:\n${connections.join('\n')}`
+    // Get breadboard connections (pins connected via same breadboard row)
+    const breadboardConnections: string[] = [];
+    if (component.insertedPins) {
+      for (const [pinId] of Object.entries(component.insertedPins)) {
+        // Find which net this pin is on and what else is connected
+        for (const [net, components] of breadboardNets.entries()) {
+          const myEntry = components.find(c => c.componentId === component.instanceId && c.pinId === pinId);
+          if (myEntry) {
+            const others = components.filter(c => c.componentId !== component.instanceId);
+            for (const other of others) {
+              breadboardConnections.push(`    - ${pinId} ↔ ${other.componentType}.${other.pinId} (via breadboard ${net})`);
+            }
+          }
+        }
+      }
+    }
+
+    // Breadboard insertion info
+    let insertionInfo = '';
+    if (component.parentBreadboardId && component.insertedPins) {
+      const pins = Object.entries(component.insertedPins)
+        .map(([compPin, bbPin]) => `${compPin}→${bbPin}`)
+        .join(', ');
+      insertionInfo = `\n  Inserted in breadboard: ${pins}`;
+    }
+
+    const allConnections = [...wireConnections, ...breadboardConnections];
+    const connectionStr = allConnections.length > 0
+      ? `\n  Connections:\n${allConnections.join('\n')}`
       : '\n  Connections: None';
 
-    contextParts.push(`- **${component.definitionId}** (ID: ${component.instanceId})${connectionStr}`);
+    contextParts.push(`- **${component.definitionId}** (ID: ${component.instanceId})${insertionInfo}${connectionStr}`);
+  }
+
+  // Add summary of breadboard connectivity
+  if (breadboardNets.size > 0) {
+    contextParts.push('\n**Breadboard Connectivity Summary:**');
+    contextParts.push('(Components on the same breadboard row are electrically connected)');
+    for (const [net, components] of breadboardNets.entries()) {
+      if (components.length > 1) {
+        const desc = components.map(c => `${c.componentType}.${c.pinId}`).join(' ↔ ');
+        contextParts.push(`- ${net}: ${desc}`);
+      }
+    }
   }
 
   return contextParts.join('\n');
@@ -148,6 +242,19 @@ function buildProjectContext(projectContext?: ProjectContext): string {
 
   if (projectContext.description) {
     parts.push(`Description: ${projectContext.description}`);
+  }
+
+  // Include explicit goal so AI knows what the circuit should do
+  if (projectContext.goal) {
+    parts.push(`\n**Project Goal:** ${projectContext.goal}`);
+  }
+
+  // Include learning objectives
+  if (projectContext.learningObjectives && projectContext.learningObjectives.length > 0) {
+    parts.push('\n**Learning Objectives:**');
+    projectContext.learningObjectives.forEach(obj => {
+      parts.push(`- ${obj}`);
+    });
   }
 
   parts.push(`\nProgress: Step ${projectContext.currentStepIndex + 1} of ${projectContext.totalSteps}`);

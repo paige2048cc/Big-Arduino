@@ -4,6 +4,13 @@ export const ledButtonProject: Project = {
   id: 'led-button',
   title: 'Button-Powered LED',
   description: 'Build your first circuit — press a button to light up an LED. No coding required, just drag, wire, and simulate!',
+  goal: 'When the button is pressed, the LED lights up. When the button is released, the LED turns off.',
+  learningObjectives: [
+    'Understand how a basic circuit works (power → button → resistor → LED → ground)',
+    'Learn that components on the same breadboard row are electrically connected',
+    'Understand the role of a resistor in protecting the LED from too much current',
+    'Practice using the breadboard to create connections without soldering',
+  ],
   difficulty: 'beginner',
   image: '/projects/led-button.png',
   estimatedTime: '10-15 min',

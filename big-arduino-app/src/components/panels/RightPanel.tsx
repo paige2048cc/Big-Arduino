@@ -1,5 +1,6 @@
 import { useRef } from 'react';
-import { ArrowUp, Plus } from 'lucide-react';
+import { ArrowUp, Plus, Loader2 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import type { ChatReference, HighlightItem } from '../../types/chat';
 import { usePendingReferences, useCircuitStore } from '../../store/circuitStore';
 import { ReferenceTag } from '../chat/ReferenceTag';
@@ -41,11 +42,13 @@ interface ChatMessage {
 interface RightPanelProps {
   chatMessages: ChatMessage[];
   onSendMessage: (message: string, references?: ChatReference[]) => void;
+  isLoading?: boolean;
 }
 
 export function RightPanel({
   chatMessages,
   onSendMessage,
+  isLoading = false,
 }: RightPanelProps) {
   const chatInputRef = useRef<ChatInputFieldHandle>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -135,13 +138,13 @@ export function RightPanel({
     setInputFocused(false);
   };
 
-  // Render assistant message content with component references
+  // Render assistant message content with markdown support
   const renderAssistantContent = (content: string) => {
     // Safeguard: limit content length to prevent performance issues
     const safeContent = content.length > 10000 ? content.slice(0, 10000) + '...' : content;
 
     try {
-      // Check if content has component references
+      // Check if content has component references - use special rendering
       if (hasComponentReferences(safeContent)) {
         return renderMessageContent(safeContent, {
           circuitState: { placedComponents },
@@ -149,8 +152,12 @@ export function RightPanel({
         });
       }
 
-      // Regular text content
-      return <span className="message-text">{safeContent}</span>;
+      // Use ReactMarkdown for proper markdown rendering
+      return (
+        <div className="message-markdown">
+          <ReactMarkdown>{safeContent}</ReactMarkdown>
+        </div>
+      );
     } catch (e) {
       console.error('Error rendering assistant content:', e);
       return <span className="message-text">{safeContent}</span>;
@@ -167,7 +174,8 @@ export function RightPanel({
             <p className="chat-hint">Click on components to reference them in your question.</p>
           </div>
         ) : (
-          chatMessages.map((msg, index) => {
+          <>
+          {chatMessages.map((msg, index) => {
             // Generate a stable key based on role and index
             const messageKey = `${msg.role}-${index}`;
 
@@ -250,7 +258,17 @@ export function RightPanel({
                 <div className="message-bubble">{msg.content}</div>
               </div>
             );
-          })
+          })}
+          {/* Thinking indicator */}
+          {isLoading && (
+            <div className="chat-message assistant thinking">
+              <div className="message-bubble thinking-bubble">
+                <Loader2 size={16} className="thinking-spinner" />
+                <span className="thinking-text">Thinking...</span>
+              </div>
+            </div>
+          )}
+          </>
         )}
       </div>
 

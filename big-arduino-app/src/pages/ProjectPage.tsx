@@ -55,8 +55,7 @@ export function ProjectPage() {
   const simulationErrors = useSimulationErrors();
 
   // AI loading state
-  // Loading state for AI responses (can be used to show loading indicator)
-  const [, setIsAILoading] = useState(false);
+  const [isAILoading, setIsAILoading] = useState(false);
 
   // Onboarding
   const initOnboarding = useOnboardingStore((state) => state.initOnboarding);
@@ -157,6 +156,20 @@ export function ProjectPage() {
       return;
     }
 
+    // Build breadboard pin info for connectivity analysis
+    const breadboardPins: Record<string, Array<{pinId: string, net: string}>> = {};
+    const componentDefinitions = useCircuitStore.getState().componentDefinitions;
+    for (const comp of placedComponents) {
+      if (comp.definitionId.includes('breadboard')) {
+        const def = componentDefinitions.get(comp.definitionId);
+        if (def) {
+          breadboardPins[comp.instanceId] = def.pins
+            .filter(p => p.net)
+            .map(p => ({ pinId: p.id, net: p.net! }));
+        }
+      }
+    }
+
     // Build circuit state for AI
     const circuitState: CircuitState = {
       placedComponents: placedComponents.map(c => ({
@@ -164,7 +177,9 @@ export function ProjectPage() {
         definitionId: c.definitionId,
         x: c.x,
         y: c.y,
-        rotation: c.rotation
+        rotation: c.rotation,
+        parentBreadboardId: c.parentBreadboardId,
+        insertedPins: c.insertedPins,
       })),
       wires: wires.map(w => ({
         id: w.id,
@@ -179,9 +194,9 @@ export function ProjectPage() {
         componentId: e.componentId,
         wireId: e.wireId,
         message: e.message,
-        // Derive severity from error type - most circuit errors are actual errors
         severity: 'error' as const
-      }))
+      })),
+      breadboardPins,
     };
 
     setIsAILoading(true);
@@ -190,6 +205,8 @@ export function ProjectPage() {
     const projectContext: ProjectContext | undefined = project ? {
       title: project.title,
       description: project.description,
+      goal: project.goal,
+      learningObjectives: project.learningObjectives,
       currentStepIndex: currentStep,
       totalSteps: project.steps.length,
       currentStepTitle: step?.title,
@@ -252,8 +269,9 @@ export function ProjectPage() {
     <RightPanel
       chatMessages={chatMessages}
       onSendMessage={handleChatSubmit}
+      isLoading={isAILoading}
     />
-  ), [chatMessages, handleChatSubmit]);
+  ), [chatMessages, handleChatSubmit, isAILoading]);
 
   return (
     <DockingProvider

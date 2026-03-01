@@ -4,6 +4,13 @@ export const buzzerButtonProject: Project = {
   id: 'buzzer-button',
   title: 'Press to Buzz!',
   description: 'Build a simple interactive circuit where pressing a button triggers a buzzer.',
+  goal: 'When the button is pressed, the buzzer makes a sound. When the button is released, the buzzer stops.',
+  learningObjectives: [
+    'Understand how a buzzer converts electrical signals to sound',
+    'Learn the basic circuit path (power → button → resistor → buzzer → ground)',
+    'Practice breadboard wiring techniques',
+    'Understand the importance of resistors in controlling current flow',
+  ],
   difficulty: 'beginner',
   image: '/projects/buzzer-button.png',
   estimatedTime: '10-15 min',

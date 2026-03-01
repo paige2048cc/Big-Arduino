@@ -21,6 +21,10 @@ export interface Project {
   id: string;
   title: string;
   description: string;
+  /** Clear statement of what the completed circuit should do */
+  goal?: string;
+  /** Key learning objectives for this project */
+  learningObjectives?: string[];
   difficulty: 'beginner' | 'intermediate' | 'advanced';
   image: string;
   estimatedTime: string;
