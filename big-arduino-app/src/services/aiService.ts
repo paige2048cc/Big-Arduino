@@ -139,6 +139,74 @@ function analyzeBreadboardConnectivity(circuitState: CircuitState): Map<string, 
 }
 
 /**
+ * Analyze power rail connections - find which breadboard power rails are connected to Arduino power/ground
+ * Returns a map of power rail net -> source description (e.g., "power-top-plus" -> "Arduino 5V")
+ */
+function analyzePowerRailConnections(circuitState: CircuitState): Map<string, string> {
+  const powerRails = new Map<string, string>();
+
+  // Find Arduino component
+  const arduino = circuitState.placedComponents.find(c =>
+    c.definitionId.includes('arduino')
+  );
+  if (!arduino) return powerRails;
+
+  // Find breadboard component(s)
+  const breadboards = circuitState.placedComponents.filter(c =>
+    c.definitionId.includes('breadboard')
+  );
+  if (breadboards.length === 0) return powerRails;
+
+  // Check wires from Arduino to breadboard power rails
+  for (const wire of circuitState.wires) {
+    let arduinoPin: string | null = null;
+    let breadboardInstanceId: string | null = null;
+    let breadboardPinId: string | null = null;
+
+    // Check if wire connects Arduino to breadboard
+    if (wire.startComponentId === arduino.instanceId) {
+      arduinoPin = wire.startPinId;
+      const targetBreadboard = breadboards.find(b => b.instanceId === wire.endComponentId);
+      if (targetBreadboard) {
+        breadboardInstanceId = targetBreadboard.instanceId;
+        breadboardPinId = wire.endPinId;
+      }
+    } else if (wire.endComponentId === arduino.instanceId) {
+      arduinoPin = wire.endPinId;
+      const targetBreadboard = breadboards.find(b => b.instanceId === wire.startComponentId);
+      if (targetBreadboard) {
+        breadboardInstanceId = targetBreadboard.instanceId;
+        breadboardPinId = wire.startPinId;
+      }
+    }
+
+    if (arduinoPin && breadboardInstanceId && breadboardPinId) {
+      // Find the net for this breadboard pin
+      const breadboardPins = circuitState.breadboardPins?.[breadboardInstanceId] || [];
+      const pinInfo = breadboardPins.find(p => p.pinId === breadboardPinId);
+
+      if (pinInfo?.net) {
+        // Determine the power source type
+        const pinLower = arduinoPin.toLowerCase();
+        let sourceDesc = `Arduino ${arduinoPin}`;
+
+        if (pinLower.includes('5v') || pinLower === 'vcc' || pinLower === 'vin') {
+          sourceDesc = 'Arduino 5V (Power)';
+        } else if (pinLower.includes('3v') || pinLower.includes('3.3v')) {
+          sourceDesc = 'Arduino 3.3V (Power)';
+        } else if (pinLower.includes('gnd') || pinLower === 'ground') {
+          sourceDesc = 'Arduino GND (Ground)';
+        }
+
+        powerRails.set(pinInfo.net, sourceDesc);
+      }
+    }
+  }
+
+  return powerRails;
+}
+
+/**
  * Build component context from ALL placed components (not just referenced ones)
  */
 function buildAllComponentsContext(circuitState: CircuitState): string {
@@ -151,6 +219,9 @@ function buildAllComponentsContext(circuitState: CircuitState): string {
 
   // Analyze breadboard connectivity
   const breadboardNets = analyzeBreadboardConnectivity(circuitState);
+
+  // Analyze power rail connections (Arduino -> breadboard power rails)
+  const powerRails = analyzePowerRailConnections(circuitState);
 
   for (const component of circuitState.placedComponents) {
     // Skip breadboard itself in component listing
@@ -172,7 +243,20 @@ function buildAllComponentsContext(circuitState: CircuitState): string {
     // Get breadboard connections (pins connected via same breadboard row)
     const breadboardConnections: string[] = [];
     if (component.insertedPins) {
-      for (const [pinId] of Object.entries(component.insertedPins)) {
+      for (const [pinId, breadboardPinId] of Object.entries(component.insertedPins)) {
+        // Check if this pin is on a powered rail
+        if (component.parentBreadboardId) {
+          const breadboardPins = circuitState.breadboardPins?.[component.parentBreadboardId] || [];
+          const pinInfo = breadboardPins.find(p => p.pinId === breadboardPinId);
+          if (pinInfo?.net) {
+            // Check if this net is powered by Arduino
+            const powerSource = powerRails.get(pinInfo.net);
+            if (powerSource) {
+              breadboardConnections.push(`    - ${pinId} ↔ ${powerSource} (via breadboard ${pinInfo.net})`);
+            }
+          }
+        }
+
         // Find which net this pin is on and what else is connected
         for (const [net, components] of breadboardNets.entries()) {
           const myEntry = components.find(c => c.componentId === component.instanceId && c.pinId === pinId);
@@ -219,6 +303,15 @@ function buildAllComponentsContext(circuitState: CircuitState): string {
       : '\n  Connections: None';
 
     contextParts.push(`- **${component.definitionId}** (ID: ${component.instanceId})${internalInfo}${insertionInfo}${connectionStr}`);
+  }
+
+  // Add power rail connections summary
+  if (powerRails.size > 0) {
+    contextParts.push('\n**Power Rail Connections:**');
+    contextParts.push('(These breadboard rails are connected to Arduino power/ground via wires)');
+    for (const [net, source] of powerRails.entries()) {
+      contextParts.push(`- ${net} ← ${source}`);
+    }
   }
 
   // Add summary of breadboard connectivity
