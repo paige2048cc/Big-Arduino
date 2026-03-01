@@ -230,15 +230,48 @@ function buildAllComponentsContext(circuitState: CircuitState): string {
     }
 
     // Get wire connections for this component
-    const wireConnections = circuitState.wires
-      .filter(w => w.startComponentId === component.instanceId || w.endComponentId === component.instanceId)
-      .map(w => {
-        if (w.startComponentId === component.instanceId) {
-          return `    - ${w.startPinId} → ${w.endComponentId}.${w.endPinId} (wire)`;
+    const wireConnections: string[] = [];
+    for (const wire of circuitState.wires) {
+      let thisPin: string | null = null;
+      let otherComponentId: string | null = null;
+      let otherPinId: string | null = null;
+
+      if (wire.startComponentId === component.instanceId) {
+        thisPin = wire.startPinId;
+        otherComponentId = wire.endComponentId;
+        otherPinId = wire.endPinId;
+      } else if (wire.endComponentId === component.instanceId) {
+        thisPin = wire.endPinId;
+        otherComponentId = wire.startComponentId;
+        otherPinId = wire.startPinId;
+      }
+
+      if (!thisPin || !otherComponentId || !otherPinId) continue;
+
+      // Check if the other end is a breadboard power rail
+      const otherComponent = circuitState.placedComponents.find(c => c.instanceId === otherComponentId);
+      if (otherComponent?.definitionId.includes('breadboard')) {
+        // This wire connects to breadboard - check if it's a power rail
+        const breadboardPins = circuitState.breadboardPins?.[otherComponentId] || [];
+        const pinInfo = breadboardPins.find(p => p.pinId === otherPinId);
+
+        if (pinInfo?.net) {
+          // Check if this net is powered
+          const powerSource = powerRails.get(pinInfo.net);
+          if (powerSource) {
+            wireConnections.push(`    - ${thisPin} ↔ ${powerSource} (wire to breadboard ${pinInfo.net})`);
+          } else {
+            wireConnections.push(`    - ${thisPin} → breadboard.${otherPinId} (${pinInfo.net}) (wire)`);
+          }
         } else {
-          return `    - ${w.endPinId} ← ${w.startComponentId}.${w.startPinId} (wire)`;
+          wireConnections.push(`    - ${thisPin} → breadboard.${otherPinId} (wire)`);
         }
-      });
+      } else {
+        // Regular wire to another component
+        const otherDef = otherComponent?.definitionId || otherComponentId;
+        wireConnections.push(`    - ${thisPin} → ${otherDef}.${otherPinId} (wire)`);
+      }
+    }
 
     // Get breadboard connections (pins connected via same breadboard row)
     const breadboardConnections: string[] = [];
