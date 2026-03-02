@@ -352,3 +352,43 @@
     transform: rotate(360deg);
   }
 }
+
+/* ==========================================
+   Thinking Indicator
+   ========================================== */
+
+.scan-chat-msg--thinking {
+  animation: messageSlideIn 0.2s ease-out;
+}
+
+@keyframes messageSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.scan-chat-thinking-bubble {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px !important;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
+  border: 1px dashed rgba(25, 60, 184, 0.2) !important;
+}
+
+.scan-chat-thinking-spinner {
+  animation: spin 1s linear infinite;
+  color: #193cb8;
+  flex-shrink: 0;
+}
+
+.scan-chat-thinking-text {
+  font-size: 14px;
+  color: #64748b;
+  font-style: italic;
+}

@@ -141,7 +141,7 @@ export function AIChatPage() {
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, isLoading]);
 
   const handleSend = async () => {
     const text = input.trim();
@@ -243,7 +243,7 @@ export function AIChatPage() {
                       x={16}
                       y={16}
                       visible={true}
-                      mood={isLoading ? 'thinking' : 'happy'}
+                      mood="happy"
                       size="small"
                     />
                   </div>
@@ -260,6 +260,24 @@ export function AIChatPage() {
                 </div>
               </div>
             ))}
+            {/* Thinking indicator */}
+            {isLoading && (
+              <div className="scan-chat-msg scan-chat-msg--assistant scan-chat-msg--thinking">
+                <div className="scan-chat-avatar scan-chat-avatar--character">
+                  <BlueCharacter
+                    x={16}
+                    y={16}
+                    visible={true}
+                    mood="thinking"
+                    size="small"
+                  />
+                </div>
+                <div className="scan-chat-bubble scan-chat-thinking-bubble">
+                  <Loader2 size={16} className="scan-chat-thinking-spinner" />
+                  <span className="scan-chat-thinking-text">Thinking...</span>
+                </div>
+              </div>
+            )}
             <div ref={chatEndRef} />
           </div>
 
