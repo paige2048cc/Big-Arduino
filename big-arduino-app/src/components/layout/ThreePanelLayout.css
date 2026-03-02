@@ -71,6 +71,16 @@
   background: var(--bg-primary, #ffffff);
   border-left: 1px solid var(--border-color, #dadce0);
   flex-shrink: 0;
+  max-width: calc(100vw - 400px - 4px); /* Cannot exceed: viewport - minCenterWidth - resizer */
+  display: flex; /* Enable flexbox for child alignment */
+}
+
+/* When dock container is horizontal (panels side-by-side), auto-size to fit content */
+.right-panel:has(.dock-container.horizontal) {
+  width: auto !important; /* Override inline width to auto-fit content */
+  min-width: unset;
+  max-width: unset;
+  overflow: visible; /* Allow resize handles to extend outside */
 }
 
 /* Panel Resizer */

@@ -293,22 +293,25 @@ export function RightPanel({
             onBlur={handleInputBlur}
             placeholder="Ask for changes..."
           />
-          <button
-            onClick={handleAddFileClick}
-            className="attach-button"
-            title="Add file"
-            aria-label="Add file"
-            type="button"
-          >
-            <Plus size={20} />
-          </button>
-          <button
-            onClick={handleSendClick}
-            className="send-button"
-            type="button"
-          >
-            <ArrowUp size={18} />
-          </button>
+          {/* Button bar - fixed at bottom with background */}
+          <div className="input-button-bar">
+            <button
+              onClick={handleAddFileClick}
+              className="attach-button"
+              title="Add file"
+              aria-label="Add file"
+              type="button"
+            >
+              <Plus size={20} />
+            </button>
+            <button
+              onClick={handleSendClick}
+              className="send-button"
+              type="button"
+            >
+              <ArrowUp size={18} />
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -1,9 +1,9 @@
 /**
  * InstructionsPanel Styles
  *
- * Design based on Figma reference:
- * - Cream/yellow background (#FFF8E2)
- * - Orange left border accent (#FCC049)
+ * Consistent with AI Assistant panel styling:
+ * - White background (#ffffff)
+ * - Gray header (#f8f9fa)
  * - Green checkmark for completed steps
  * - Blue/indigo encouraging messages (#1a2bc3)
  */
@@ -15,12 +15,14 @@
 .instructions-panel {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
   min-height: 0;
   padding: 16px;
-  background: #FFF8E2;
-  border-left: 3px solid #FCC049;
+  background: var(--bg-primary, #ffffff);
   overflow-y: auto;
+  box-sizing: border-box;
+  border: none;
+  border-radius: 0;
 }
 
 /* ==================== */
@@ -200,7 +202,7 @@
   font-weight: 500;
   margin: 0 0 16px 0;
   padding-top: 8px;
-  border-top: 1px solid rgba(252, 192, 73, 0.3);
+  border-top: 1px solid var(--border-color, #e8eaed);
 }
 
 /* ==================== */
@@ -267,18 +269,20 @@
 /* ==================== */
 
 .instructions-panel::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
 
 .instructions-panel::-webkit-scrollbar-track {
   background: transparent;
+  margin-top: 8px;
+  margin-bottom: 8px;
 }
 
 .instructions-panel::-webkit-scrollbar-thumb {
-  background: rgba(252, 192, 73, 0.4);
-  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
 }
 
 .instructions-panel::-webkit-scrollbar-thumb:hover {
-  background: rgba(252, 192, 73, 0.6);
+  background: rgba(0, 0, 0, 0.25);
 }

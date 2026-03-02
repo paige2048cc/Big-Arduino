@@ -193,6 +193,15 @@ export function CoachmarkCard({
                   />
                 </svg>
               </div>
+            ) : config.videoSrc ? (
+              <video
+                className="coachmark-video"
+                src={config.videoSrc}
+                autoPlay
+                loop
+                muted
+                playsInline
+              />
             ) : (
               <div className="coachmark-video-placeholder">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none">

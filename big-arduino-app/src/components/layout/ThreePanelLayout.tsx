@@ -25,7 +25,7 @@ export function ThreePanelLayout({
   minLeftWidth = 160,
   maxLeftWidth = 400,
   minRightWidth = 280,
-  maxRightWidth = 720,
+  maxRightWidth = 960,  // Increased to allow horizontal panel layout (2 × 20vw + divider)
   minCenterWidth = 400,
 }: ThreePanelLayoutProps) {
   const [leftWidth, setLeftWidth] = useState(initialLeftWidth);

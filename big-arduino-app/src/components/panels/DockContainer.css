@@ -2,10 +2,11 @@
  * DockContainer Styles
  *
  * Styles for the dock container with panels, divider, and drop zones
+ * Two completely separate modes: vertical and horizontal
  */
 
 /* ==================== */
-/* Container            */
+/* Container Base       */
 /* ==================== */
 
 .dock-container {
@@ -17,82 +18,124 @@
   overflow: hidden;
 }
 
+/* ==================== */
+/* Vertical Mode        */
+/* ==================== */
+
 .dock-container.vertical {
   flex-direction: column;
+  width: 100%;
+  flex: 1; /* Fill the parent in vertical mode */
 }
 
-.dock-container.horizontal {
-  flex-direction: row;
+.dock-container.vertical .dock-panel-wrapper {
+  width: 100%;
+  flex-shrink: 0;  /* Height is set via inline style */
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
-.dock-container.resizing {
+.dock-container.vertical.resizing {
   cursor: ns-resize;
   user-select: none;
 }
 
-.dock-container.horizontal.resizing {
-  cursor: ew-resize;
-}
-
-/* ==================== */
-/* Panel Wrapper        */
-/* ==================== */
-
-.dock-panel-wrapper {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  min-width: 0;
-  overflow: hidden;
-}
-
-/* ==================== */
-/* Divider              */
-/* ==================== */
-
-.dock-divider {
-  position: relative;
+/* Vertical mode divider (between panels) */
+.dock-divider.vertical {
+  height: 4px;
+  width: 100%;
+  cursor: ns-resize;
   flex-shrink: 0;
   background: var(--border-color, #e8eaed);
+  position: relative;
   z-index: 10;
 }
 
-.dock-divider.vertical {
-  height: 4px;
-  cursor: ns-resize;
-}
-
-.dock-divider.horizontal {
-  width: 4px;
-  cursor: ew-resize;
-}
-
-.dock-divider-handle {
-  position: absolute;
-  background: transparent;
-  transition: background 0.15s ease;
-}
-
 .dock-divider.vertical .dock-divider-handle {
+  position: absolute;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
   width: 40px;
   height: 4px;
   border-radius: 2px;
+  background: transparent;
+  transition: background 0.15s ease;
 }
 
-.dock-divider.horizontal .dock-divider-handle {
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+.dock-divider.vertical:hover .dock-divider-handle,
+.dock-container.vertical.resizing .dock-divider-handle {
+  background: var(--accent-primary, #1a73e8);
+}
+
+/* ==================== */
+/* Horizontal Mode      */
+/* ==================== */
+
+.dock-container.horizontal {
+  flex-direction: row;
+  /* Width is set dynamically via inline style = sum of panel widths */
+  /* Align container to the right edge */
+  margin-left: auto;
+  overflow: visible; /* Allow resize handles to extend outside */
+}
+
+.dock-container.horizontal .dock-panel-wrapper {
+  height: 100%;
+  flex-shrink: 0;  /* Width is set via inline style */
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: visible; /* Allow resize handle to extend outside */
+  position: relative;
+}
+
+/* Visual separator between panels in horizontal mode */
+.dock-container.horizontal .dock-panel-wrapper + .dock-panel-wrapper {
+  border-left: 1px solid var(--border-color, #dadce0);
+}
+
+.dock-container.horizontal.resizing {
+  cursor: ew-resize;
+  user-select: none;
+}
+
+/* NO shared divider in horizontal mode */
+.dock-container.horizontal .dock-divider {
+  display: none;
+}
+
+/* ==================== */
+/* Panel Resize Handle  */
+/* (Horizontal mode only - on left edge of each panel) */
+/* ==================== */
+
+.panel-resize-handle {
+  position: absolute;
+  left: -2px;
+  top: 0;
+  bottom: 0;
   width: 4px;
-  height: 40px;
-  border-radius: 2px;
+  cursor: ew-resize;
+  z-index: 100;
+  background: transparent;
+  transition: background 0.15s ease;
 }
 
-.dock-divider:hover .dock-divider-handle,
-.dock-container.resizing .dock-divider-handle {
+/* Extend clickable area for easier grabbing */
+.panel-resize-handle::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 0;
+  bottom: 0;
+  width: 14px;
+}
+
+.panel-resize-handle:hover,
+.panel-resize-handle.active {
   background: var(--accent-primary, #1a73e8);
 }
 

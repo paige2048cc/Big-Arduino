@@ -74,6 +74,12 @@ function getOtherEnd(
 }
 
 function isGroundPin(compType: string, pinId: string, pinType: string): boolean {
+  // Breadboard ground rails are NOT ground sources - they just distribute ground
+  // They need to be connected to an actual ground source (Arduino GND, etc.)
+  if (compType === 'breadboard') {
+    return false;
+  }
+
   if (compType === 'arduino-uno') {
     return pinId.includes('GND') || pinType === 'ground';
   }
@@ -345,6 +351,7 @@ function traceFrom(
 /**
  * Finds all power-source pins in the current circuit (Arduino 5V/3.3V/VIN
  * or any pin with type === 'power').
+ * NOTE: Breadboard power rails are excluded - they are not real power sources.
  */
 export function findAllPowerPins(
   components: PlacedComponent[],
@@ -354,6 +361,11 @@ export function findAllPowerPins(
   for (const comp of components) {
     const def = definitions.get(comp.instanceId);
     if (!def) continue;
+
+    // Breadboard power rails are NOT power sources - they just distribute power
+    // They need to be connected to an actual power source (Arduino, battery, etc.)
+    if (def.id === 'breadboard') continue;
+
     for (const pin of def.pins) {
       const isArduinoPower =
         def.id === 'arduino-uno' &&

@@ -15,6 +15,8 @@
   min-height: 0;
   background: var(--bg-primary, #ffffff);
   overflow: hidden;
+  border: none;
+  border-radius: 0;
 }
 
 .dockable-panel.dragging {
@@ -111,7 +113,18 @@
 .dockable-panel-content {
   flex: 1;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
+  border: none;
+  border-radius: 0;
+}
+
+/* Ensure child panels fill the content area */
+.dockable-panel-content > .instructions-panel,
+.dockable-panel-content > .right-panel-container {
+  flex: 1;
+  min-height: 0;
 }
 
 /* ==================== */

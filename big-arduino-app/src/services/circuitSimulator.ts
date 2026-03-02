@@ -51,8 +51,16 @@ interface PathResult {
 
 /**
  * Identifies if a pin is a power source
+ * NOTE: Breadboard power rails are NOT power sources - they are just conductors.
+ * Real power must come from Arduino, battery, or other actual power sources.
  */
 function isPowerPin(componentType: string, pinId: string, pinType: PinType): boolean {
+  // Breadboard power rails are NOT power sources - they just distribute power
+  // They need to be connected to an actual power source (Arduino, battery, etc.)
+  if (componentType === 'breadboard') {
+    return false;
+  }
+
   // Arduino power pins
   if (componentType === 'arduino-uno') {
     if (pinId === '5V' || pinId === '3.3V' || pinId === 'VIN') {
@@ -64,13 +72,23 @@ function isPowerPin(componentType: string, pinId: string, pinType: PinType): boo
       return true;
     }
   }
+
+  // Other components with type 'power' (like batteries) are real power sources
   return pinType === 'power';
 }
 
 /**
  * Identifies if a pin is a ground connection
+ * NOTE: Breadboard ground rails are NOT ground sources - they are just conductors.
+ * Real ground must come from Arduino or other actual ground sources.
  */
 function isGroundPin(componentType: string, pinId: string, pinType: PinType): boolean {
+  // Breadboard ground rails are NOT ground sources - they just distribute ground
+  // They need to be connected to an actual ground source (Arduino GND, etc.)
+  if (componentType === 'breadboard') {
+    return false;
+  }
+
   if (componentType === 'arduino-uno') {
     return pinId.includes('GND') || pinType === 'ground';
   }
@@ -98,6 +116,13 @@ function isLED(componentType: string): boolean {
 function isButton(componentType: string): boolean {
   return componentType.toLowerCase().includes('button') ||
          componentType.toLowerCase().includes('pushbutton');
+}
+
+/**
+ * Identifies if a component is a buzzer
+ */
+function isBuzzer(componentType: string): boolean {
+  return componentType.toLowerCase().includes('buzzer');
 }
 
 /**
@@ -527,6 +552,73 @@ function validateLED(
 }
 
 /**
+ * Validates a Buzzer component
+ */
+function validateBuzzer(
+  componentId: string,
+  wires: Wire[],
+  definitions: Map<string, ComponentDefinition>,
+  buttonStates: Map<string, boolean>,
+  components: PlacedComponent[]
+): { isOn: boolean; errors: CircuitError[] } {
+  const errors: CircuitError[] = [];
+
+  // Trace from POSITIVE to find power
+  const positivePath = tracePath(componentId, 'POSITIVE', wires, definitions, buttonStates, components);
+
+  // Trace from NEGATIVE to find ground
+  const negativePath = tracePath(componentId, 'NEGATIVE', wires, definitions, buttonStates, components);
+
+  // Check for correct connections
+  const positiveHasPower = positivePath.reachesPower;
+  const negativeHasGround = negativePath.reachesGround;
+
+  // Check for reversed polarity
+  const positiveHasGround = positivePath.reachesGround;
+  const negativeHasPower = negativePath.reachesPower;
+
+  if (negativeHasPower && positiveHasGround) {
+    // Wrong polarity
+    const errorWire = negativePath.wires[0] || positivePath.wires[0]
+      || findNearbyWire(componentId, wires, components, definitions);
+    errors.push({
+      wireId: errorWire,
+      errorType: 'wrong-polarity',
+      message: 'Buzzer connected backwards - swap positive (+) and negative (–)',
+      componentId,
+    });
+    return { isOn: false, errors };
+  }
+
+  if (!positiveHasPower) {
+    const errorWire = positivePath.lastWireId || positivePath.wires[positivePath.wires.length - 1]
+      || findNearbyWire(componentId, wires, components, definitions);
+    errors.push({
+      wireId: errorWire,
+      errorType: 'no-power',
+      message: 'Buzzer positive (+) must connect to power source',
+      componentId,
+    });
+    return { isOn: false, errors };
+  }
+
+  if (!negativeHasGround) {
+    const errorWire = negativePath.lastWireId || negativePath.wires[negativePath.wires.length - 1]
+      || findNearbyWire(componentId, wires, components, definitions);
+    errors.push({
+      wireId: errorWire,
+      errorType: 'no-ground',
+      message: 'Buzzer negative (–) must connect to GND',
+      componentId,
+    });
+    return { isOn: false, errors };
+  }
+
+  // Buzzer is properly connected
+  return { isOn: true, errors: [] };
+}
+
+/**
  * Main circuit analysis function
  */
 export function analyzeCircuit(
@@ -563,7 +655,12 @@ export function analyzeCircuit(
       activeComponents.set(component.instanceId, isPressed ? 'on' : 'off');
     }
 
-    // TODO: Add buzzer validation similar to LED
+    // Validate Buzzers
+    if (isBuzzer(componentType)) {
+      const result = validateBuzzer(component.instanceId, wires, definitions, buttonStates, components);
+      errors.push(...result.errors);
+      activeComponents.set(component.instanceId, result.isOn ? 'on' : 'off');
+    }
   }
 
   return {

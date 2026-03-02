@@ -100,3 +100,12 @@ export function ComponentOnboarding({
 export function hasOnboardingImage(definitionId: string): boolean {
   return definitionId in ONBOARDING_IMAGES;
 }
+
+/**
+ * Get the onboarding image URL for a component
+ */
+export function getOnboardingImageUrl(definitionId: string): string | null {
+  const filename = ONBOARDING_IMAGES[definitionId];
+  if (!filename) return null;
+  return `${import.meta.env.BASE_URL}Component_Onboarding/${filename}`;
+}

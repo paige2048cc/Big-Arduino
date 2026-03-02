@@ -33,6 +33,7 @@ export interface OnboardingStepConfig {
   id: OnboardingStep;
   title: string;
   mediaPlaceholder?: boolean;
+  videoSrc?: string;
   subtitle?: string;
   body?: string;
   stepNumber: number;

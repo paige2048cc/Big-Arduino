@@ -26,6 +26,12 @@ export interface FloatingPosition {
   y: number;
 }
 
+// Panel dimensions for independent sizing
+export interface PanelDimensions {
+  height: number;  // For vertical mode (pixels)
+  width: number;   // For horizontal mode (pixels)
+}
+
 // Docked panel state
 export interface DockedPanel {
   id: string;
@@ -69,8 +75,8 @@ interface DockingState {
   // Layout mode for the dock container
   layoutMode: DockLayoutMode;
 
-  // Divider position (0-1 ratio for split between panels)
-  dividerPosition: number;
+  // Individual panel dimensions (replaces dividerPosition)
+  panelDimensions: Record<string, PanelDimensions>;
 
   // Drag state
   dragState: DragState;
@@ -99,8 +105,10 @@ interface DockingActions {
   // Set layout mode
   setLayoutMode: (mode: DockLayoutMode) => void;
 
-  // Update divider position
-  setDividerPosition: (position: number) => void;
+  // Panel dimension actions
+  setPanelHeight: (panelId: string, height: number) => void;
+  setPanelWidth: (panelId: string, width: number) => void;
+  getPanelDimensions: (panelId: string) => PanelDimensions;
 
   // Drag actions
   startDrag: (panelId: string, x: number, y: number, offsetX: number, offsetY: number, sourceContainer: string) => void;
@@ -168,8 +176,8 @@ export function DockingProvider({
   // Layout mode
   const [layoutMode, setLayoutMode] = useState<DockLayoutMode>('vertical');
 
-  // Divider position (0.4 = 40% for first panel, 60% for second)
-  const [dividerPosition, setDividerPosition] = useState(0.4);
+  // Panel dimensions (independent sizing for each panel)
+  const [panelDimensions, setPanelDimensions] = useState<Record<string, PanelDimensions>>({});
 
   // Drag state
   const [dragState, setDragState] = useState<DragState>(initialDragState);
@@ -178,6 +186,35 @@ export function DockingProvider({
   const registerPanel = useCallback((config: PanelConfig) => {
     panelRegistry.current.set(config.id, config);
   }, []);
+
+  // Set panel height (for vertical mode)
+  const setPanelHeight = useCallback((panelId: string, height: number) => {
+    setPanelDimensions(prev => ({
+      ...prev,
+      [panelId]: {
+        ...prev[panelId],
+        height,
+        width: prev[panelId]?.width ?? window.innerWidth * 0.2,
+      },
+    }));
+  }, []);
+
+  // Set panel width (for horizontal mode)
+  const setPanelWidth = useCallback((panelId: string, width: number) => {
+    setPanelDimensions(prev => ({
+      ...prev,
+      [panelId]: {
+        ...prev[panelId],
+        height: prev[panelId]?.height ?? 300,
+        width,
+      },
+    }));
+  }, []);
+
+  // Get panel dimensions with defaults
+  const getPanelDimensions = useCallback((panelId: string): PanelDimensions => {
+    return panelDimensions[panelId] ?? { height: 300, width: window.innerWidth * 0.2 };
+  }, [panelDimensions]);
 
   // Get docked panel index
   const getDockedPanelIndex = useCallback((panelId: string) => {
@@ -197,14 +234,39 @@ export function DockingProvider({
       return next;
     });
 
+    // Handle horizontal layout switch - set dimensions BEFORE updating docked panels
+    if (position === 'left' || position === 'right') {
+      setLayoutMode('horizontal');
+
+      // Initialize widths for horizontal mode to minWidth (12vw)
+      const initialWidth = window.innerWidth * 0.12;
+      setPanelDimensions(prev => {
+        const newDims = { ...prev };
+        // Set width for all currently docked panels
+        dockedPanels.forEach(p => {
+          if (p.id !== panelId) {
+            newDims[p.id] = {
+              height: prev[p.id]?.height ?? 300,
+              width: initialWidth,
+            };
+          }
+        });
+        // Set width for the panel being docked
+        newDims[panelId] = {
+          height: prev[panelId]?.height ?? 300,
+          width: initialWidth,
+        };
+        return newDims;
+      });
+    }
+
     setDockedPanels(prev => {
       // Remove if already docked
       const filtered = prev.filter(p => p.id !== panelId);
       const newPanel: DockedPanel = { id: panelId };
 
-      // Handle horizontal layout switch
+      // Handle horizontal layout
       if (position === 'left' || position === 'right') {
-        setLayoutMode('horizontal');
         if (position === 'left') {
           return [newPanel, ...filtered];
         } else {
@@ -231,7 +293,7 @@ export function DockingProvider({
 
       return [...filtered, newPanel];
     });
-  }, []);
+  }, [dockedPanels]);
 
   // Undock a panel (make floating)
   const undockPanel = useCallback((panelId: string, x: number, y: number) => {
@@ -358,7 +420,7 @@ export function DockingProvider({
     dockedPanels,
     floatingPanels,
     layoutMode,
-    dividerPosition,
+    panelDimensions,
     dragState,
     panelRegistry: panelRegistry.current,
     registerPanel,
@@ -367,7 +429,9 @@ export function DockingProvider({
     reorderPanels,
     updateFloatingPosition,
     setLayoutMode,
-    setDividerPosition,
+    setPanelHeight,
+    setPanelWidth,
+    getPanelDimensions,
     startDrag,
     updateDrag,
     setActiveDropZone,

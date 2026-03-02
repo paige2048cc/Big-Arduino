@@ -4,11 +4,15 @@
 
 import type { OnboardingStep, OnboardingStepConfig } from '../../types/onboarding';
 
+// Get base URL for assets (handles /Big-Arduino/ prefix in GitHub Pages)
+const BASE_URL = import.meta.env.BASE_URL;
+
 export const STEP_CONFIGS: Record<OnboardingStep, OnboardingStepConfig> = {
   'toolbar-introduction': {
     id: 'toolbar-introduction',
     title: 'Welcome to Big Arduino',
     mediaPlaceholder: true,
+    videoSrc: `${BASE_URL}onboarding-video/step1.mp4`,
     subtitle: 'To Start',
     body: 'Drag component in to work space',
     stepNumber: 1,
@@ -25,6 +29,7 @@ export const STEP_CONFIGS: Record<OnboardingStep, OnboardingStepConfig> = {
     id: 'instructions-panel',
     title: 'Follow the Instructions',
     mediaPlaceholder: true,
+    videoSrc: `${BASE_URL}onboarding-video/step2.mp4`,
     subtitle: 'Step by Step',
     body: 'The Instructions panel provides detailed steps to guide you through building your circuit project.',
     stepNumber: 2,
@@ -39,6 +44,7 @@ export const STEP_CONFIGS: Record<OnboardingStep, OnboardingStepConfig> = {
     id: 'ai-chat',
     title: 'AI Co-creation',
     mediaPlaceholder: true,
+    videoSrc: `${BASE_URL}onboarding-video/step3.mp4`,
     subtitle: '',
     body: 'Chat with our AI to help you build your ideals and understand your circuits.',
     stepNumber: 3,

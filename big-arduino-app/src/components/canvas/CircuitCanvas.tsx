@@ -13,7 +13,7 @@ import { createComponentReference, createWireReference } from '../../types/chat'
 import { loadComponentByFileName, getPinAtPosition } from '../../services/componentService';
 import { calculateSnapPosition, shouldRemoveFromBreadboard } from '../../services/breadboardSnapping';
 import { routeOrthogonalManhattan, type Rect as RouterRect, type Point as RouterPoint } from '../../services/routing/orthogonalRouter';
-import { ComponentOnboarding, hasOnboardingImage } from './ComponentOnboarding';
+import { hasOnboardingImage, getOnboardingImageUrl } from './ComponentOnboarding';
 import { BlueCharacter } from '../ai/BlueCharacter';
 import { CircuitAnimation } from './CircuitAnimation';
 import { tracePowerPath, findAllPowerPins } from '../../services/circuitPathTracer';
@@ -262,7 +262,7 @@ interface CircuitCanvasProps {
 // Extended FabricObject to include our custom data
 interface ComponentFabricObject extends fabric.FabricObject {
   data?: {
-    type: 'component' | 'grid' | 'wire' | 'wire-outline' | 'wire-segment-handle' | 'pin-highlight';
+    type: 'component' | 'grid' | 'wire' | 'wire-outline' | 'wire-segment-handle' | 'pin-highlight' | 'onboarding' | 'highlight';
     instanceId?: string;
     definitionId?: string;
     componentId?: string;
@@ -391,6 +391,10 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
   // Middle mouse button panning
   const isMiddleMousePanningRef = useRef(false);
   const lastPanPointRef = useRef<{ x: number; y: number } | null>(null);
+
+  // Component onboarding Fabric.js image object
+  const onboardingFabricRef = useRef<fabric.FabricImage | null>(null);
+  const onboardingFadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Shift key state for axis constraint
   const isShiftHeldRef = useRef(false);
@@ -1820,24 +1824,28 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
             endPos  // End at the actual end pin position
           ];
 
-          // Combine with the rest of the path (if it continues to GND)
-          const fullWaypoints = path.waypoints.length > 0
-            ? [...newWireWaypoints.slice(0, -1), ...path.waypoints]  // Remove duplicate end point
-            : newWireWaypoints;
+          // Only show animation if the circuit is complete (reaches GND)
+          if (path.isComplete) {
+            // Combine with the rest of the path (if it continues to GND)
+            const fullWaypoints = path.waypoints.length > 0
+              ? [...newWireWaypoints.slice(0, -1), ...path.waypoints]  // Remove duplicate end point
+              : newWireWaypoints;
 
-          setAnimPath({
-            waypoints: fullWaypoints,
-            wireIds: [newWire.id, ...path.wireIds],
-            breadboardHighlights: path.breadboardHighlights,
-            isComplete: path.isComplete
-          });
-          setAnimLooping(false);
-          return;
+            setAnimPath({
+              waypoints: fullWaypoints,
+              wireIds: [newWire.id, ...path.wireIds],
+              breadboardHighlights: path.breadboardHighlights,
+              isComplete: path.isComplete
+            });
+            setAnimLooping(false);
+            return;
+          }
         }
       }
     }
 
     // Otherwise, animate from power source as usual
+    // Only show animation if the circuit is complete (power to GND path exists)
     const powerPins = findAllPowerPins(placedComponents, definitionsMap);
     for (const pp of powerPins) {
       const hasWire = wires.some(
@@ -1853,7 +1861,8 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
         definitionsMap,
         wires
       );
-      if (path.wireIds.length > 0) {
+      // Only animate if circuit is complete (reaches GND)
+      if (path.wireIds.length > 0 && path.isComplete) {
         setAnimPath(path);
         setAnimLooping(false);
         break;
@@ -1884,6 +1893,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       setAnimPath(null);
       return;
     }
+    // Only show animation if circuit is complete (power to GND path exists)
     const powerPins = findAllPowerPins(placedComponents, definitionsMap);
     for (const pp of powerPins) {
       const path = tracePowerPath(
@@ -1894,12 +1904,15 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
         wires,
         buttonStates
       );
-      if (path.wireIds.length > 0) {
+      // Only animate if circuit is complete (reaches GND)
+      if (path.wireIds.length > 0 && path.isComplete) {
         setAnimPath(path);
         setAnimLooping(true);
         break;
       }
     }
+    // If no complete circuit found, clear animation
+    // This is implicitly handled by not calling setAnimPath
   }, [isSimulating, buttonStates]); // buttonStates dep re-traces when button pressed
 
   // Render wire segment handles when a wire is selected
@@ -2166,6 +2179,160 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
 
     canvas.renderAll();
   }, [highlightedItems]);
+
+  // Handle component onboarding image as Fabric.js object
+  // This renders the onboarding image on the canvas, positioned just above the component
+  // so it doesn't obscure other components placed on top (e.g., LEDs on a breadboard)
+  useEffect(() => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    // Clear existing onboarding image and timers
+    if (onboardingFabricRef.current) {
+      canvas.remove(onboardingFabricRef.current);
+      onboardingFabricRef.current = null;
+    }
+    if (onboardingFadeTimerRef.current) {
+      clearTimeout(onboardingFadeTimerRef.current);
+      onboardingFadeTimerRef.current = null;
+    }
+
+    if (!activeOnboarding) {
+      canvas.renderAll();
+      return;
+    }
+
+    const imageUrl = getOnboardingImageUrl(activeOnboarding.definitionId);
+    if (!imageUrl) {
+      hideOnboarding();
+      return;
+    }
+
+    // Find the target component's Fabric object
+    const targetFabricObj = instanceToFabricMap.current.get(activeOnboarding.instanceId);
+
+    // Load onboarding image
+    const img = new Image();
+    img.onload = () => {
+      if (!fabricCanvasRef.current) return;
+
+      // Get the component to find its actual position
+      const component = placedComponents.find(c => c.instanceId === activeOnboarding.instanceId);
+      const definition = getComponentDefinition(activeOnboarding.instanceId);
+
+      if (!component || !definition) {
+        hideOnboarding();
+        return;
+      }
+
+      // Calculate center position of the component
+      const centerX = component.x + definition.width / 2;
+      const centerY = component.y + definition.height / 2;
+
+      const fabricImg = new fabric.FabricImage(img, {
+        left: centerX,
+        top: centerY,
+        originX: 'center',
+        originY: 'center',
+        selectable: false,
+        evented: false,
+        opacity: 1,
+      });
+
+      // Mark as onboarding object so it can be identified
+      (fabricImg as ComponentFabricObject).data = {
+        type: 'onboarding',
+        definitionId: activeOnboarding.definitionId,
+        instanceId: activeOnboarding.instanceId,
+      };
+
+      canvas.add(fabricImg);
+
+      // Position just above the target component (breadboard/arduino)
+      // First send to back, then bring forward to just above the target
+      if (targetFabricObj) {
+        canvas.sendObjectToBack(fabricImg);
+        // Bring forward until it's just above the target
+        const objects = canvas.getObjects();
+        const targetIndex = objects.indexOf(targetFabricObj);
+        const onboardingIndex = objects.indexOf(fabricImg);
+        // We need to bring it forward (targetIndex - onboardingIndex + 1) times
+        const timesToBring = targetIndex - onboardingIndex + 1;
+        for (let i = 0; i < timesToBring; i++) {
+          canvas.bringObjectForward(fabricImg);
+        }
+      }
+
+      onboardingFabricRef.current = fabricImg;
+      canvas.renderAll();
+
+      // Auto-hide after 10 seconds (unless manually triggered)
+      if (!activeOnboarding.manual) {
+        onboardingFadeTimerRef.current = setTimeout(() => {
+          // Fade out animation
+          if (onboardingFabricRef.current && fabricCanvasRef.current) {
+            const startOpacity = 1;
+            const duration = 500;
+            const startTime = Date.now();
+
+            const animate = () => {
+              const elapsed = Date.now() - startTime;
+              const progress = Math.min(elapsed / duration, 1);
+              const currentOpacity = startOpacity * (1 - progress);
+
+              if (onboardingFabricRef.current) {
+                onboardingFabricRef.current.set('opacity', currentOpacity);
+                fabricCanvasRef.current?.renderAll();
+              }
+
+              if (progress < 1) {
+                requestAnimationFrame(animate);
+              } else {
+                hideOnboarding();
+              }
+            };
+
+            requestAnimationFrame(animate);
+          }
+        }, 10000);
+      }
+    };
+
+    img.onerror = () => {
+      console.error('Failed to load onboarding image:', imageUrl);
+      hideOnboarding();
+    };
+
+    img.src = imageUrl;
+
+    // Cleanup function
+    return () => {
+      if (onboardingFadeTimerRef.current) {
+        clearTimeout(onboardingFadeTimerRef.current);
+        onboardingFadeTimerRef.current = null;
+      }
+    };
+  }, [activeOnboarding?.instanceId, activeOnboarding?.definitionId, activeOnboarding?.manual, hideOnboarding, getComponentDefinition]);
+
+  // Update onboarding position when component moves
+  useEffect(() => {
+    if (!activeOnboarding || !onboardingFabricRef.current) return;
+
+    const component = placedComponents.find(c => c.instanceId === activeOnboarding.instanceId);
+    const definition = getComponentDefinition(activeOnboarding.instanceId);
+
+    if (!component || !definition) return;
+
+    const centerX = component.x + definition.width / 2;
+    const centerY = component.y + definition.height / 2;
+
+    onboardingFabricRef.current.set({
+      left: centerX,
+      top: centerY,
+    });
+    onboardingFabricRef.current.setCoords();
+    fabricCanvasRef.current?.renderAll();
+  }, [activeOnboarding?.instanceId, placedComponents, getComponentDefinition]);
 
   // Load ghost preview image when click-to-place mode starts
   useEffect(() => {
@@ -3535,34 +3702,6 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
             Click to place | ESC to cancel
           </div>
         )}
-
-        {/* Component Onboarding Overlay */}
-        {activeOnboarding && (() => {
-          const canvas = fabricCanvasRef.current;
-          const vpt = canvas?.viewportTransform || [1, 0, 0, 1, 0, 0];
-
-          // Get real-time component position from store
-          const component = placedComponents.find(c => c.instanceId === activeOnboarding.instanceId);
-          const definition = getComponentDefinition(activeOnboarding.instanceId);
-
-          if (!component || !definition) return null;
-
-          // Calculate current center position
-          const centerX = component.x + definition.width / 2;
-          const centerY = component.y + definition.height / 2;
-
-          return (
-            <ComponentOnboarding
-              instanceId={activeOnboarding.instanceId}
-              definitionId={activeOnboarding.definitionId}
-              centerX={centerX}
-              centerY={centerY}
-              viewportTransform={vpt}
-              onComplete={hideOnboarding}
-              manual={activeOnboarding.manual}
-            />
-          );
-        })()}
 
         {/* AI Character overlay - fixed position, does not scale with canvas zoom */}
         {aiCharacter.visible && (() => {
