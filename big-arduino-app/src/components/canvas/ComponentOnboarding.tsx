@@ -13,6 +13,8 @@ const ONBOARDING_IMAGES: Record<string, string> = {
   'breadboard': 'Breadboard-Onboarding.png',
   'led-5mm': 'LED-Onboarding.png',
   'buzzer': 'Buzzer-Onboarding.png',
+  'pushbutton': 'Button-Onboarding.png',
+  'vibration-motor': 'Vibration Motor-Onboarding.png',
 };
 
 interface ComponentOnboardingProps {
