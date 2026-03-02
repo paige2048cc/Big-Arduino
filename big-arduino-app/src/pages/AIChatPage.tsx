@@ -6,6 +6,7 @@ import { ScanResults } from '../components/scanner/ScanResults';
 import { BlueCharacter } from '../components/ai/BlueCharacter';
 import type { DetectedComponent } from '../utils/componentMatcher';
 import { sendMessage, parseAIResponse, isAIServiceConfigured, type CircuitState } from '../services/aiService';
+import { parseMarkdown } from '../utils/markdownParser';
 import './AIChatPage.css';
 
 interface ChatMessage {
@@ -240,7 +241,7 @@ export function AIChatPage() {
                       onProjectClick={handleProjectClick}
                     />
                   )}
-                  {msg.content && <p className="scan-chat-text">{msg.content}</p>}
+                  {msg.content && <div className="scan-chat-text">{parseMarkdown(msg.content)}</div>}
                 </div>
               </div>
             ))}
