@@ -6,7 +6,7 @@ import { ScanResults } from '../components/scanner/ScanResults';
 import { BlueCharacter } from '../components/ai/BlueCharacter';
 import type { DetectedComponent } from '../utils/componentMatcher';
 import { sendMessage, parseAIResponse, isAIServiceConfigured, type CircuitState } from '../services/aiService';
-import './ScanChatPage.css';
+import './AIChatPage.css';
 
 interface ChatMessage {
   id: string;
@@ -18,7 +18,7 @@ interface ChatMessage {
   };
 }
 
-export function ScanChatPage() {
+export function AIChatPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const state = location.state as {
@@ -31,6 +31,20 @@ export function ScanChatPage() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Determine page title based on entry type
+  const getPageTitle = () => {
+    if (state?.detected && state.detected.length > 0) {
+      return 'Component Scanner';
+    }
+    if (state?.initialMessage) {
+      // Truncate the initial message for the title
+      const maxLength = 40;
+      const msg = state.initialMessage;
+      return msg.length > maxLength ? msg.substring(0, maxLength) + '...' : msg;
+    }
+    return 'AI Assistant';
+  };
 
   // Handle initial message from homepage
   useEffect(() => {
@@ -201,7 +215,7 @@ export function ScanChatPage() {
                 size="small"
               />
             </div>
-            <h1>Component Scanner</h1>
+            <h1>{getPageTitle()}</h1>
           </div>
 
           <div className="scan-chat-messages">

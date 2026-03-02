@@ -1,5 +1,5 @@
 /* ==========================================
-   Scan Chat Page
+   AI Chat Page
    ========================================== */
 
 .scan-chat-main {
@@ -76,17 +76,21 @@
   overflow: hidden;
 }
 
-/* Character avatar - contains the blue blob */
+/* Character avatar - contains the blue blob, no clipping */
 .scan-chat-avatar--character {
   background: transparent;
+  overflow: visible;
+  border-radius: 0;
+  width: 36px;
+  height: 36px;
 }
 
-/* Header icon with character */
+/* Header icon with character - no clipping */
 .scan-chat-header-icon {
   width: 36px;
   height: 36px;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* Bubble */

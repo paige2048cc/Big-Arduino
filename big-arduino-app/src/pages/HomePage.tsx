@@ -35,8 +35,8 @@ export function HomePage() {
     const text = ideaInput.trim();
     if (!text) return;
 
-    // Navigate to scan-chat page with the initial message
-    navigate('/scan-chat', { state: { initialMessage: text } });
+    // Navigate to ai-chat page with the initial message
+    navigate('/ai-chat', { state: { initialMessage: text } });
   };
 
   const handlePresetProject = (projectId: string) => {
@@ -45,7 +45,7 @@ export function HomePage() {
 
   const handleScanComplete = (detected: DetectedComponent[], screenshot: string) => {
     setScannerOpen(false);
-    navigate('/scan-chat', { state: { detected, screenshot } });
+    navigate('/ai-chat', { state: { detected, screenshot } });
   };
 
   const getDifficultyColor = (difficulty: string) => {
