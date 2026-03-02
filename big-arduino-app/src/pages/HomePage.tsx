@@ -1,19 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Send, Camera, ChevronRight, Cpu, Loader2 } from 'lucide-react';
+import { Send, Camera, ChevronRight, Cpu } from 'lucide-react';
 import { presetProjects } from '../data/projects';
 import { Sidebar } from '../components/layout/Sidebar';
 import { ComponentScanner } from '../components/scanner/ComponentScanner';
-import { BlueCharacter } from '../components/ai/BlueCharacter';
-import { sendMessage, parseAIResponse, isAIServiceConfigured, type CircuitState } from '../services/aiService';
 import type { DetectedComponent } from '../utils/componentMatcher';
-
-interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-}
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -27,10 +19,6 @@ type EyeRefs = {
 export function HomePage() {
   const [ideaInput, setIdeaInput] = useState('');
   const [scannerOpen, setScannerOpen] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [chatStarted, setChatStarted] = useState(false);
-  const chatEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
   const blueEye1SocketRef = useRef<HTMLDivElement>(null);
@@ -43,73 +31,12 @@ export function HomePage() {
   const yellowEye2SocketRef = useRef<HTMLDivElement>(null);
   const yellowEye2PupilRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to bottom when new messages arrive
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  const handleSendMessage = async () => {
+  const handleSendMessage = () => {
     const text = ideaInput.trim();
-    if (!text || isLoading) return;
+    if (!text) return;
 
-    setIdeaInput('');
-    setChatStarted(true);
-
-    // Add user message
-    const userMessage: ChatMessage = {
-      id: `user-${Date.now()}`,
-      role: 'user',
-      content: text,
-    };
-    setMessages(prev => [...prev, userMessage]);
-
-    // Check if AI service is configured
-    if (!isAIServiceConfigured()) {
-      setMessages(prev => [
-        ...prev,
-        {
-          id: `assistant-${Date.now()}`,
-          role: 'assistant',
-          content: "I'm still learning! For now, you can explore our featured projects below to get started with a guided tutorial.",
-        },
-      ]);
-      return;
-    }
-
-    setIsLoading(true);
-
-    // Build context - no components placed yet on home page
-    const circuitState: CircuitState = {
-      placedComponents: [],
-      wires: [],
-      isSimulating: false,
-    };
-
-    try {
-      const response = await sendMessage(text, [], circuitState);
-      const parsed = parseAIResponse(response.content);
-
-      setMessages(prev => [
-        ...prev,
-        {
-          id: `assistant-${Date.now()}`,
-          role: 'assistant',
-          content: parsed.content,
-        },
-      ]);
-    } catch (error) {
-      console.error('AI service error:', error);
-      setMessages(prev => [
-        ...prev,
-        {
-          id: `assistant-${Date.now()}`,
-          role: 'assistant',
-          content: "Sorry, I had trouble processing that. Feel free to explore our featured projects below!",
-        },
-      ]);
-    } finally {
-      setIsLoading(false);
-    }
+    // Navigate to scan-chat page with the initial message
+    navigate('/scan-chat', { state: { initialMessage: text } });
   };
 
   const handlePresetProject = (projectId: string) => {
@@ -214,10 +141,9 @@ export function HomePage() {
         {/* Main */}
         <main className="home-main">
           <div className="home-main-inner">
-            {/* Hero / Chat Section */}
-            <section className={`home-hero-card ${chatStarted ? 'chat-mode' : ''}`} aria-label="Start a new project">
-              {!chatStarted && (
-                <div className="home-hero-characters" aria-hidden="true">
+            {/* Hero Section */}
+            <section className="home-hero-card" aria-label="Start a new project">
+              <div className="home-hero-characters" aria-hidden="true">
                   {/* Blue character */}
                   <div className="home-character home-character-blue">
                     <svg className="home-character-blob" viewBox="0 0 106 111" fill="none" xmlns="http://www.w3.org/2000/svg" role="presentation">
@@ -280,103 +206,41 @@ export function HomePage() {
                     </div>
                   </div>
                 </div>
-              )}
 
               <div className="home-hero-content">
-                {!chatStarted ? (
-                  <>
-                    <div className="home-hero-title">
-                      <h1>What will you create today?</h1>
-                    </div>
-                    <p className="home-hero-subtitle">
-                      Describe your idea and our AI will help you plan the circuit, write the code, and simulate it instantly.
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    {/* Chat Header */}
-                    <div className="home-chat-header">
-                      <div className="home-chat-header-icon">
-                        <BlueCharacter
-                          x={18}
-                          y={18}
-                          visible={true}
-                          mood={isLoading ? 'thinking' : 'happy'}
-                          size="small"
-                        />
-                      </div>
-                      <h2>What will you create today?</h2>
-                    </div>
-
-                    {/* Chat Messages */}
-                    <div className="home-chat-messages">
-                      {messages.map(msg => (
-                        <div key={msg.id} className={`home-chat-msg home-chat-msg--${msg.role}`}>
-                          {msg.role === 'assistant' && (
-                            <div className="home-chat-avatar">
-                              <BlueCharacter
-                                x={16}
-                                y={16}
-                                visible={true}
-                                mood={isLoading ? 'thinking' : 'happy'}
-                                size="small"
-                              />
-                            </div>
-                          )}
-                          <div className="home-chat-bubble">
-                            <p className="home-chat-text">{msg.content}</p>
-                          </div>
-                        </div>
-                      ))}
-                      {isLoading && (
-                        <div className="home-chat-msg home-chat-msg--assistant">
-                          <div className="home-chat-avatar">
-                            <BlueCharacter
-                              x={16}
-                              y={16}
-                              visible={true}
-                              mood="thinking"
-                              size="small"
-                            />
-                          </div>
-                          <div className="home-chat-bubble home-chat-bubble--loading">
-                            <Loader2 size={18} className="spin" />
-                          </div>
-                        </div>
-                      )}
-                      <div ref={chatEndRef} />
-                    </div>
-                  </>
-                )}
+                <div className="home-hero-title">
+                  <h1>What will you create today?</h1>
+                </div>
+                <p className="home-hero-subtitle">
+                  Describe your idea and our AI will help you plan the circuit, write the code, and simulate it instantly.
+                </p>
 
                 <div className="home-idea-input">
                   <input
                     type="text"
-                    placeholder={chatStarted ? "Ask about your project idea..." : "e.g., 'A plant watering reminder with LED indicators'"}
+                    placeholder="e.g., 'A plant watering reminder with LED indicators'"
                     value={ideaInput}
                     onChange={(e) => setIdeaInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
                     className="home-idea-field"
                   />
-                  {!chatStarted && (
-                    <button
-                      className="home-idea-camera"
-                      onClick={() => setScannerOpen(true)}
-                      aria-label="Scan components with camera"
-                      type="button"
-                      title="Scan components"
-                    >
-                      <Camera size={18} />
-                    </button>
-                  )}
+                  <button
+                    className="home-idea-camera"
+                    onClick={() => setScannerOpen(true)}
+                    aria-label="Scan components with camera"
+                    type="button"
+                    title="Scan components"
+                  >
+                    <Camera size={18} />
+                  </button>
                   <button
                     className="home-idea-send"
                     onClick={handleSendMessage}
-                    disabled={!ideaInput.trim() || isLoading}
+                    disabled={!ideaInput.trim()}
                     aria-label="Send idea"
                     type="button"
                   >
-                    {isLoading ? <Loader2 size={18} className="spin" /> : <Send size={18} />}
+                    <Send size={18} />
                   </button>
                 </div>
               </div>

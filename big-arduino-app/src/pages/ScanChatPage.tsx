@@ -24,6 +24,7 @@ export function ScanChatPage() {
   const state = location.state as {
     screenshot?: string;
     detected?: DetectedComponent[];
+    initialMessage?: string;
   } | null;
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -31,7 +32,68 @@ export function ScanChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  // Handle initial message from homepage
   useEffect(() => {
+    if (state?.initialMessage) {
+      const userMsg: ChatMessage = {
+        id: `user-${Date.now()}`,
+        role: 'user',
+        content: state.initialMessage,
+      };
+      setMessages([userMsg]);
+
+      // Auto-send to AI
+      const sendInitialMessage = async () => {
+        if (!isAIServiceConfigured()) {
+          setMessages(prev => [
+            ...prev,
+            {
+              id: `assistant-${Date.now()}`,
+              role: 'assistant',
+              content: "I'm still learning! For now, try clicking on one of the recommended projects above to get started with a guided tutorial.",
+            },
+          ]);
+          return;
+        }
+
+        setIsLoading(true);
+        const circuitState: CircuitState = {
+          placedComponents: [],
+          wires: [],
+          isSimulating: false,
+        };
+
+        try {
+          const response = await sendMessage(state.initialMessage!, [], circuitState);
+          const parsed = parseAIResponse(response.content);
+          setMessages(prev => [
+            ...prev,
+            {
+              id: `assistant-${Date.now()}`,
+              role: 'assistant',
+              content: parsed.content,
+            },
+          ]);
+        } catch (error) {
+          console.error('AI service error:', error);
+          setMessages(prev => [
+            ...prev,
+            {
+              id: `assistant-${Date.now()}`,
+              role: 'assistant',
+              content: "Sorry, I had trouble processing that. For now, try clicking on one of the recommended projects above!",
+            },
+          ]);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      sendInitialMessage();
+      return;
+    }
+
+    // Handle scan results
     if (!state?.screenshot || !state?.detected) return;
 
     const initial: ChatMessage[] = [
