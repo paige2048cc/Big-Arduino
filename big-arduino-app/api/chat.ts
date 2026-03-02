@@ -1,10 +1,17 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
+// Message in conversation history
+interface ConversationMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 // Request body interface
 interface ChatRequest {
   message: string;
   systemPrompt: string;
   context: string;
+  conversationHistory?: ConversationMessage[];
 }
 
 // Response interface
@@ -63,12 +70,14 @@ export default async function handler(
   let message: string;
   let systemPrompt: string;
   let context: string;
+  let conversationHistory: ConversationMessage[];
 
   try {
     const body = req.body as ChatRequest;
     message = body?.message;
     systemPrompt = body?.systemPrompt || '';
     context = body?.context || '';
+    conversationHistory = body?.conversationHistory || [];
 
     if (!message || typeof message !== 'string') {
       return res.status(400).json({ content: '', error: 'Message is required' });
@@ -81,6 +90,23 @@ export default async function handler(
   const userMessage = context
     ? `${context}\n\nUser Question: ${message}`
     : message;
+
+  // Build messages array with conversation history
+  const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+
+  // Add conversation history first
+  for (const msg of conversationHistory) {
+    messages.push({
+      role: msg.role,
+      content: msg.content
+    });
+  }
+
+  // Add current user message
+  messages.push({
+    role: 'user',
+    content: userMessage
+  });
 
   // Call Claude API
   let response: Response;
@@ -96,12 +122,7 @@ export default async function handler(
         model: CLAUDE_MODEL,
         max_tokens: 2048,
         system: systemPrompt,
-        messages: [
-          {
-            role: 'user',
-            content: userMessage
-          }
-        ]
+        messages: messages
       })
     });
   } catch (fetchError) {

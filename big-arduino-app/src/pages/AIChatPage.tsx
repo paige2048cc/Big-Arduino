@@ -5,7 +5,7 @@ import { Sidebar } from '../components/layout/Sidebar';
 import { ScanResults } from '../components/scanner/ScanResults';
 import { BlueCharacter } from '../components/ai/BlueCharacter';
 import type { DetectedComponent } from '../utils/componentMatcher';
-import { sendMessage, parseAIResponse, isAIServiceConfigured, type CircuitState } from '../services/aiService';
+import { sendMessage, parseAIResponse, isAIServiceConfigured, type CircuitState, type ConversationMessage } from '../services/aiService';
 import { parseMarkdown } from '../utils/markdownParser';
 import './AIChatPage.css';
 
@@ -32,6 +32,16 @@ export function AIChatPage() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Convert chat messages to conversation history for AI
+  const buildConversationHistory = (msgs: ChatMessage[]): ConversationMessage[] => {
+    return msgs
+      .filter(msg => msg.content) // Only include messages with text content
+      .map(msg => ({
+        role: msg.role,
+        content: msg.content!,
+      }));
+  };
 
   // Determine page title based on entry type
   const getPageTitle = () => {
@@ -137,6 +147,10 @@ export function AIChatPage() {
     const text = input.trim();
     if (!text || isLoading) return;
     setInput('');
+
+    // Build conversation history BEFORE adding new message
+    const history = buildConversationHistory(messages);
+
     setMessages(prev => [
       ...prev,
       { id: `user-${Date.now()}`, role: 'user', content: text },
@@ -170,7 +184,8 @@ export function AIChatPage() {
     };
 
     try {
-      const response = await sendMessage(text, [], circuitState);
+      // Pass conversation history so AI knows about previous exchanges
+      const response = await sendMessage(text, [], circuitState, undefined, history);
       const parsed = parseAIResponse(response.content);
 
       setMessages(prev => [

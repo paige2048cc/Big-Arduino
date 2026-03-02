@@ -9,7 +9,7 @@ import { CircuitCanvas } from '../components/canvas';
 import { useCircuitStore, useWires, useSimulationErrors } from '../store/circuitStore';
 import { DockingProvider, type PanelConfig } from '../contexts/DockingContext';
 import type { ChatReference } from '../types/chat';
-import { sendMessage, isAIServiceConfigured, getFallbackResponse, parseAIResponse, type CircuitState, type ProjectContext } from '../services/aiService';
+import { sendMessage, isAIServiceConfigured, getFallbackResponse, parseAIResponse, type CircuitState, type ProjectContext, type ConversationMessage } from '../services/aiService';
 // Character positioning is available for future debugging hints feature
 // import { calculateCharacterPosition } from '../services/characterPositioning';
 import { OnboardingOverlay } from '../components/onboarding';
@@ -225,8 +225,14 @@ export function ProjectPage() {
       currentStepInstructions: step?.instructions,
     } : undefined;
 
+    // Build conversation history from previous messages
+    const conversationHistory: ConversationMessage[] = chatMessages.map(msg => ({
+      role: msg.role,
+      content: msg.content,
+    }));
+
     try {
-      const response = await sendMessage(message, references || [], circuitState, projectContext);
+      const response = await sendMessage(message, references || [], circuitState, projectContext, conversationHistory);
 
       // Parse the AI response to extract mood, target component, and cleaned content
       const parsed = parseAIResponse(response.content);

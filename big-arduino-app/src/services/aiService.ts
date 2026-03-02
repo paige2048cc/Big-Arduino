@@ -83,6 +83,12 @@ export interface AIResponse {
   highlights?: HighlightItem[];
 }
 
+// Conversation history message
+export interface ConversationMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 export type CharacterMood = 'thinking' | 'happy' | 'concerned' | 'celebrating';
 
 export interface ParsedAIResponse {
@@ -888,7 +894,8 @@ export async function sendMessage(
   content: string,
   references: ChatReference[],
   circuitState: CircuitState,
-  projectContext?: ProjectContext
+  projectContext?: ProjectContext,
+  conversationHistory?: ConversationMessage[]
 ): Promise<AIResponse> {
   // Debug: Log circuit state summary (keep this for debugging)
   console.log('[AI Debug] Components:', circuitState.placedComponents.map(c => ({
@@ -939,6 +946,7 @@ export async function sendMessage(
         message: content,
         systemPrompt: getSystemPrompt(),
         context: fullContext,
+        conversationHistory: conversationHistory || [],
       }),
     });
 
