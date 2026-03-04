@@ -350,6 +350,8 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
 
   // Dev feature flags
   const devComponentOnboarding = useDevStore((s) => s.componentOnboarding);
+  const devPathHighlight = useDevStore((s) => s.pathHighlight);
+  const devCurrentFlowBall = useDevStore((s) => s.currentFlowBall);
 
   // Onboarding hooks
   const isOnboardingActive = useIsOnboardingActive();
@@ -2026,6 +2028,18 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (isSimulating) return;
+    if (!devPathHighlight) {
+      // Path highlight disabled: clear any existing highlights
+      const canvas = fabricCanvasRef.current;
+      if (canvas) {
+        bbHighlightObjectsRef.current.forEach(obj => canvas.remove(obj));
+        bbHighlightObjectsRef.current.clear();
+        canvas.renderAll();
+      }
+      setAnimPath(null);
+      prevHighlightsRef.current = { wireIds: new Set(), bbHighlightsByNet: new Map(), componentIds: new Set() };
+      return;
+    }
 
     prevWiresRef.current = wires;
 
@@ -2109,7 +2123,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     }
 
     prevHighlightsRef.current = newHL;
-  }, [wires, placedComponents, definitionsMap, isSimulating]);
+  }, [wires, placedComponents, definitionsMap, isSimulating, devPathHighlight]);
 
   // ── Simulation-mode animation trigger ─────────────────────────────────────
   // Reruns whenever simulation starts/stops OR a button is pressed/released.
@@ -2125,6 +2139,19 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
         bbHighlightsByNet: new Map(),
         componentIds: new Set(),
       };
+      return;
+    }
+
+    // Neither highlight nor ball enabled — skip entirely
+    if (!devPathHighlight && !devCurrentFlowBall) {
+      const canvas = fabricCanvasRef.current;
+      if (canvas) {
+        bbHighlightObjectsRef.current.forEach(obj => canvas.remove(obj));
+        bbHighlightObjectsRef.current.clear();
+        canvas.renderAll();
+      }
+      setAnimPath(null);
+      setBallParkPosition(null);
       return;
     }
 
@@ -2159,7 +2186,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     const connected = traceAllConnected(placedComponents, definitionsMap, wires, buttonStates);
 
     // Update Fabric breadboard highlights for simulation mode
-    if (canvas) {
+    if (canvas && devPathHighlight) {
       // Remove old sim highlights
       bbHighlightObjectsRef.current.forEach(obj => canvas.remove(obj));
       bbHighlightObjectsRef.current.clear();
@@ -2196,27 +2223,31 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
         bbHighlightObjectsRef.current.set(netKey, rect);
       }
       canvas.renderAll();
+    } else if (canvas && !devPathHighlight) {
+      bbHighlightObjectsRef.current.forEach(obj => canvas.remove(obj));
+      bbHighlightObjectsRef.current.clear();
+      canvas.renderAll();
     }
 
     // Set animation based on path status
-    setAnimHideBall(false);
+    const hideBall = !devCurrentFlowBall;
+    setAnimHideBall(hideBall);
     setAnimPersist(true);
     setAnimLooping(false);
+
+    // Wire highlights are part of animPath; only include if highlight enabled
+    const animWireIds = devPathHighlight ? [...connected.wireIds] : [];
 
     const wasParkingAtButton = prevBallParkRef.current !== null;
 
     if (bestPath.breakReason === 'button-unpressed' && bestPath.breakPosition) {
-      // Ball parks at the unpressed button's power-side pin
       setAnimPath({
         ...bestPath,
-        wireIds: [...connected.wireIds],
+        wireIds: animWireIds,
       });
-      setBallParkPosition(bestPath.breakPosition);
+      setBallParkPosition(hideBall ? null : bestPath.breakPosition);
       prevBallParkRef.current = bestPath.breakPosition;
     } else {
-      // Button was just pressed (transitioning from parked → animating):
-      // trim waypoints so the ball continues from where it was parked
-      // instead of jumping back to the power source.
       let animWaypoints = bestPath.waypoints;
 
       if (wasParkingAtButton && prevBallParkRef.current) {
@@ -2240,12 +2271,12 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       setAnimPath({
         ...bestPath,
         waypoints: animWaypoints,
-        wireIds: [...connected.wireIds],
+        wireIds: animWireIds,
       });
       setBallParkPosition(null);
       prevBallParkRef.current = null;
     }
-  }, [isSimulating, buttonStates]); // buttonStates dep re-traces when button pressed
+  }, [isSimulating, buttonStates, devPathHighlight, devCurrentFlowBall]);
 
   // Render wire segment handles when a wire is selected
   useEffect(() => {

@@ -585,11 +585,15 @@ function validateLED(
 ): { state: 'on' | 'off' | 'explosion'; errors: CircuitError[] } {
   const errors: CircuitError[] = [];
 
-  // Trace from ANODE (positive) to find power
-  const anodePath = tracePath(componentId, 'ANODE', wires, definitions, buttonStates, components);
+  // Block the opposite pin so tracePath doesn't short-circuit through the
+  // LED's own internalConnections (ANODE↔CATHODE always connected).
+  // Without this, tracing from ANODE would reach GND via internal→CATHODE→external,
+  // falsely triggering the reverse-polarity check.
+  const anodeVisited = new Set([`${componentId}:CATHODE`]);
+  const anodePath = tracePath(componentId, 'ANODE', wires, definitions, buttonStates, components, anodeVisited);
 
-  // Trace from CATHODE (negative) to find ground
-  const cathodePath = tracePath(componentId, 'CATHODE', wires, definitions, buttonStates, components);
+  const cathodeVisited = new Set([`${componentId}:ANODE`]);
+  const cathodePath = tracePath(componentId, 'CATHODE', wires, definitions, buttonStates, components, cathodeVisited);
 
   // Check for correct connections
   const anodeHasPower = anodePath.reachesPower;
@@ -667,11 +671,13 @@ function validateBuzzer(
 ): { isOn: boolean; errors: CircuitError[] } {
   const errors: CircuitError[] = [];
 
-  // Trace from POSITIVE to find power
-  const positivePath = tracePath(componentId, 'POSITIVE', wires, definitions, buttonStates, components);
+  // Block the opposite pin so tracePath doesn't short-circuit through the
+  // buzzer's own internalConnections (POSITIVE↔NEGATIVE always connected).
+  const positiveVisited = new Set([`${componentId}:NEGATIVE`]);
+  const positivePath = tracePath(componentId, 'POSITIVE', wires, definitions, buttonStates, components, positiveVisited);
 
-  // Trace from NEGATIVE to find ground
-  const negativePath = tracePath(componentId, 'NEGATIVE', wires, definitions, buttonStates, components);
+  const negativeVisited = new Set([`${componentId}:POSITIVE`]);
+  const negativePath = tracePath(componentId, 'NEGATIVE', wires, definitions, buttonStates, components, negativeVisited);
 
   // Check for correct connections
   const positiveHasPower = positivePath.reachesPower;

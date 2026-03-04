@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Usb, Unplug, Play, Square } from 'lucide-react';
 import { presetProjects } from '../data/projects';
@@ -65,12 +65,19 @@ export function ProjectPage() {
     placedComponents,
     setHighlights,
     wireAttemptsDuringSimulation,
-    // Character functions available for future debugging hints
-    // showAICharacter,
-    // hideAICharacter,
-    // updateAICharacterPosition,
-    // componentDefinitions,
+    clearCircuit,
+    clearHistory,
   } = useCircuitStore();
+
+  // Clear circuit when switching to a different project
+  const prevProjectIdRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (prevProjectIdRef.current !== undefined && prevProjectIdRef.current !== projectId) {
+      clearCircuit();
+      clearHistory();
+    }
+    prevProjectIdRef.current = projectId;
+  }, [projectId, clearCircuit, clearHistory]);
   const wires = useWires();
   const simulationErrors = useSimulationErrors();
 

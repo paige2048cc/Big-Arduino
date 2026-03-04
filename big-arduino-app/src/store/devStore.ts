@@ -16,7 +16,9 @@ export type FeatureKey =
   | 'aiAssistantHover'
   | 'autoDebugging'
   | 'yellowCharacter'
-  | 'simulationErrorPrompts';
+  | 'simulationErrorPrompts'
+  | 'pathHighlight'
+  | 'currentFlowBall';
 
 const ALL_KEYS: FeatureKey[] = [
   'globalOnboarding',
@@ -25,6 +27,8 @@ const ALL_KEYS: FeatureKey[] = [
   'autoDebugging',
   'yellowCharacter',
   'simulationErrorPrompts',
+  'pathHighlight',
+  'currentFlowBall',
 ];
 
 interface DevFlags {
@@ -34,6 +38,8 @@ interface DevFlags {
   autoDebugging: boolean;
   yellowCharacter: boolean;
   simulationErrorPrompts: boolean;
+  pathHighlight: boolean;
+  currentFlowBall: boolean;
 }
 
 interface DevActions {
@@ -54,6 +60,8 @@ export const useDevStore = create<DevStore>()(
       autoDebugging: true,
       yellowCharacter: true,
       simulationErrorPrompts: true,
+      pathHighlight: true,
+      currentFlowBall: true,
 
       toggleFeature: (key) => set((s) => ({ [key]: !s[key] })),
 
@@ -77,6 +85,8 @@ export const useDevStore = create<DevStore>()(
         autoDebugging: state.autoDebugging,
         yellowCharacter: state.yellowCharacter,
         simulationErrorPrompts: state.simulationErrorPrompts,
+        pathHighlight: state.pathHighlight,
+        currentFlowBall: state.currentFlowBall,
       }),
     }
   )
@@ -89,6 +99,8 @@ export const FEATURE_LABELS: Record<FeatureKey, string> = {
   autoDebugging: 'Auto Debugging',
   yellowCharacter: 'Yellow Character',
   simulationErrorPrompts: 'Simulation Error Prompts',
+  pathHighlight: 'Path Highlight',
+  currentFlowBall: 'Current Flow Ball',
 };
 
 export { ALL_KEYS };
