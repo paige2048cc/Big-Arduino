@@ -76,8 +76,8 @@ function getAnchorRect(): AnchorRect | null {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function AIDebuggingOverlay({
-  placedComponents,
-  wires,
+  placedComponents: _placedComponents,
+  wires: _wires,
   breadboardPins,
   isSimulating,
   simulationErrors,
@@ -85,6 +85,10 @@ export function AIDebuggingOverlay({
   onAddChatMessage,
   onSetHighlights,
 }: AIDebuggingOverlayProps) {
+  // Note: _placedComponents and _wires are passed as props but we read fresh
+  // data from the store in runDebuggingAnalysis to avoid stale closure issues.
+  void _placedComponents;
+  void _wires;
   // ── Store reads ──────────────────────────────────────────────────────────
   const aiCharacterHovered = useCircuitStore((s) => s.aiCharacterHovered);
   const currentInstructionStep = useCircuitStore((s) => s.currentInstructionStep);
