@@ -1978,8 +1978,8 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
   // Uses placedComponents / wires / definitionsMap from the current render closure.
 
   // ── Design-mode: incremental static highlights (no ball) ──────────────────
-  // Recomputes connected elements and diffs against previous state.
-  // Only adds/removes Fabric breadboard highlights and SVG wire highlights that changed.
+  // Reconciles Fabric breadboard highlight objects against the current connected
+  // elements.  Only objects that need adding/removing are touched.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (isSimulating) return;
@@ -1990,67 +1990,65 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     const newHL = traceAllConnected(placedComponents, definitionsMap, wires);
     const prevHL = prevHighlightsRef.current;
 
-    // --- Diff wire highlights ---
-    const addedWires = new Set([...newHL.wireIds].filter(id => !prevHL.wireIds.has(id)));
-    const removedWires = new Set([...prevHL.wireIds].filter(id => !newHL.wireIds.has(id)));
-    const hasWireChanges = addedWires.size > 0 || removedWires.size > 0;
+    // --- Diff wire highlights (for SVG overlay update decision) ---
+    const wireSetChanged =
+      newHL.wireIds.size !== prevHL.wireIds.size ||
+      [...newHL.wireIds].some(id => !prevHL.wireIds.has(id));
 
-    // --- Diff breadboard net highlights ---
-    const addedNets = new Set([...newHL.bbHighlightsByNet.keys()].filter(k => !prevHL.bbHighlightsByNet.has(k)));
-    const removedNets = new Set([...prevHL.bbHighlightsByNet.keys()].filter(k => !newHL.bbHighlightsByNet.has(k)));
-    const hasNetChanges = addedNets.size > 0 || removedNets.size > 0;
-
-    // Update Fabric breadboard highlight objects (incremental)
-    if (canvas && hasNetChanges) {
-      // Remove highlights for disconnected nets
-      for (const netKey of removedNets) {
-        const obj = bbHighlightObjectsRef.current.get(netKey);
-        if (obj) {
+    // --- Reconcile Fabric breadboard highlight objects ---
+    // Compare against what's actually rendered (bbHighlightObjectsRef), not prevHL,
+    // so stale objects from simulation mode are also cleaned up.
+    let fabricChanged = false;
+    if (canvas) {
+      // Remove Fabric rects for nets no longer connected
+      for (const [netKey, obj] of [...bbHighlightObjectsRef.current.entries()]) {
+        if (!newHL.bbHighlightsByNet.has(netKey)) {
           canvas.remove(obj);
           bbHighlightObjectsRef.current.delete(netKey);
+          fabricChanged = true;
         }
       }
-
-      // Add highlights for newly connected nets
-      for (const netKey of addedNets) {
-        const h = newHL.bbHighlightsByNet.get(netKey);
-        if (!h) continue;
-        const rect = new fabric.Rect({
-          left: h.x,
-          top: h.y,
-          width: h.width,
-          height: h.height,
-          fill: '#FFD700',
-          opacity: 0.4,
-          rx: 4,
-          ry: 4,
-          selectable: false,
-          evented: false,
-          data: { type: 'circuit-bb-highlight', netKey },
-        });
-        canvas.add(rect);
-        // Z-order: above breadboard, below other components
-        const bbComp = placedComponents.find(c => {
-          const def = definitionsMap.get(c.instanceId);
-          return def?.id === 'breadboard';
-        });
-        if (bbComp) {
-          const bbFabric = instanceToFabricMap.current.get(bbComp.instanceId);
-          if (bbFabric) {
-            const objs = canvas.getObjects();
-            const bbIdx = objs.indexOf(bbFabric);
-            if (bbIdx >= 0) {
-              rect.moveTo(bbIdx + 1);
+      // Add Fabric rects for newly connected nets
+      for (const [netKey, h] of newHL.bbHighlightsByNet) {
+        if (!bbHighlightObjectsRef.current.has(netKey)) {
+          const rect = new fabric.Rect({
+            left: h.x,
+            top: h.y,
+            width: h.width,
+            height: h.height,
+            fill: '#FFD700',
+            opacity: 0.4,
+            rx: 4,
+            ry: 4,
+            selectable: false,
+            evented: false,
+            data: { type: 'circuit-bb-highlight', netKey },
+          });
+          canvas.add(rect);
+          // Z-order: above breadboard, below other components
+          const bbComp = placedComponents.find(c => {
+            const def = definitionsMap.get(c.instanceId);
+            return def?.id === 'breadboard';
+          });
+          if (bbComp) {
+            const bbFabric = instanceToFabricMap.current.get(bbComp.instanceId);
+            if (bbFabric) {
+              const objs = canvas.getObjects();
+              const bbIdx = objs.indexOf(bbFabric);
+              if (bbIdx >= 0) {
+                canvas.moveObjectTo(rect, bbIdx + 1);
+              }
             }
           }
+          bbHighlightObjectsRef.current.set(netKey, rect);
+          fabricChanged = true;
         }
-        bbHighlightObjectsRef.current.set(netKey, rect);
       }
-      canvas.renderAll();
+      if (fabricChanged) canvas.renderAll();
     }
 
     // Update SVG wire highlights via animPath (design mode: hideBall=true)
-    if (hasWireChanges || hasNetChanges) {
+    if (wireSetChanged || fabricChanged) {
       if (newHL.wireIds.size > 0) {
         setAnimPath({
           waypoints: [],
@@ -2070,22 +2068,6 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     prevHighlightsRef.current = newHL;
   }, [wires, placedComponents, definitionsMap, isSimulating]);
 
-  // ── Clean up all design-mode highlights when entering simulation ──────────
-  useEffect(() => {
-    if (!isSimulating) return;
-    const canvas = fabricCanvasRef.current;
-    if (canvas) {
-      bbHighlightObjectsRef.current.forEach(obj => canvas.remove(obj));
-      bbHighlightObjectsRef.current.clear();
-      canvas.renderAll();
-    }
-    prevHighlightsRef.current = {
-      wireIds: new Set(),
-      bbHighlightsByNet: new Map(),
-      componentIds: new Set(),
-    };
-  }, [isSimulating]);
-
   // ── Simulation-mode animation trigger ─────────────────────────────────────
   // Reruns whenever simulation starts/stops OR a button is pressed/released.
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2093,6 +2075,12 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     if (!isSimulating) {
       setAnimPath(null);
       setBallParkPosition(null);
+      // Reset tracking so design-mode effect does a fresh computation
+      prevHighlightsRef.current = {
+        wireIds: new Set(),
+        bbHighlightsByNet: new Map(),
+        componentIds: new Set(),
+      };
       return;
     }
 
@@ -2157,7 +2145,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
             const objs = canvas.getObjects();
             const bbIdx = objs.indexOf(bbFabric);
             if (bbIdx >= 0) {
-              rect.moveTo(bbIdx + 1);
+              canvas.moveObjectTo(rect, bbIdx + 1);
             }
           }
         }
