@@ -918,7 +918,8 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
         setHoveredWireError(target.data.error);
         setWireErrorPosition(pos);
       } else if (target?.data?.type === 'component') {
-        const instanceId = target.data.instanceId;
+        const instanceId = target.data.instanceId as string | undefined;
+        if (!instanceId) return;
         const hint = componentHintMapRef.current.get(instanceId);
         if (hint) {
           setHoveredComponentHint(hint);
