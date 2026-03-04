@@ -268,6 +268,19 @@ export function ProjectPage() {
       if (parsed.highlights && parsed.highlights.length > 0) {
         setHighlights(parsed.highlights);
       }
+
+      // Trigger component onboarding if AI suggests it
+      if (parsed.onboardingDefinitionIds && parsed.onboardingDefinitionIds.length > 0) {
+        const storeState = useCircuitStore.getState();
+        for (const defId of parsed.onboardingDefinitionIds) {
+          const matchingComponent = storeState.placedComponents.find(
+            c => c.definitionId === defId || c.definitionId.includes(defId)
+          );
+          if (matchingComponent) {
+            storeState.triggerOnboardingForComponent(matchingComponent.instanceId);
+          }
+        }
+      }
     } catch (error) {
       console.error('AI service error:', error);
       setChatMessages(prev => [...prev, {

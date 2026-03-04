@@ -96,6 +96,7 @@ export interface ParsedAIResponse {
   highlights: HighlightItem[];
   mood: CharacterMood;
   targetComponentId: string | null;
+  onboardingDefinitionIds: string[];
 }
 
 // API endpoint - works for both local dev and production
@@ -859,6 +860,11 @@ export function parseAIResponse(rawResponse: string): ParsedAIResponse {
   // Remove mood tag from content
   let content = rawResponse.replace(/\[MOOD:\w+\]/gi, '').trim();
 
+  // Extract [[onboarding:definition-id]] tags before removing them from content
+  const onboardingMatches = [...content.matchAll(/\[\[onboarding:([^\]]+)\]\]/g)];
+  const onboardingDefinitionIds = onboardingMatches.map(m => m[1]);
+  content = content.replace(/\[\[onboarding:[^\]]+\]\]/g, '').trim();
+
   // Extract component references [[ref:xxx]] to find target component
   const refMatches = [...content.matchAll(/\[\[ref:([^\]]+)\]\]/g)];
   const targetComponentId = refMatches.length > 0 ? refMatches[0][1] : null;
@@ -869,7 +875,6 @@ export function parseAIResponse(rawResponse: string): ParsedAIResponse {
   // Also add highlights for [[ref:xxx]] patterns
   for (const match of refMatches) {
     const instanceId = match[1];
-    // Check if already in highlights
     if (!highlights.some(h => h.id === instanceId)) {
       highlights.push({
         type: 'component',
@@ -884,6 +889,7 @@ export function parseAIResponse(rawResponse: string): ParsedAIResponse {
     highlights,
     mood,
     targetComponentId,
+    onboardingDefinitionIds,
   };
 }
 

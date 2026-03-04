@@ -10,6 +10,32 @@ All notable changes to Big Arduino App will be documented in this file.
 
 ---
 
+## [8.7.0] - 2026-03-04
+
+### Changed
+- **AI Debug detection order optimized**: Restructured the AI debugging system prompt to follow a strict 4-level priority order:
+  1. **Breadboard power rails** — checks if positive/negative rails are wired to Arduino 5V/GND
+  2. **Component pin connections** — checks polarity and orientation (LED anode/cathode, buzzer +/–)
+  3. **Required resistors** — checks if components like LEDs have current-limiting resistors
+  4. **Button wiring** — checks for push button short-circuit issues (same-side wiring bypass)
+- **One issue at a time**: AI now reports only the first detected problem in priority order instead of listing all issues at once.
+- **Friendly debugging guidance**: AI avoids referencing specific breadboard hole positions (like "J1", "b2") and instead uses conceptual references ("the positive rail", "the ground rail").
+
+### Added
+- **`[[onboarding:definition-id]]` tag support**: AI responses can now trigger component onboarding overlays (pin diagrams) for specific components when wiring issues are detected. Supported components: pushbutton, led-5mm, buzzer, breadboard, arduino-uno.
+- Onboarding triggers are processed in both the AI Debugging Overlay and regular project chat responses.
+
+---
+
+## [8.6.0] - 2026-03-04
+
+### Changed
+- **Camera scan → AI Chat flow redesigned**: After camera recognition, entering AIChatPage no longer displays the screenshot. Only the detected component tags are shown, followed by a choice question asking the user to pick between **Learning** (guided project tutorials) and **Exploring** (AI brainstorming).
+  - **Learning path**: Displays 3 side-by-side Featured Project cards with match percentage bars, project descriptions, and a "Best Match" badge on the highest-matching project, plus a brief intro paragraph.
+  - **Exploring path**: Initiates the AI chat guided flow, asking the user about feelings/themes/ideas to explore with their components.
+
+---
+
 ## [8.5.0] - 2026-03-04
 
 ### Added

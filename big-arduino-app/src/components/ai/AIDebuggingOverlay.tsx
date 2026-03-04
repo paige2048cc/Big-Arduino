@@ -354,6 +354,19 @@ export function AIDebuggingOverlay({
         onSetHighlights(parsed.highlights);
       }
 
+      // Trigger component onboarding if AI suggests it (e.g., button wiring issue)
+      if (parsed.onboardingDefinitionIds.length > 0) {
+        const storeNow = useCircuitStore.getState();
+        for (const defId of parsed.onboardingDefinitionIds) {
+          const matchingComponent = storeNow.placedComponents.find(
+            c => c.definitionId === defId || c.definitionId.includes(defId)
+          );
+          if (matchingComponent) {
+            storeNow.triggerOnboardingForComponent(matchingComponent.instanceId);
+          }
+        }
+      }
+
       onAddChatMessage('assistant', parsed.content);
 
       setAnimState('retracting');

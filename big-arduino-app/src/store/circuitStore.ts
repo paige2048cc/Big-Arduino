@@ -138,15 +138,15 @@ interface CircuitState {
   // Highlighted components in toolbar (for guided instructions / AI suggestions)
   highlightedToolbarComponents: string[];
 
-  // Component onboarding state
+  // Component onboarding state (supports multiple simultaneous onboardings)
   shownOnboardings: Set<string>;  // Set of definitionIds that have shown onboarding
-  activeOnboarding: {
+  activeOnboardings: Map<string, {
     instanceId: string;
     definitionId: string;
     centerX: number;
     centerY: number;
     manual?: boolean;
-  } | null;
+  }>;
 
   // AI Character state (for visual feedback on canvas)
   aiCharacter: {
@@ -275,7 +275,7 @@ interface CircuitActions {
 
   // Component onboarding actions
   showOnboarding: (instanceId: string, definitionId: string, centerX: number, centerY: number) => void;
-  hideOnboarding: () => void;
+  hideOnboarding: (instanceId: string) => void;
   hasShownOnboarding: (definitionId: string) => boolean;
   triggerOnboardingForComponent: (instanceId: string) => void;
 
@@ -368,7 +368,7 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
     highlightedItems: [],
     highlightedToolbarComponents: [],
     shownOnboardings: new Set(),
-    activeOnboarding: null,
+    activeOnboardings: new Map(),
     aiCharacter: {
       visible: false,
       x: 0,
@@ -1198,14 +1198,14 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
     // Component onboarding actions
     showOnboarding: (instanceId, definitionId, centerX, centerY) => {
       set((state) => {
-        state.activeOnboarding = { instanceId, definitionId, centerX, centerY };
+        state.activeOnboardings.set(instanceId, { instanceId, definitionId, centerX, centerY });
         state.shownOnboardings.add(definitionId);
       });
     },
 
-    hideOnboarding: () => {
+    hideOnboarding: (instanceId) => {
       set((state) => {
-        state.activeOnboarding = null;
+        state.activeOnboardings.delete(instanceId);
       });
     },
 
@@ -1219,18 +1219,17 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
       const definition = state.componentDefinitions.get(instanceId);
 
       if (component && definition) {
-        // Calculate center position
         const centerX = component.x + definition.width / 2;
         const centerY = component.y + definition.height / 2;
 
         set((s) => {
-          s.activeOnboarding = {
+          s.activeOnboardings.set(instanceId, {
             instanceId,
             definitionId: definition.id,
             centerX,
             centerY,
             manual: true,
-          };
+          });
         });
       }
     },
@@ -1391,9 +1390,9 @@ export const useHighlightedToolbarComponents = () =>
 export const useHighlightedToolbarComponent = () =>
   useCircuitStore((state) => state.highlightedToolbarComponents[0] ?? null);
 
-// Component onboarding selector
-export const useActiveOnboarding = () =>
-  useCircuitStore((state) => state.activeOnboarding);
+// Component onboarding selectors
+export const useActiveOnboardings = () =>
+  useCircuitStore((state) => state.activeOnboardings);
 
 // AI Character selector
 export const useAICharacter = () =>

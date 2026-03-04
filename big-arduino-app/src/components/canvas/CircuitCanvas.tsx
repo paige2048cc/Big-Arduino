@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import * as fabric from 'fabric';
 import { ZoomIn, ZoomOut, Undo2, Trash2, Move, RotateCw, FlipHorizontal, FlipVertical } from 'lucide-react';
-import { useCircuitStore, useHoveredPin, useWireDrawing, useWires, useSimulationErrors, useSelectedWire, useClickToPlace, useDragPreview, useHighlightedItems, useActiveOnboarding, useButtonStates, useAICharacter } from '../../store/circuitStore';
+import { useCircuitStore, useHoveredPin, useWireDrawing, useWires, useSimulationErrors, useSelectedWire, useClickToPlace, useDragPreview, useHighlightedItems, useActiveOnboardings, useButtonStates, useAICharacter } from '../../store/circuitStore';
 import {
   useOnboardingStore,
   useIsOnboardingActive,
@@ -17,8 +17,9 @@ import { routeOrthogonalManhattan, type Rect as RouterRect, type Point as Router
 import { hasOnboardingImage, getOnboardingImageUrl } from './ComponentOnboarding';
 import { BlueCharacter } from '../ai/BlueCharacter';
 import { CircuitAnimation } from './CircuitAnimation';
-import { tracePowerPath, findAllPowerPins } from '../../services/circuitPathTracer';
-import type { CircuitAnimationPath } from '../../services/circuitPathTracer';
+import { tracePowerPath, findAllPowerPins, traceAllConnected } from '../../services/circuitPathTracer';
+import { useBuzzerAudio } from '../../hooks/useBuzzerAudio';
+import type { CircuitAnimationPath, ConnectedCircuitElements } from '../../services/circuitPathTracer';
 import type { ComponentDefinition } from '../../types/components';
 import './CircuitCanvas.css';
 
@@ -342,7 +343,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
   const simulationErrors = useSimulationErrors();
   const selectedWire = useSelectedWire();
   const highlightedItems = useHighlightedItems();
-  const activeOnboarding = useActiveOnboarding();
+  const activeOnboardings = useActiveOnboardings();
   const aiCharacter = useAICharacter();
   const hideAICharacter = useCircuitStore(state => state.hideAICharacter);
 
@@ -401,9 +402,10 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
   const isMiddleMousePanningRef = useRef(false);
   const lastPanPointRef = useRef<{ x: number; y: number } | null>(null);
 
-  // Component onboarding Fabric.js image object
-  const onboardingFabricRef = useRef<fabric.FabricImage | null>(null);
-  const onboardingFadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Component onboarding Fabric.js image objects (multiple simultaneous)
+  const onboardingFabricsRef = useRef<Map<string, fabric.FabricImage>>(new Map());
+  const onboardingFadeTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const onboardingLoadingRef = useRef<Set<string>>(new Set());
 
   // Shift key state for axis constraint
   const isShiftHeldRef = useRef(false);
@@ -421,10 +423,28 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
   // Current animation path and loop mode.
   const [animPath, setAnimPath] = useState<CircuitAnimationPath | null>(null);
   const [animLooping, setAnimLooping] = useState(false);
+  // Whether to hide the ball (design mode: highlights only)
+  const [animHideBall, setAnimHideBall] = useState(false);
+  // Whether ball should persist at end after one-shot animation
+  const [animPersist, setAnimPersist] = useState(false);
+  // Fixed position for ball when parked at a button break point
+  const [ballParkPosition, setBallParkPosition] = useState<{ x: number; y: number } | null>(null);
   // Stable callback so the rAF loop in CircuitAnimation doesn't restart on re-renders.
   const handleAnimDone = useCallback(() => setAnimPath(null), []);
   // Button states – used to retrace the circuit when a button is pressed in simulation.
   const buttonStates = useButtonStates();
+
+  // Buzzer audio – plays/stops MP3 based on buzzer component state during simulation
+  useBuzzerAudio();
+
+  // Incremental highlight tracking: previous connected elements for diff
+  const prevHighlightsRef = useRef<ConnectedCircuitElements>({
+    wireIds: new Set(),
+    bbHighlightsByNet: new Map(),
+    componentIds: new Set(),
+  });
+  // Fabric.js objects for breadboard row/rail highlights (managed separately for z-order)
+  const bbHighlightObjectsRef = useRef<Map<string, fabric.Rect>>(new Map());
 
   // Track insertion highlight pins (for visual feedback when components snap to breadboard)
   // Store breadboard instance ID and pin IDs, positions calculated at render time using getPinCanvasPosition
@@ -1956,143 +1976,132 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
   const prevWiresRef = useRef<typeof wires>([]);
 
   // Uses placedComponents / wires / definitionsMap from the current render closure.
+
+  // ── Design-mode: incremental static highlights (no ball) ──────────────────
+  // Recomputes connected elements and diffs against previous state.
+  // Only adds/removes Fabric breadboard highlights and SVG wire highlights that changed.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (isSimulating) return;
 
-    // Find newly added wire
-    let newWire = null;
-    const prevWires = prevWiresRef.current;
-    if (wires.length > prevWires.length) {
-      const prevWireIds = new Set(prevWires.map(w => w.id));
-      newWire = wires.find(w => !prevWireIds.has(w.id));
-    }
     prevWiresRef.current = wires;
 
-    // If there's a new wire, check if its start point was already powered (using old wires)
-    if (newWire) {
-      // Collect all powered component/pin pairs from the old circuit
-      const poweredNodes = new Set<string>();
-      const powerPins = findAllPowerPins(placedComponents, definitionsMap);
+    const canvas = fabricCanvasRef.current;
+    const newHL = traceAllConnected(placedComponents, definitionsMap, wires);
+    const prevHL = prevHighlightsRef.current;
 
-      for (const pp of powerPins) {
-        const oldPath = tracePowerPath(
-          pp.componentId,
-          pp.pinId,
-          placedComponents,
-          definitionsMap,
-          prevWires
-        );
+    // --- Diff wire highlights ---
+    const addedWires = new Set([...newHL.wireIds].filter(id => !prevHL.wireIds.has(id)));
+    const removedWires = new Set([...prevHL.wireIds].filter(id => !newHL.wireIds.has(id)));
+    const hasWireChanges = addedWires.size > 0 || removedWires.size > 0;
 
-        // Add all wired connections in the old power path
-        for (const wireId of oldPath.wireIds) {
-          const wire = prevWires.find(w => w.id === wireId);
-          if (wire) {
-            poweredNodes.add(`${wire.startComponentId}:${wire.startPinId}`);
-            poweredNodes.add(`${wire.endComponentId}:${wire.endPinId}`);
-          }
-        }
+    // --- Diff breadboard net highlights ---
+    const addedNets = new Set([...newHL.bbHighlightsByNet.keys()].filter(k => !prevHL.bbHighlightsByNet.has(k)));
+    const removedNets = new Set([...prevHL.bbHighlightsByNet.keys()].filter(k => !newHL.bbHighlightsByNet.has(k)));
+    const hasNetChanges = addedNets.size > 0 || removedNets.size > 0;
 
-        // Also add the power pin itself
-        poweredNodes.add(`${pp.componentId}:${pp.pinId}`);
-      }
-
-      // Check if the new wire's start point was already powered
-      const startKey = `${newWire.startComponentId}:${newWire.startPinId}`;
-      if (poweredNodes.has(startKey)) {
-        // Start point was powered! Animate from the new wire's END point to GND
-        // This prevents the animation from flowing backwards to the power source
-        const path = tracePowerPath(
-          newWire.endComponentId,
-          newWire.endPinId,
-          placedComponents,
-          definitionsMap,
-          wires
-        );
-
-        // Prepend the new wire itself to the path
-        // Get the start pin's actual canvas position
-        const startPos = getPinCanvasPosition(newWire.startComponentId, newWire.startPinId);
-        const endPos = getPinCanvasPosition(newWire.endComponentId, newWire.endPinId);
-
-        if (startPos && endPos) {
-          const newWireWaypoints = [
-            startPos,  // Start from the actual pin position
-            ...newWire.bendPoints,  // Include any bend points in the wire
-            endPos  // End at the actual end pin position
-          ];
-
-          // Only show animation if the circuit is complete (reaches GND)
-          if (path.isComplete) {
-            // Combine with the rest of the path (if it continues to GND)
-            const fullWaypoints = path.waypoints.length > 0
-              ? [...newWireWaypoints.slice(0, -1), ...path.waypoints]  // Remove duplicate end point
-              : newWireWaypoints;
-
-            setAnimPath({
-              waypoints: fullWaypoints,
-              wireIds: [newWire.id, ...path.wireIds],
-              breadboardHighlights: path.breadboardHighlights,
-              isComplete: path.isComplete
-            });
-            setAnimLooping(false);
-            return;
-          }
+    // Update Fabric breadboard highlight objects (incremental)
+    if (canvas && hasNetChanges) {
+      // Remove highlights for disconnected nets
+      for (const netKey of removedNets) {
+        const obj = bbHighlightObjectsRef.current.get(netKey);
+        if (obj) {
+          canvas.remove(obj);
+          bbHighlightObjectsRef.current.delete(netKey);
         }
       }
+
+      // Add highlights for newly connected nets
+      for (const netKey of addedNets) {
+        const h = newHL.bbHighlightsByNet.get(netKey);
+        if (!h) continue;
+        const rect = new fabric.Rect({
+          left: h.x,
+          top: h.y,
+          width: h.width,
+          height: h.height,
+          fill: '#FFD700',
+          opacity: 0.4,
+          rx: 4,
+          ry: 4,
+          selectable: false,
+          evented: false,
+          data: { type: 'circuit-bb-highlight', netKey },
+        });
+        canvas.add(rect);
+        // Z-order: above breadboard, below other components
+        const bbComp = placedComponents.find(c => {
+          const def = definitionsMap.get(c.instanceId);
+          return def?.id === 'breadboard';
+        });
+        if (bbComp) {
+          const bbFabric = instanceToFabricMap.current.get(bbComp.instanceId);
+          if (bbFabric) {
+            const objs = canvas.getObjects();
+            const bbIdx = objs.indexOf(bbFabric);
+            if (bbIdx >= 0) {
+              rect.moveTo(bbIdx + 1);
+            }
+          }
+        }
+        bbHighlightObjectsRef.current.set(netKey, rect);
+      }
+      canvas.renderAll();
     }
 
-    // Otherwise, animate from power source as usual
-    // Only show animation if the circuit is complete (power to GND path exists)
-    const powerPins = findAllPowerPins(placedComponents, definitionsMap);
-    for (const pp of powerPins) {
-      const hasWire = wires.some(
-        w =>
-          (w.startComponentId === pp.componentId && w.startPinId === pp.pinId) ||
-          (w.endComponentId === pp.componentId && w.endPinId === pp.pinId)
-      );
-      if (!hasWire) continue;
-      const path = tracePowerPath(
-        pp.componentId,
-        pp.pinId,
-        placedComponents,
-        definitionsMap,
-        wires
-      );
-      // Only animate if circuit is complete (reaches GND)
-      if (path.wireIds.length > 0 && path.isComplete) {
-        setAnimPath(path);
+    // Update SVG wire highlights via animPath (design mode: hideBall=true)
+    if (hasWireChanges || hasNetChanges) {
+      if (newHL.wireIds.size > 0) {
+        setAnimPath({
+          waypoints: [],
+          wireIds: [...newHL.wireIds],
+          breadboardHighlights: [],
+          isComplete: false,
+        });
+        setAnimHideBall(true);
+        setAnimPersist(true);
         setAnimLooping(false);
-        break;
+        setBallParkPosition(null);
+      } else {
+        setAnimPath(null);
       }
     }
-  }, [wires.length]); // intentionally omit other deps – we want to trigger only on wire count change
 
-  // ── Clear animation when wire is deleted ──────────────────────────────────
-  // Separate effect to check if animation wires still exist
+    prevHighlightsRef.current = newHL;
+  }, [wires, placedComponents, definitionsMap, isSimulating]);
+
+  // ── Clean up all design-mode highlights when entering simulation ──────────
   useEffect(() => {
-    if (!animPath || animPath.wireIds.length === 0) return;
-
-    const allWireIdsExist = animPath.wireIds.every(wireId =>
-      wires.some(w => w.id === wireId)
-    );
-
-    if (!allWireIdsExist) {
-      setAnimPath(null);
+    if (!isSimulating) return;
+    const canvas = fabricCanvasRef.current;
+    if (canvas) {
+      bbHighlightObjectsRef.current.forEach(obj => canvas.remove(obj));
+      bbHighlightObjectsRef.current.clear();
+      canvas.renderAll();
     }
-  }, [wires, animPath]); // run when wires array changes (not just length)
+    prevHighlightsRef.current = {
+      wireIds: new Set(),
+      bbHighlightsByNet: new Map(),
+      componentIds: new Set(),
+    };
+  }, [isSimulating]);
 
   // ── Simulation-mode animation trigger ─────────────────────────────────────
   // Reruns whenever simulation starts/stops OR a button is pressed/released.
-  // buttonStates is a new Map reference on every press (immer), so it works as dep.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!isSimulating) {
       setAnimPath(null);
+      setBallParkPosition(null);
       return;
     }
-    // Only show animation if circuit is complete (power to GND path exists)
+
+    const canvas = fabricCanvasRef.current;
+
+    // Trace path with current button states
     const powerPins = findAllPowerPins(placedComponents, definitionsMap);
+    let bestPath: CircuitAnimationPath | null = null;
+
     for (const pp of powerPins) {
       const path = tracePowerPath(
         pp.componentId,
@@ -2102,15 +2111,81 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
         wires,
         buttonStates
       );
-      // Only animate if circuit is complete (reaches GND)
-      if (path.wireIds.length > 0 && path.isComplete) {
-        setAnimPath(path);
-        setAnimLooping(true);
+      if (path.wireIds.length > 0) {
+        bestPath = path;
         break;
       }
     }
-    // If no complete circuit found, clear animation
-    // This is implicitly handled by not calling setAnimPath
+
+    if (!bestPath) {
+      setAnimPath(null);
+      setBallParkPosition(null);
+      return;
+    }
+
+    // Compute connected elements for breadboard highlights
+    const connected = traceAllConnected(placedComponents, definitionsMap, wires, buttonStates);
+
+    // Update Fabric breadboard highlights for simulation mode
+    if (canvas) {
+      // Remove old sim highlights
+      bbHighlightObjectsRef.current.forEach(obj => canvas.remove(obj));
+      bbHighlightObjectsRef.current.clear();
+
+      for (const [netKey, h] of connected.bbHighlightsByNet) {
+        const rect = new fabric.Rect({
+          left: h.x,
+          top: h.y,
+          width: h.width,
+          height: h.height,
+          fill: '#FFD700',
+          opacity: 0.4,
+          rx: 4,
+          ry: 4,
+          selectable: false,
+          evented: false,
+          data: { type: 'circuit-bb-highlight', netKey },
+        });
+        canvas.add(rect);
+        const bbComp = placedComponents.find(c => {
+          const def = definitionsMap.get(c.instanceId);
+          return def?.id === 'breadboard';
+        });
+        if (bbComp) {
+          const bbFabric = instanceToFabricMap.current.get(bbComp.instanceId);
+          if (bbFabric) {
+            const objs = canvas.getObjects();
+            const bbIdx = objs.indexOf(bbFabric);
+            if (bbIdx >= 0) {
+              rect.moveTo(bbIdx + 1);
+            }
+          }
+        }
+        bbHighlightObjectsRef.current.set(netKey, rect);
+      }
+      canvas.renderAll();
+    }
+
+    // Set animation based on path status
+    setAnimHideBall(false);
+    setAnimPersist(true);
+    setAnimLooping(false);
+
+    if (bestPath.breakReason === 'button-unpressed' && bestPath.breakPosition) {
+      // Ball parks at the unpressed button's power-side pin
+      setAnimPath({
+        ...bestPath,
+        wireIds: [...connected.wireIds],
+      });
+      setBallParkPosition(bestPath.breakPosition);
+    } else {
+      // Ball animates along the full path (one-shot, stays at end)
+      setAnimPath({
+        ...bestPath,
+        wireIds: [...connected.wireIds],
+      });
+      setBallParkPosition(null);
+    }
   }, [isSimulating, buttonStates]); // buttonStates dep re-traces when button pressed
 
   // Render wire segment handles when a wire is selected
@@ -2378,159 +2453,167 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     canvas.renderAll();
   }, [highlightedItems]);
 
-  // Handle component onboarding image as Fabric.js object
-  // This renders the onboarding image on the canvas, positioned just above the component
-  // so it doesn't obscure other components placed on top (e.g., LEDs on a breadboard)
+  // Handle component onboarding images as Fabric.js objects (supports multiple simultaneous)
+  // Renders onboarding images on the canvas, positioned just above each component
   useEffect(() => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
 
-    // Clear existing onboarding image and timers
-    if (onboardingFabricRef.current) {
-      canvas.remove(onboardingFabricRef.current);
-      onboardingFabricRef.current = null;
-    }
-    if (onboardingFadeTimerRef.current) {
-      clearTimeout(onboardingFadeTimerRef.current);
-      onboardingFadeTimerRef.current = null;
-    }
+    const currentIds = new Set(activeOnboardings.keys());
+    const renderedIds = new Set(onboardingFabricsRef.current.keys());
 
-    if (!activeOnboarding) {
-      canvas.renderAll();
-      return;
-    }
-
-    const imageUrl = getOnboardingImageUrl(activeOnboarding.definitionId);
-    if (!imageUrl) {
-      hideOnboarding();
-      return;
+    // Remove onboardings that are no longer active
+    for (const id of renderedIds) {
+      if (!currentIds.has(id)) {
+        const obj = onboardingFabricsRef.current.get(id);
+        if (obj) canvas.remove(obj);
+        onboardingFabricsRef.current.delete(id);
+        const timer = onboardingFadeTimersRef.current.get(id);
+        if (timer) clearTimeout(timer);
+        onboardingFadeTimersRef.current.delete(id);
+      }
     }
 
-    // Find the target component's Fabric object
-    const targetFabricObj = instanceToFabricMap.current.get(activeOnboarding.instanceId);
+    // Add new onboardings (skip already rendered or currently loading)
+    for (const [instanceId, entry] of activeOnboardings) {
+      if (renderedIds.has(instanceId) || onboardingLoadingRef.current.has(instanceId)) continue;
 
-    // Load onboarding image
-    const img = new Image();
-    img.onload = () => {
-      if (!fabricCanvasRef.current) return;
-
-      // Get the component to find its actual position
-      const component = placedComponents.find(c => c.instanceId === activeOnboarding.instanceId);
-      const definition = getComponentDefinition(activeOnboarding.instanceId);
-
-      if (!component || !definition) {
-        hideOnboarding();
-        return;
+      const imageUrl = getOnboardingImageUrl(entry.definitionId);
+      if (!imageUrl) {
+        hideOnboarding(instanceId);
+        continue;
       }
 
-      // Calculate center position of the component
+      onboardingLoadingRef.current.add(instanceId);
+      const targetFabricObj = instanceToFabricMap.current.get(instanceId);
+
+      const img = new Image();
+      img.onload = () => {
+        onboardingLoadingRef.current.delete(instanceId);
+        if (!fabricCanvasRef.current) return;
+        if (!activeOnboardings.has(instanceId)) return;
+
+        const component = placedComponents.find(c => c.instanceId === instanceId);
+        const definition = getComponentDefinition(instanceId);
+
+        if (!component || !definition) {
+          hideOnboarding(instanceId);
+          return;
+        }
+
+        const centerX = component.x + definition.width / 2;
+        const centerY = component.y + definition.height / 2;
+
+        const fabricImg = new fabric.FabricImage(img, {
+          left: centerX,
+          top: centerY,
+          originX: 'center',
+          originY: 'center',
+          selectable: false,
+          evented: false,
+          opacity: 1,
+        });
+
+        (fabricImg as ComponentFabricObject).data = {
+          type: 'onboarding',
+          definitionId: entry.definitionId,
+          instanceId,
+        };
+
+        canvas.add(fabricImg);
+
+        if (targetFabricObj) {
+          canvas.sendObjectToBack(fabricImg);
+          const objects = canvas.getObjects();
+          const targetIndex = objects.indexOf(targetFabricObj);
+          const onboardingIndex = objects.indexOf(fabricImg);
+          const timesToBring = targetIndex - onboardingIndex + 1;
+          for (let i = 0; i < timesToBring; i++) {
+            canvas.bringObjectForward(fabricImg);
+          }
+        }
+
+        onboardingFabricsRef.current.set(instanceId, fabricImg);
+        canvas.renderAll();
+
+        // Auto-hide after 10 seconds only for auto-triggered (non-manual) onboardings
+        if (!entry.manual) {
+          const timer = setTimeout(() => {
+            const fabricObj = onboardingFabricsRef.current.get(instanceId);
+            if (fabricObj && fabricCanvasRef.current) {
+              const duration = 500;
+              const startTime = Date.now();
+
+              const animate = () => {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const curFabricObj = onboardingFabricsRef.current.get(instanceId);
+
+                if (curFabricObj) {
+                  curFabricObj.set('opacity', 1 - progress);
+                  fabricCanvasRef.current?.renderAll();
+                }
+
+                if (progress < 1) {
+                  requestAnimationFrame(animate);
+                } else {
+                  hideOnboarding(instanceId);
+                }
+              };
+
+              requestAnimationFrame(animate);
+            }
+          }, 10000);
+          onboardingFadeTimersRef.current.set(instanceId, timer);
+        }
+      };
+
+      img.onerror = () => {
+        onboardingLoadingRef.current.delete(instanceId);
+        console.error('Failed to load onboarding image:', imageUrl);
+        hideOnboarding(instanceId);
+      };
+
+      img.src = imageUrl;
+    }
+
+    canvas.renderAll();
+
+    return () => {
+      for (const [id, timer] of onboardingFadeTimersRef.current) {
+        if (!activeOnboardings.has(id)) {
+          clearTimeout(timer);
+          onboardingFadeTimersRef.current.delete(id);
+        }
+      }
+    };
+  }, [activeOnboardings, hideOnboarding, getComponentDefinition, placedComponents]);
+
+  // Update onboarding positions when components move
+  useEffect(() => {
+    if (activeOnboardings.size === 0) return;
+
+    let needsRender = false;
+    for (const [instanceId] of activeOnboardings) {
+      const fabricObj = onboardingFabricsRef.current.get(instanceId);
+      if (!fabricObj) continue;
+
+      const component = placedComponents.find(c => c.instanceId === instanceId);
+      const definition = getComponentDefinition(instanceId);
+      if (!component || !definition) continue;
+
       const centerX = component.x + definition.width / 2;
       const centerY = component.y + definition.height / 2;
 
-      const fabricImg = new fabric.FabricImage(img, {
-        left: centerX,
-        top: centerY,
-        originX: 'center',
-        originY: 'center',
-        selectable: false,
-        evented: false,
-        opacity: 1,
-      });
+      fabricObj.set({ left: centerX, top: centerY });
+      fabricObj.setCoords();
+      needsRender = true;
+    }
 
-      // Mark as onboarding object so it can be identified
-      (fabricImg as ComponentFabricObject).data = {
-        type: 'onboarding',
-        definitionId: activeOnboarding.definitionId,
-        instanceId: activeOnboarding.instanceId,
-      };
-
-      canvas.add(fabricImg);
-
-      // Position just above the target component (breadboard/arduino)
-      // First send to back, then bring forward to just above the target
-      if (targetFabricObj) {
-        canvas.sendObjectToBack(fabricImg);
-        // Bring forward until it's just above the target
-        const objects = canvas.getObjects();
-        const targetIndex = objects.indexOf(targetFabricObj);
-        const onboardingIndex = objects.indexOf(fabricImg);
-        // We need to bring it forward (targetIndex - onboardingIndex + 1) times
-        const timesToBring = targetIndex - onboardingIndex + 1;
-        for (let i = 0; i < timesToBring; i++) {
-          canvas.bringObjectForward(fabricImg);
-        }
-      }
-
-      onboardingFabricRef.current = fabricImg;
-      canvas.renderAll();
-
-      // Auto-hide after 10 seconds (unless manually triggered)
-      if (!activeOnboarding.manual) {
-        onboardingFadeTimerRef.current = setTimeout(() => {
-          // Fade out animation
-          if (onboardingFabricRef.current && fabricCanvasRef.current) {
-            const startOpacity = 1;
-            const duration = 500;
-            const startTime = Date.now();
-
-            const animate = () => {
-              const elapsed = Date.now() - startTime;
-              const progress = Math.min(elapsed / duration, 1);
-              const currentOpacity = startOpacity * (1 - progress);
-
-              if (onboardingFabricRef.current) {
-                onboardingFabricRef.current.set('opacity', currentOpacity);
-                fabricCanvasRef.current?.renderAll();
-              }
-
-              if (progress < 1) {
-                requestAnimationFrame(animate);
-              } else {
-                hideOnboarding();
-              }
-            };
-
-            requestAnimationFrame(animate);
-          }
-        }, 10000);
-      }
-    };
-
-    img.onerror = () => {
-      console.error('Failed to load onboarding image:', imageUrl);
-      hideOnboarding();
-    };
-
-    img.src = imageUrl;
-
-    // Cleanup function
-    return () => {
-      if (onboardingFadeTimerRef.current) {
-        clearTimeout(onboardingFadeTimerRef.current);
-        onboardingFadeTimerRef.current = null;
-      }
-    };
-  }, [activeOnboarding?.instanceId, activeOnboarding?.definitionId, activeOnboarding?.manual, hideOnboarding, getComponentDefinition]);
-
-  // Update onboarding position when component moves
-  useEffect(() => {
-    if (!activeOnboarding || !onboardingFabricRef.current) return;
-
-    const component = placedComponents.find(c => c.instanceId === activeOnboarding.instanceId);
-    const definition = getComponentDefinition(activeOnboarding.instanceId);
-
-    if (!component || !definition) return;
-
-    const centerX = component.x + definition.width / 2;
-    const centerY = component.y + definition.height / 2;
-
-    onboardingFabricRef.current.set({
-      left: centerX,
-      top: centerY,
-    });
-    onboardingFabricRef.current.setCoords();
-    fabricCanvasRef.current?.renderAll();
-  }, [activeOnboarding?.instanceId, placedComponents, getComponentDefinition]);
+    if (needsRender) {
+      fabricCanvasRef.current?.renderAll();
+    }
+  }, [activeOnboardings, placedComponents, getComponentDefinition]);
 
   // Load ghost preview image when click-to-place mode starts
   useEffect(() => {
@@ -3958,6 +4041,9 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
             isLooping={animLooping}
             wirePathStrings={wirePathStringsRef.current}
             onDone={handleAnimDone}
+            hideBall={animHideBall}
+            parkPosition={ballParkPosition}
+            persistOnComplete={animPersist}
           />
         )}
       </div>

@@ -198,9 +198,10 @@ function getInternalConnections(
     if (pinId === 'TERM2') return ['TERM1'];
   }
 
-  // Net-based connections (breadboard rows, power rails, etc.)
-  // Pins with the same 'net' value are internally connected
-  if (definition) {
+  // Net-based connections for NON-BREADBOARD components only.
+  // Breadboard net connections (rows/rails) are handled separately in tracePath
+  // with a flat loop to avoid deep recursion (power rails have 30 pins per net).
+  if (componentType !== 'breadboard' && definition) {
     const currentPin = definition.pins.find(p => p.id === pinId);
     if (currentPin?.net) {
       return definition.pins
@@ -307,17 +308,107 @@ function tracePath(
     }
   }
 
-  // Check for components inserted into breadboard at this pin
-  // If we're at a breadboard pin, trace through any component that's inserted there
+  // Breadboard net connections: flat iteration over all same-net pins.
+  // Pins sharing the same net (e.g. row-10-bottom has A10-E10) are electrically
+  // connected. We check wires and inserted components at every net-sibling pin
+  // using a flat loop instead of deep recursion, which avoids blowing up the
+  // depth counter on 30-pin power rails.
+  if (componentType === 'breadboard' && def) {
+    const currentBBPin = def.pins.find(p => p.id === startPinId);
+    if (currentBBPin?.net) {
+      const netSiblings = def.pins.filter(
+        p => p.id !== startPinId && p.net === currentBBPin.net
+      );
+
+      for (const sibling of netSiblings) {
+        const sibKey = `${startComponentId}:${sibling.id}`;
+        if (visited.has(sibKey)) continue;
+        visited.add(sibKey);
+
+        // Check for components inserted at this net-sibling pin
+        for (const insertedComponent of components) {
+          if (insertedComponent.parentBreadboardId !== startComponentId) continue;
+          if (!insertedComponent.insertedPins) continue;
+
+          for (const [compPinId, bbPinId] of Object.entries(insertedComponent.insertedPins)) {
+            if (bbPinId === sibling.id) {
+              const insertedResult = tracePath(
+                insertedComponent.instanceId,
+                compPinId,
+                wires,
+                definitions,
+                buttonStates,
+                components,
+                visited,
+                depth + 1,
+                maxDepth
+              );
+
+              if (insertedResult.reachesPower) {
+                result.reachesPower = true;
+                result.hasResistor = result.hasResistor || insertedResult.hasResistor;
+                result.path = [...result.path, ...insertedResult.path];
+                result.wires = [...result.wires, ...insertedResult.wires];
+                return result;
+              }
+              if (insertedResult.reachesGround) {
+                result.reachesGround = true;
+                result.hasResistor = result.hasResistor || insertedResult.hasResistor;
+                result.path = [...result.path, ...insertedResult.path];
+                result.wires = [...result.wires, ...insertedResult.wires];
+                return result;
+              }
+            }
+          }
+        }
+
+        // Check for wires connected to this net-sibling pin
+        const siblingWires = findWiresAtPin(startComponentId, sibling.id, wires);
+        for (const wire of siblingWires) {
+          result.wires.push(wire.id);
+          result.lastWireId = wire.id;
+
+          const otherEnd = getOtherEnd(wire, startComponentId, sibling.id);
+          const wireResult = tracePath(
+            otherEnd.componentId,
+            otherEnd.pinId,
+            wires,
+            definitions,
+            buttonStates,
+            components,
+            visited,
+            depth + 1,
+            maxDepth
+          );
+
+          if (wireResult.reachesPower) {
+            result.reachesPower = true;
+            result.hasResistor = result.hasResistor || wireResult.hasResistor;
+            result.path = [...result.path, ...wireResult.path];
+            result.wires = [...result.wires, ...wireResult.wires];
+            return result;
+          }
+          if (wireResult.reachesGround) {
+            result.reachesGround = true;
+            result.hasResistor = result.hasResistor || wireResult.hasResistor;
+            result.path = [...result.path, ...wireResult.path];
+            result.wires = [...result.wires, ...wireResult.wires];
+            return result;
+          }
+        }
+      }
+    }
+  }
+
+  // Also check for components inserted at the CURRENT breadboard pin
+  // (the net-sibling loop above covers siblings; this covers startPinId itself)
   if (componentType === 'breadboard') {
     for (const insertedComponent of components) {
       if (insertedComponent.parentBreadboardId !== startComponentId) continue;
       if (!insertedComponent.insertedPins) continue;
 
-      // Check if any of this component's pins are inserted at our current breadboard pin
       for (const [compPinId, bbPinId] of Object.entries(insertedComponent.insertedPins)) {
         if (bbPinId === startPinId) {
-          // This component's pin is at this breadboard pin - trace through it
           const insertedResult = tracePath(
             insertedComponent.instanceId,
             compPinId,

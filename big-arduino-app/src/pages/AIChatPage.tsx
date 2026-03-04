@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Send, Loader2, ChevronRight } from 'lucide-react';
+import { Send, Loader2, ChevronRight, BookOpen, Compass, Cpu, Package } from 'lucide-react';
 import { Sidebar } from '../components/layout/Sidebar';
-import { ScanResults } from '../components/scanner/ScanResults';
 import { BlueCharacter } from '../components/ai/BlueCharacter';
-import type { DetectedComponent } from '../utils/componentMatcher';
+import type { DetectedComponent, ProjectMatch } from '../utils/componentMatcher';
+import { matchProjects, getChipClass } from '../utils/componentMatcher';
 import { sendMessage, parseAIResponse, isAIServiceConfigured, type CircuitState, type ConversationMessage } from '../services/aiService';
 import { parseMarkdown } from '../utils/markdownParser';
 import './AIChatPage.css';
@@ -16,6 +16,15 @@ interface ChatMessage {
   scanData?: {
     screenshot: string;
     detected: DetectedComponent[];
+  };
+  componentTags?: DetectedComponent[];
+  choiceQuestion?: {
+    question: string;
+    options: { id: string; label: string; description: string; icon: 'learning' | 'exploring' }[];
+  };
+  projectCards?: {
+    matches: ProjectMatch[];
+    bestMatchIntro: string;
   };
 }
 
@@ -31,6 +40,7 @@ export function AIChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [choiceMade, setChoiceMade] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Convert chat messages to conversation history for AI
@@ -119,21 +129,35 @@ export function AIChatPage() {
     }
 
     // Handle scan results
-    if (!state?.screenshot || !state?.detected) return;
+    if (!state?.detected || state.detected.length === 0) return;
 
     const initial: ChatMessage[] = [
       {
-        id: 'scan-result',
+        id: 'scan-tags',
         role: 'assistant',
-        scanData: {
-          screenshot: state.screenshot,
-          detected: state.detected,
-        },
+        componentTags: state.detected,
       },
       {
-        id: 'scan-greeting',
+        id: 'scan-choice',
         role: 'assistant',
-        content: `I found ${state.detected.length} component${state.detected.length === 1 ? '' : 's'}: **${state.detected.map(d => d.className).join(', ')}**. Check out the recommended projects above, or tell me what you'd like to build!`,
+        content: `I found ${state.detected.length} component${state.detected.length === 1 ? '' : 's'}! What would you like to do with them?`,
+        choiceQuestion: {
+          question: 'Choose your goal:',
+          options: [
+            {
+              id: 'learning',
+              label: 'Learning',
+              description: 'Follow a guided project tutorial',
+              icon: 'learning',
+            },
+            {
+              id: 'exploring',
+              label: 'Exploring',
+              description: 'Chat with AI to discover ideas',
+              icon: 'exploring',
+            },
+          ],
+        },
       },
     ];
     setMessages(initial);
@@ -211,6 +235,15 @@ export function AIChatPage() {
     }
   };
 
+  const getDifficultyColor = (difficulty: string) => {
+    switch (difficulty) {
+      case 'beginner': return 'difficulty-beginner';
+      case 'intermediate': return 'difficulty-intermediate';
+      case 'advanced': return 'difficulty-advanced';
+      default: return '';
+    }
+  };
+
   // Strip [[add:xxx]] / [[ref:xxx]] markers from AI message text (no canvas in chat page)
   const stripComponentRefs = (content: string): string =>
     content.replace(/\[\[(add|ref):[^\]]+\]\]\s*/g, '');
@@ -277,6 +310,81 @@ export function AIChatPage() {
     navigate(`/project/${projectId}`);
   };
 
+  const handleGoalChoice = async (choiceId: string) => {
+    if (choiceMade) return;
+    setChoiceMade(true);
+
+    const choiceLabel = choiceId === 'learning' ? 'Learning' : 'Exploring';
+    const userChoiceMsg: ChatMessage = {
+      id: `user-choice-${Date.now()}`,
+      role: 'user',
+      content: `I'd like to start **${choiceLabel}**!`,
+    };
+    setMessages(prev => [...prev, userChoiceMsg]);
+
+    if (choiceId === 'learning') {
+      const detected = state?.detected || [];
+      const matches = matchProjects(detected, 0).slice(0, 3);
+      const bestMatch = matches[0];
+
+      const bestMatchIntro = bestMatch
+        ? `**${bestMatch.project.title}** is your best match at ${bestMatch.matchPercent}%! ${bestMatch.project.description}`
+        : 'Check out these projects to get started!';
+
+      const projectMsg: ChatMessage = {
+        id: `projects-${Date.now()}`,
+        role: 'assistant',
+        content: `Great choice! Here are some featured projects that match your components:`,
+        projectCards: { matches, bestMatchIntro },
+      };
+      setMessages(prev => [...prev, projectMsg]);
+    } else {
+      // Exploring: start AI chat guided flow
+      const detected = state?.detected || [];
+      const componentNames = detected.map(d => d.className).join(', ');
+
+      const greetingId = `exploring-greeting-${Date.now()}`;
+      const exploringGreeting: ChatMessage = {
+        id: greetingId,
+        role: 'assistant',
+        content: `Awesome! Let's explore what you can create with **${componentNames}**. Tell me — is there a feeling, theme, or idea you'd like to express through a project? For example, something calming, playful, or interactive?`,
+      };
+      setMessages(prev => [...prev, exploringGreeting]);
+
+      if (isAIServiceConfigured()) {
+        setIsLoading(true);
+        const circuitState: CircuitState = {
+          placedComponents: detected.map((d, i) => ({
+            instanceId: `detected-${i}`,
+            definitionId: d.className,
+            x: 0,
+            y: 0,
+          })),
+          wires: [],
+          isSimulating: false,
+        };
+
+        try {
+          const exploringPrompt = `The user has these components: ${componentNames}. They chose "Exploring" mode — they want to brainstorm and discover creative project ideas. Start by asking them about what feelings, themes or ideas they'd like to explore. Be conversational and encouraging. Keep it brief.`;
+          const response = await sendMessage(exploringPrompt, [], circuitState);
+          const parsed = parseAIResponse(response.content);
+          setMessages(prev => [
+            ...prev.filter(m => m.id !== greetingId),
+            {
+              id: `assistant-explore-${Date.now()}`,
+              role: 'assistant',
+              content: parsed.content,
+            },
+          ]);
+        } catch {
+          // Keep the static greeting if AI fails
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    }
+  };
+
   return (
     <div className="home-page">
       <div className="home-shell">
@@ -312,18 +420,93 @@ export function AIChatPage() {
                     </div>
                   )}
                   <div className="scan-chat-bubble">
-                    {msg.scanData && (
-                      <ScanResults
-                        screenshot={msg.scanData.screenshot}
-                        detected={msg.scanData.detected}
-                        onProjectClick={handleProjectClick}
-                      />
+                    {/* Component tags (no screenshot) */}
+                    {msg.componentTags && (
+                      <div className="scan-tags-only">
+                        <div className="scan-results-section-title">
+                          <Package size={16} />
+                          Components Found ({msg.componentTags.length})
+                        </div>
+                        <div className="scan-results-tags">
+                          {msg.componentTags.map(d => (
+                            <span key={d.className} className={`scanner-tag ${getChipClass(d.className)}`}>
+                              {d.className}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
                     )}
+
+                    {/* Text content */}
                     {msg.content && (
                       <div className="scan-chat-text">
                         {parseMarkdown(
                           msg.role === 'assistant' ? stripComponentRefs(msg.content) : msg.content
                         )}
+                      </div>
+                    )}
+
+                    {/* Choice question */}
+                    {msg.choiceQuestion && !choiceMade && (
+                      <div className="goal-choice-container">
+                        {msg.choiceQuestion.options.map(opt => (
+                          <button
+                            key={opt.id}
+                            className={`goal-choice-btn goal-choice-btn--${opt.icon}`}
+                            onClick={() => handleGoalChoice(opt.id)}
+                            type="button"
+                          >
+                            <div className="goal-choice-icon">
+                              {opt.icon === 'learning' ? <BookOpen size={24} /> : <Compass size={24} />}
+                            </div>
+                            <div className="goal-choice-label">{opt.label}</div>
+                            <div className="goal-choice-desc">{opt.description}</div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Featured project cards */}
+                    {msg.projectCards && (
+                      <div className="featured-projects-section">
+                        <div className="featured-projects-grid">
+                          {msg.projectCards.matches.map(m => {
+                            const isComingSoon = m.project.steps.length === 0;
+                            const isBestMatch = m === msg.projectCards!.matches[0];
+                            return (
+                              <button
+                                key={m.project.id}
+                                className={`featured-project-card ${isComingSoon ? 'coming-soon' : ''} ${isBestMatch ? 'best-match' : ''}`}
+                                onClick={() => !isComingSoon && handleProjectClick(m.project.id)}
+                                disabled={isComingSoon}
+                                type="button"
+                              >
+                                {isBestMatch && <div className="best-match-badge">Best Match</div>}
+                                <div className={`featured-project-icon ${getDifficultyColor(m.project.difficulty)}`}>
+                                  <Cpu size={20} />
+                                </div>
+                                <h4 className="featured-project-title">{m.project.title}</h4>
+                                <p className="featured-project-desc">{m.project.description}</p>
+                                <div className="featured-project-match">
+                                  <div className="match-bar">
+                                    <div className="match-bar-fill" style={{ width: `${m.matchPercent}%` }} />
+                                  </div>
+                                  <span className="match-percent">{m.matchPercent}% match</span>
+                                </div>
+                                {!isComingSoon && (
+                                  <div className="featured-project-action">
+                                    <span>Start</span>
+                                    <ChevronRight size={14} />
+                                  </div>
+                                )}
+                                {isComingSoon && <span className="featured-project-soon">Coming Soon</span>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <div className="featured-projects-intro">
+                          {parseMarkdown(msg.projectCards.bestMatchIntro)}
+                        </div>
                       </div>
                     )}
                   </div>

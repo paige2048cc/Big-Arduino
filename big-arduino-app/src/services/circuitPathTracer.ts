@@ -19,6 +19,15 @@ export interface CircuitAnimationPath {
   wireIds: string[];
   breadboardHighlights: BreadboardHighlight[];
   isComplete: boolean;
+  breakReason?: 'button-unpressed' | 'open-circuit' | null;
+  breakButtonId?: string;
+  breakPosition?: { x: number; y: number };
+}
+
+export interface ConnectedCircuitElements {
+  wireIds: Set<string>;
+  bbHighlightsByNet: Map<string, BreadboardHighlight>;
+  componentIds: Set<string>;
 }
 
 // ---------------------------------------------------------------------------
@@ -163,6 +172,10 @@ interface TraceResult {
   wireIds: string[];
   highlights: BreadboardHighlight[];
   isComplete: boolean;
+  unpressedButtonEntry?: {
+    buttonId: string;
+    position: { x: number; y: number };
+  };
 }
 
 const EMPTY: TraceResult = {
@@ -204,6 +217,14 @@ function traceFrom(
   }
 
   // ── Internal connections (resistors, LEDs, buttons) ──────────────────────
+  const isButtonComp =
+    compType.toLowerCase().includes('pushbutton') ||
+    compType.toLowerCase().includes('button');
+  const isButtonPressed =
+    isButtonComp && compId && buttonStates
+      ? (buttonStates.get(compId) ?? false)
+      : false;
+
   for (const internalPinId of getInternalConnections(compType, pinId, compId, buttonStates)) {
     const sub = traceFrom(compId, internalPinId, components, definitions, wires, visited, buttonStates);
     // Only accept sub-paths that make real progress (reach GND or include actual wires).
@@ -212,7 +233,17 @@ function traceFrom(
     // (e.g. when a pressed button's same-side sibling pin maps to an empty row while
     // the cross-side pin is in the row containing the next component in the circuit).
     if (sub.isComplete || sub.wireIds.length > 0) {
-      return { ...sub, waypoints: [...myWaypoints, ...sub.waypoints] };
+      const result: TraceResult = {
+        ...sub,
+        waypoints: [...myWaypoints, ...sub.waypoints],
+      };
+      // Closest-to-power unpressed button overwrites deeper ones
+      if (isButtonComp && !isButtonPressed && pos) {
+        result.unpressedButtonEntry = { buttonId: compId, position: pos };
+      } else if (sub.unpressedButtonEntry) {
+        result.unpressedButtonEntry = sub.unpressedButtonEntry;
+      }
+      return result;
     }
   }
 
@@ -254,6 +285,7 @@ function traceFrom(
           wireIds: [wire.id, ...sub.wireIds],
           highlights: [highlight, ...sub.highlights],
           isComplete: sub.isComplete,
+          unpressedButtonEntry: sub.unpressedButtonEntry,
         };
       }
 
@@ -281,6 +313,7 @@ function traceFrom(
               wireIds: sub.wireIds,
               highlights: [highlight, ...sub.highlights],
               isComplete: sub.isComplete,
+              unpressedButtonEntry: sub.unpressedButtonEntry,
             };
           }
         }
@@ -319,6 +352,7 @@ function traceFrom(
       wireIds: [wire.id, ...sub.wireIds],
       highlights: sub.highlights,
       isComplete: sub.isComplete,
+      unpressedButtonEntry: sub.unpressedButtonEntry,
     };
   }
 
@@ -336,7 +370,11 @@ function traceFrom(
         buttonStates
       );
       if (sub.wireIds.length > 0 || sub.highlights.length > 0 || sub.isComplete) {
-        return { ...sub, waypoints: [...myWaypoints, ...sub.waypoints] };
+        return {
+          ...sub,
+          waypoints: [...myWaypoints, ...sub.waypoints],
+          unpressedButtonEntry: sub.unpressedButtonEntry,
+        };
       }
     }
   }
@@ -382,6 +420,11 @@ export function findAllPowerPins(
  * Traces the visual current-flow path starting from a power pin, returning
  * ordered scene-coordinate waypoints, wire IDs to highlight, breadboard
  * row/rail highlight rectangles, and whether the path reaches GND.
+ *
+ * When the path is incomplete, `breakReason` indicates why:
+ * - `'button-unpressed'`: an unpressed button is blocking the path
+ * - `'open-circuit'`: the path is open for other reasons
+ * `breakPosition` is the scene coordinate where the ball should stop.
  */
 export function tracePowerPath(
   powerComponentId: string,
@@ -402,10 +445,151 @@ export function tracePowerPath(
     buttonStates
   );
 
-  return {
+  const base: CircuitAnimationPath = {
     waypoints: result.waypoints,
     wireIds: [...new Set(result.wireIds)],
     breadboardHighlights: result.highlights,
     isComplete: result.isComplete,
+  };
+
+  if (result.isComplete) {
+    base.breakReason = null;
+    return base;
+  }
+
+  if (result.unpressedButtonEntry) {
+    base.breakReason = 'button-unpressed';
+    base.breakButtonId = result.unpressedButtonEntry.buttonId;
+    base.breakPosition = result.unpressedButtonEntry.position;
+  } else {
+    base.breakReason = 'open-circuit';
+    base.breakPosition =
+      result.waypoints.length > 0
+        ? result.waypoints[result.waypoints.length - 1]
+        : undefined;
+  }
+
+  return base;
+}
+
+// ---------------------------------------------------------------------------
+// Flood-fill tracer (for static highlights — explores ALL branches)
+// ---------------------------------------------------------------------------
+
+function floodFillFrom(
+  compId: string,
+  pinId: string,
+  components: PlacedComponent[],
+  definitions: Map<string, ComponentDefinition>,
+  wires: Wire[],
+  visited: Set<string>,
+  out: { wireIds: Set<string>; bbNets: Map<string, BreadboardHighlight>; componentIds: Set<string> },
+  buttonStates?: Map<string, boolean>
+): void {
+  const key = `${compId}:${pinId}`;
+  if (visited.has(key)) return;
+  visited.add(key);
+
+  const comp = components.find(c => c.instanceId === compId);
+  if (!comp) return;
+  const def = definitions.get(compId);
+  if (!def) return;
+  const pin = def.pins.find(p => p.id === pinId);
+  const compType = def.id;
+
+  out.componentIds.add(compId);
+
+  // ── Internal connections (bidirectional for flood-fill) ───────────────────
+  const internalPins = getInternalConnections(compType, pinId, compId, buttonStates);
+  // LED: also allow CATHODE→ANODE for flood-fill (traceFrom only allows ANODE→CATHODE)
+  if (compType.toLowerCase().includes('led') && pinId === 'CATHODE' && !internalPins.includes('ANODE')) {
+    internalPins.push('ANODE');
+  }
+  for (const ip of internalPins) {
+    floodFillFrom(compId, ip, components, definitions, wires, visited, out, buttonStates);
+  }
+
+  // ── Breadboard net group ──────────────────────────────────────────────────
+  if (pin?.net) {
+    const netKey = `${compId}:${pin.net}`;
+    if (!out.bbNets.has(netKey)) {
+      out.bbNets.set(netKey, computeNetHighlight(comp, def, pin.net));
+    }
+
+    const netPins = def.pins.filter(p => p.net === pin.net && p.id !== pinId);
+    for (const netPin of netPins) {
+      const nk = `${compId}:${netPin.id}`;
+      if (visited.has(nk)) continue;
+      visited.add(nk);
+
+      // Wires at this net-sibling pin
+      for (const wire of findWiresAtPin(compId, netPin.id, wires)) {
+        out.wireIds.add(wire.id);
+        const otherEnd = getOtherEnd(wire, compId, netPin.id);
+        floodFillFrom(otherEnd.componentId, otherEnd.pinId, components, definitions, wires, visited, out, buttonStates);
+      }
+
+      // Inserted components at this net-sibling pin
+      for (const insertedComp of components) {
+        if (insertedComp.parentBreadboardId !== compId) continue;
+        if (!insertedComp.insertedPins) continue;
+        for (const [compPinId, bbPinId] of Object.entries(insertedComp.insertedPins)) {
+          if (bbPinId !== netPin.id) continue;
+          floodFillFrom(insertedComp.instanceId, compPinId, components, definitions, wires, visited, out, buttonStates);
+        }
+      }
+    }
+  }
+
+  // ── Follow wires ──────────────────────────────────────────────────────────
+  for (const wire of findWiresAtPin(compId, pinId, wires)) {
+    out.wireIds.add(wire.id);
+    const otherEnd = getOtherEnd(wire, compId, pinId);
+    floodFillFrom(otherEnd.componentId, otherEnd.pinId, components, definitions, wires, visited, out, buttonStates);
+  }
+
+  // ── Component inserted into breadboard ────────────────────────────────────
+  if (comp.parentBreadboardId && comp.insertedPins) {
+    const bbPinId = comp.insertedPins[pinId];
+    if (bbPinId) {
+      floodFillFrom(comp.parentBreadboardId, bbPinId, components, definitions, wires, visited, out, buttonStates);
+    }
+  }
+}
+
+/**
+ * Traces ALL connected elements reachable from any power pin (flood-fill).
+ * Returns sets of wire IDs, breadboard net highlights, and component IDs
+ * for use in static (design-mode) highlighting.
+ */
+export function traceAllConnected(
+  components: PlacedComponent[],
+  definitions: Map<string, ComponentDefinition>,
+  wires: Wire[],
+  buttonStates?: Map<string, boolean>
+): ConnectedCircuitElements {
+  const visited = new Set<string>();
+  const out = {
+    wireIds: new Set<string>(),
+    bbNets: new Map<string, BreadboardHighlight>(),
+    componentIds: new Set<string>(),
+  };
+
+  const powerPins = findAllPowerPins(components, definitions);
+  for (const pp of powerPins) {
+    const hasConnection =
+      wires.some(
+        w =>
+          (w.startComponentId === pp.componentId && w.startPinId === pp.pinId) ||
+          (w.endComponentId === pp.componentId && w.endPinId === pp.pinId)
+      );
+    if (!hasConnection) continue;
+    floodFillFrom(pp.componentId, pp.pinId, components, definitions, wires, visited, out, buttonStates);
+  }
+
+  return {
+    wireIds: out.wireIds,
+    bbHighlightsByNet: out.bbNets,
+    componentIds: out.componentIds,
   };
 }

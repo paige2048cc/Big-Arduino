@@ -2,11 +2,17 @@
  * CircuitAnimation
  *
  * SVG overlay that renders the power-flow animation:
- *   • Yellow glowing ball travelling from the power source along the circuit path
- *   • Yellow wire highlights and breadboard row/rail highlight rectangles
+ *   - Yellow glowing ball travelling from the power source along the circuit path
+ *   - Yellow wire highlight paths
  *
- * Design mode  (isLooping=false): ball plays once, highlights stay 1 s then fade, onDone fires.
- * Simulation   (isLooping=true) : ball loops continuously, highlights stay constant.
+ * Breadboard row/rail highlights are rendered as Fabric.js objects in
+ * CircuitCanvas for correct z-ordering (above breadboard, below components).
+ *
+ * Modes:
+ *   hideBall=true              : wire highlights only (design mode)
+ *   parkPosition set           : ball parked at a fixed position (button-blocked)
+ *   persistOnComplete=true     : one-shot ball stays visible at end (simulation)
+ *   persistOnComplete=false    : one-shot ball fades out then fires onDone (legacy)
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -15,18 +21,21 @@ import './CircuitAnimation.css';
 
 interface CircuitAnimationProps {
   path: CircuitAnimationPath;
-  /** Ref to the Fabric.js viewportTransform array – updated by pan/zoom handlers */
   viewportTransformRef: React.MutableRefObject<number[]>;
   isLooping: boolean;
-  /** wireId → SVG path string (scene coordinates) built during wire rendering */
   wirePathStrings: Record<string, string>;
-  /** Called after a one-shot animation fully completes (including the fade-out) */
   onDone: () => void;
+  /** Don't render or animate the ball (design-mode static highlights) */
+  hideBall?: boolean;
+  /** Fixed scene-coordinate position to park the ball (overrides path animation) */
+  parkPosition?: { x: number; y: number } | null;
+  /** When true, one-shot ball stays visible at the end instead of fading */
+  persistOnComplete?: boolean;
 }
 
-const BALL_SPEED = 500; // scene-units per second (increased from 180 for faster animation)
-const HOLD_MS    = 1000; // ms to hold highlights after ball finishes (design mode)
-const FADE_MS    = 800;  // ms for fade-out transition
+const BALL_SPEED = 500;
+const HOLD_MS    = 1000;
+const FADE_MS    = 800;
 
 export function CircuitAnimation({
   path,
@@ -34,19 +43,19 @@ export function CircuitAnimation({
   isLooping,
   wirePathStrings,
   onDone,
+  hideBall = false,
+  parkPosition = null,
+  persistOnComplete = false,
 }: CircuitAnimationProps) {
   const groupRef = useRef<SVGGElement>(null);
   const ballRef  = useRef<SVGCircleElement>(null);
 
-  /** 0→1; fades to 0 at end of one-shot animation */
   const [highlightOpacity, setHighlightOpacity] = useState(1);
 
-  // Precomputed cumulative segment lengths for fast interpolation
   const cumLengthsRef  = useRef<number[]>([]);
   const totalLengthRef = useRef(0);
 
-  // rAF state (stored in refs to survive re-renders without resetting the loop)
-  const progressRef    = useRef(0);   // scene-units elapsed
+  const progressRef    = useRef(0);
   const startTimeRef   = useRef<number | null>(null);
   const ballDoneRef    = useRef(false);
   const rafIdRef       = useRef<number | null>(null);
@@ -55,10 +64,9 @@ export function CircuitAnimation({
 
   // ── Recompute path geometry when the path prop changes ────────────────────
   useEffect(() => {
-    const { waypoints } = path;
-    // Filter out any invalid waypoints to prevent errors
-    const validWaypoints = waypoints.filter(
-      (wp): wp is { x: number; y: number } => wp != null && typeof wp.x === 'number' && typeof wp.y === 'number'
+    const validWaypoints = path.waypoints.filter(
+      (wp): wp is { x: number; y: number } =>
+        wp != null && typeof wp.x === 'number' && typeof wp.y === 'number'
     );
     const cumLengths: number[] = [0];
     let total = 0;
@@ -78,12 +86,12 @@ export function CircuitAnimation({
 
   // ── rAF animation loop ────────────────────────────────────────────────────
   useEffect(() => {
-    const { waypoints: rawWaypoints } = path;
-    // Filter out any invalid waypoints
-    const waypoints = rawWaypoints.filter(
-      (wp): wp is { x: number; y: number } => wp != null && typeof wp.x === 'number' && typeof wp.y === 'number'
+    const waypoints = path.waypoints.filter(
+      (wp): wp is { x: number; y: number } =>
+        wp != null && typeof wp.x === 'number' && typeof wp.y === 'number'
     );
-    if (waypoints.length < 2) return;
+
+    const needsAnimation = !hideBall && !parkPosition && waypoints.length >= 2;
 
     function interpolate(progress: number): { x: number; y: number } {
       const cumLengths = cumLengthsRef.current;
@@ -91,14 +99,11 @@ export function CircuitAnimation({
       if (total === 0) return waypoints[0] ?? { x: 0, y: 0 };
 
       const p = Math.max(0, Math.min(progress, total));
-
-      // Binary search for segment
       let lo = 0, hi = cumLengths.length - 2;
       while (lo < hi) {
         const mid = (lo + hi + 1) >> 1;
         if (cumLengths[mid] <= p) lo = mid; else hi = mid - 1;
       }
-
       const segLen = cumLengths[lo + 1] - cumLengths[lo];
       if (segLen === 0) return waypoints[lo] ?? { x: 0, y: 0 };
       const t = (p - cumLengths[lo]) / segLen;
@@ -119,10 +124,9 @@ export function CircuitAnimation({
     }
 
     function tick(timestamp: number) {
-      // Always keep the SVG transform in sync with pan/zoom
       applyTransform();
 
-      if (!ballDoneRef.current) {
+      if (needsAnimation && !ballDoneRef.current) {
         if (startTimeRef.current === null) startTimeRef.current = timestamp;
         const elapsed = (timestamp - startTimeRef.current) / 1000;
         progressRef.current = elapsed * BALL_SPEED;
@@ -130,7 +134,6 @@ export function CircuitAnimation({
         const total = totalLengthRef.current;
 
         if (!isLooping && progressRef.current >= total) {
-          // One-shot complete: freeze ball at end
           progressRef.current = total;
           ballDoneRef.current = true;
 
@@ -140,17 +143,19 @@ export function CircuitAnimation({
             ballRef.current.setAttribute('cy', String(endPos.y));
           }
 
-          // Hold 1 s then fade out, then notify parent
-          holdTimerRef.current = setTimeout(() => {
-            setHighlightOpacity(0);
-            fadeTimerRef.current = setTimeout(() => onDone(), FADE_MS);
-          }, HOLD_MS);
+          if (persistOnComplete) {
+            // Ball stays at the end position — no fade, no onDone
+          } else {
+            holdTimerRef.current = setTimeout(() => {
+              setHighlightOpacity(0);
+              fadeTimerRef.current = setTimeout(() => onDone(), FADE_MS);
+            }, HOLD_MS);
+          }
         } else {
           if (isLooping && progressRef.current >= total) {
             startTimeRef.current = timestamp;
             progressRef.current  = 0;
           }
-
           const pos = interpolate(progressRef.current);
           if (ballRef.current) {
             ballRef.current.setAttribute('cx', String(pos.x));
@@ -169,18 +174,16 @@ export function CircuitAnimation({
       if (holdTimerRef.current !== null) clearTimeout(holdTimerRef.current);
       if (fadeTimerRef.current !== null) clearTimeout(fadeTimerRef.current);
     };
-  // path identity change resets the whole loop via the geometry effect above;
-  // isLooping change is safe because the loop reads ballDoneRef each frame
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [path, isLooping, viewportTransformRef, onDone]);
+  }, [path, isLooping, viewportTransformRef, onDone, hideBall, parkPosition, persistOnComplete]);
 
   // ── Render ────────────────────────────────────────────────────────────────
-  const { wireIds, breadboardHighlights, waypoints } = path;
+  const { wireIds } = path;
 
-  // Initial transform (rAF will update every frame)
   const vpt0 = viewportTransformRef.current ?? [1, 0, 0, 1, 0, 0];
   const initialTransform = `matrix(${vpt0[0]},0,0,${vpt0[3]},${vpt0[4]},${vpt0[5]})`;
-  const initialPos = waypoints[0] ?? { x: 0, y: 0 };
+
+  const ballPos = parkPosition ?? path.waypoints[0] ?? { x: 0, y: 0 };
 
   return (
     <svg
@@ -201,9 +204,7 @@ export function CircuitAnimation({
         </radialGradient>
       </defs>
 
-      {/* Everything in here is in scene coordinates; the matrix maps to screen */}
       <g ref={groupRef} transform={initialTransform}>
-
         {/* Wire highlights */}
         {wireIds.map(id =>
           wirePathStrings[id] ? (
@@ -220,29 +221,16 @@ export function CircuitAnimation({
           ) : null
         )}
 
-        {/* Breadboard row / rail highlights */}
-        {breadboardHighlights.map((h, i) => (
-          <rect
-            key={i}
-            className="circuit-anim-highlight"
-            x={h.x}
-            y={h.y}
-            width={h.width}
-            height={h.height}
-            fill="#FFD700"
-            rx={4}
-            style={{ opacity: highlightOpacity * 0.4 }}
+        {/* Animated / parked ball (hidden in design mode) */}
+        {!hideBall && (
+          <circle
+            ref={ballRef}
+            cx={ballPos.x}
+            cy={ballPos.y}
+            r={14}
+            fill="url(#circuit-ball-glow)"
           />
-        ))}
-
-        {/* Animated ball */}
-        <circle
-          ref={ballRef}
-          cx={initialPos.x}
-          cy={initialPos.y}
-          r={14}
-          fill="url(#circuit-ball-glow)"
-        />
+        )}
       </g>
     </svg>
   );

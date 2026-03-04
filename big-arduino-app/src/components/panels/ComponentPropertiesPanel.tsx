@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
-import { useCircuitStore, useSelectedComponent, useActiveOnboarding } from '../../store/circuitStore';
+import { useCircuitStore, useSelectedComponent, useActiveOnboardings } from '../../store/circuitStore';
 import { hasOnboardingImage } from '../canvas/ComponentOnboarding';
 import type { ComponentDefinition } from '../../types/components';
 import './ComponentPropertiesPanel.css';
@@ -24,7 +24,7 @@ export function ComponentPropertiesPanel({ onClose }: ComponentPropertiesPanelPr
     triggerOnboardingForComponent,
     hideOnboarding,
   } = useCircuitStore();
-  const activeOnboarding = useActiveOnboarding();
+  const activeOnboardings = useActiveOnboardings();
 
   const [definition, setDefinition] = useState<ComponentDefinition | null>(null);
 
@@ -47,11 +47,11 @@ export function ComponentPropertiesPanel({ onClose }: ComponentPropertiesPanelPr
     updateComponentProperty(selectedComponent.instanceId, key, value);
   };
 
-  const isOnboardingActive = activeOnboarding?.instanceId === selectedComponent.instanceId;
+  const isOnboardingActive = activeOnboardings.has(selectedComponent.instanceId);
 
   const handleHelpToggle = () => {
     if (isOnboardingActive) {
-      hideOnboarding();
+      hideOnboarding(selectedComponent.instanceId);
     } else {
       triggerOnboardingForComponent(selectedComponent.instanceId);
     }
