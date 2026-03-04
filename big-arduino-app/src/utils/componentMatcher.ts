@@ -17,11 +17,17 @@ const TM_TO_PROJECT_NAME: Record<string, string[]> = {
   'LED':                              ['LED', 'RGB LED'],
   'Button':                           ['Push Button'],
   'Buzzer':                           ['Buzzer'],
+  'Passive Buzzer':                   ['Passive Buzzer', 'Buzzer'],
   '4 Digit 7 Segment LED Display':    ['7-Segment Display', '4 Digit 7 Segment LED Display'],
   'Joystick Module':                  ['Joystick', 'Joystick Module'],
   'Ultrasonic Distance Sensor':       ['Ultrasonic Distance Sensor', 'Ultrasonic Sensor'],
   'Vibration Motor':                  ['Vibration Motor'],
   'Hall sensor':                      ['Hall Sensor', 'Hall sensor'],
+  'Sound Sensor Module':              ['Sound Sensor Module', 'Sound Sensor'],
+  '220 Resistor':                     ['220 Resistor', 'Resistor'],
+  '10K Resistor':                     ['10K Resistor', 'Resistor'],
+  'UNO R3':                           ['UNO R3', 'Arduino UNO', 'Arduino Uno R3'],
+  'Membrane Switch Module':           ['Membrane Switch Module', 'Keypad'],
 };
 
 function normalise(name: string): string {
@@ -69,11 +75,12 @@ export function getChipClass(className: string): string {
   const key = normalise(className);
   if (key.includes('led')) return 'chip--led';
   if (key.includes('breadboard')) return 'chip--breadboard';
-  if (key.includes('button')) return 'chip--button';
+  if (key.includes('button') || key.includes('membrane') || key.includes('keypad')) return 'chip--button';
   if (key.includes('buzzer')) return 'chip--buzzer';
   if (key.includes('joystick')) return 'chip--joystick';
-  if (key.includes('sensor') || key.includes('ultrasonic')) return 'chip--sensor';
+  if (key.includes('sensor') || key.includes('ultrasonic') || key.includes('sound') || key.includes('hall')) return 'chip--sensor';
   if (key.includes('motor') || key.includes('vibration')) return 'chip--motor';
-  if (key.includes('hall')) return 'chip--sensor';
+  if (key.includes('resistor')) return 'chip--resistor';
+  if (key.includes('uno') || key.includes('arduino')) return 'chip--arduino';
   return 'chip--default';
 }

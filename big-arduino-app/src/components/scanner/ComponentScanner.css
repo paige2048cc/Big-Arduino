@@ -335,6 +335,18 @@
   border: 1px solid rgba(236, 72, 153, 0.25);
 }
 
+.chip--resistor {
+  background-color: rgba(234, 179, 8, 0.12);
+  color: #a16207;
+  border: 1px solid rgba(234, 179, 8, 0.25);
+}
+
+.chip--arduino {
+  background-color: rgba(0, 178, 150, 0.12);
+  color: #007c6b;
+  border: 1px solid rgba(0, 178, 150, 0.25);
+}
+
 .chip--default {
   background-color: rgba(156, 163, 175, 0.12);
   color: #6b7280;

@@ -211,11 +211,36 @@ export function AIChatPage() {
     }
   };
 
-  // Detect if an assistant message contains wiring/connection instructions
+  // Strip [[add:xxx]] / [[ref:xxx]] markers from AI message text (no canvas in chat page)
+  const stripComponentRefs = (content: string): string =>
+    content.replace(/\[\[(add|ref):[^\]]+\]\]\s*/g, '');
+
+  // Detect if an assistant message contains project-start / wiring instructions
   const isConnectionMessage = (content: string): boolean => {
     const lower = content.toLowerCase();
-    const keywords = ['connect', 'wire', 'gnd', '5v', 'resistor', 'pin', 'breadboard', 'step 1', 'step 2', 'step1', 'step2'];
-    return keywords.filter(kw => lower.includes(kw)).length >= 2;
+
+    // Strong single-phrase triggers → immediately show button
+    const strongTriggers = [
+      // Chinese
+      '开始搭建', '开始构建', '开始组装', '开始接线', '开始连接',
+      '让我们开始', '我们开始搭', '首先需要放置', '首先放置',
+      '开始这个项目', '开始项目',
+      // English
+      'start building', "let's start", "let's build", 'begin building',
+      'begin wiring', "let's get started", 'start with the',
+    ];
+    if (strongTriggers.some(kw => lower.includes(kw.toLowerCase()))) return true;
+
+    // Multi-keyword detection: need ≥ 2 wiring-related terms
+    const keywords = [
+      // English
+      'connect', 'wire', 'gnd', '5v', 'resistor', 'pin', 'breadboard',
+      'step 1', 'step 2', 'step1', 'step2',
+      // Chinese
+      '连接', '接线', '面包板', '电阻', '引脚', '步骤',
+      '放置组件', '插入', '第一步', '第二步',
+    ];
+    return keywords.filter(kw => lower.includes(kw) || content.includes(kw)).length >= 2;
   };
 
   // Find the last qualifying assistant message ID for the Start Project button
@@ -294,7 +319,13 @@ export function AIChatPage() {
                         onProjectClick={handleProjectClick}
                       />
                     )}
-                    {msg.content && <div className="scan-chat-text">{parseMarkdown(msg.content)}</div>}
+                    {msg.content && (
+                      <div className="scan-chat-text">
+                        {parseMarkdown(
+                          msg.role === 'assistant' ? stripComponentRefs(msg.content) : msg.content
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
                 {msg.id === startProjectMsgId && (

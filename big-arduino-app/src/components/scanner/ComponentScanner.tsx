@@ -9,7 +9,7 @@ import * as tmImage from '@teachablemachine/image';
 
 const MODEL_URL = `${import.meta.env.BASE_URL}tm-model/`;
 const CONFIDENCE_THRESHOLD = 0.9;
-const SUSTAINED_DURATION_MS = 2000;
+const SUSTAINED_DURATION_MS = 1000;
 
 interface ComponentScannerProps {
   open: boolean;
