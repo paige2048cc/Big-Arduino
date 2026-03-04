@@ -291,34 +291,21 @@ export function AIDebuggingOverlay({
     return () => clearRetractTimer();
   }, [clearRetractTimer]);
 
-  // ── Animation event handlers ──────────────────────────────────────────────
-  const handleAnimationEnd = useCallback((e: React.AnimationEvent) => {
-    const name = e.animationName;
-
-    if (name === 'debug-jump-out') {
-      setAnimState('hovering');
-    } else if (name === 'debug-spin-once') {
-      setAnimState('thinking');
-      setSpeechBubbleText('Let me think...');
-      runDebuggingAnalysis();
-    } else if (name === 'debug-retract') {
-      setAnimState('idle');
-      setSpeechBubbleText(null);
-      hoverTriggeredRef.current = false;
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // ── Debugging analysis ────────────────────────────────────────────────────
+  // ── Debugging analysis (defined before handleAnimationEnd to avoid stale closure) ──
   const runDebuggingAnalysis = useCallback(async () => {
+    // Read fresh data from store to avoid stale closure issues
+    const storeState = useCircuitStore.getState();
+    const freshPlacedComponents = storeState.placedComponents;
+    const freshWires = storeState.wires;
+    const componentDefinitions = storeState.componentDefinitions;
+
     console.log('[AIDebuggingOverlay DEBUG] runDebuggingAnalysis called');
-    console.log('[AIDebuggingOverlay DEBUG] placedComponents from props:', placedComponents);
-    console.log('[AIDebuggingOverlay DEBUG] placedComponents.length:', placedComponents.length);
-    console.log('[AIDebuggingOverlay DEBUG] wires.length:', wires.length);
+    console.log('[AIDebuggingOverlay DEBUG] Fresh placedComponents.length:', freshPlacedComponents.length);
+    console.log('[AIDebuggingOverlay DEBUG] Fresh wires.length:', freshWires.length);
 
     const circuitState: CircuitState = {
-      placedComponents: placedComponents.map((c) => {
-        const def = useCircuitStore.getState().componentDefinitions.get(c.instanceId);
+      placedComponents: freshPlacedComponents.map((c) => {
+        const def = componentDefinitions.get(c.instanceId);
         return {
           instanceId: c.instanceId,
           definitionId: c.definitionId,
@@ -330,7 +317,7 @@ export function AIDebuggingOverlay({
           internalConnections: def?.internalConnections,
         };
       }),
-      wires: wires.map((w) => ({
+      wires: freshWires.map((w) => ({
         id: w.id,
         startComponentId: w.startComponentId,
         startPinId: w.startPinId,
@@ -354,8 +341,8 @@ export function AIDebuggingOverlay({
           description: project.description,
           goal: project.goal,
           learningObjectives: project.learningObjectives ?? [],
-          currentStepIndex: useCircuitStore.getState().currentInstructionStep,
-          totalSteps: useCircuitStore.getState().totalInstructionSteps,
+          currentStepIndex: storeState.currentInstructionStep,
+          totalSteps: storeState.totalInstructionSteps,
         }
       : undefined;
 
@@ -388,8 +375,24 @@ export function AIDebuggingOverlay({
       setAnimState('retracting');
       setSpeechBubbleText(null);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [placedComponents, wires, breadboardPins, isSimulating, simulationErrors, project, onAddChatMessage, onSetHighlights]);
+  }, [breadboardPins, isSimulating, simulationErrors, project, onAddChatMessage, onSetHighlights]);
+
+  // ── Animation event handlers ──────────────────────────────────────────────
+  const handleAnimationEnd = useCallback((e: React.AnimationEvent) => {
+    const name = e.animationName;
+
+    if (name === 'debug-jump-out') {
+      setAnimState('hovering');
+    } else if (name === 'debug-spin-once') {
+      setAnimState('thinking');
+      setSpeechBubbleText('Let me think...');
+      runDebuggingAnalysis();
+    } else if (name === 'debug-retract') {
+      setAnimState('idle');
+      setSpeechBubbleText(null);
+      hoverTriggeredRef.current = false;
+    }
+  }, [runDebuggingAnalysis]);
 
   // ── Button click ──────────────────────────────────────────────────────────
   const handleButtonClick = useCallback(() => {
