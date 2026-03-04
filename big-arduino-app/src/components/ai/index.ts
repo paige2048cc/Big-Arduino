@@ -15,3 +15,6 @@ export type { AIDebuggingOverlayProps } from './AIDebuggingOverlay';
 
 export { OvercrowdedPinWarning } from './OvercrowdedPinWarning';
 export type { OvercrowdedPinWarningProps } from './OvercrowdedPinWarning';
+
+export { SimulationWireWarning } from './SimulationWireWarning';
+export type { SimulationWireWarningProps } from './SimulationWireWarning';

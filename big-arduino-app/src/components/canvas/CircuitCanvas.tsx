@@ -331,6 +331,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     hideOnboarding,
     hasShownOnboarding,
     setCanvasViewportTransform,
+    incrementWireAttemptsDuringSimulation,
   } = useCircuitStore();
 
   const hoveredPin = useHoveredPin();
@@ -1284,6 +1285,11 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       }
     }
 
+    // Track wire attempt during simulation (for yellow character warning)
+    if (hoveredPin && !selectedWireId && isSimulating && !wireDrawing.isDrawing) {
+      incrementWireAttemptsDuringSimulation();
+    }
+
     // Handle click on empty canvas during wire drawing - add bend point (disabled during simulation)
     if (wireDrawing.isDrawing && mouseEvent.button === 0 && !isSimulating) {
       // Get the last anchor point (either start or last bend point)
@@ -1427,7 +1433,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
         }
       }
     }
-  }, [hoveredPin, wireDrawing.isDrawing, wireDrawing.bendPoints, wireDrawing.startX, wireDrawing.startY, startWireDrawing, addWireBendPoint, completeWireDrawing, isSimulating, getComponentDefinition, updateComponentImage, setButtonState, selectWire, selectedWireId, wires, addPendingReference]);
+  }, [hoveredPin, wireDrawing.isDrawing, wireDrawing.bendPoints, wireDrawing.startX, wireDrawing.startY, startWireDrawing, addWireBendPoint, completeWireDrawing, isSimulating, getComponentDefinition, updateComponentImage, setButtonState, selectWire, selectedWireId, wires, addPendingReference, incrementWireAttemptsDuringSimulation]);
 
   // Handle mouse up for button release and panning stop
   const handleMouseUpEvent = useCallback((canvas?: fabric.Canvas, mouseEvent?: MouseEvent) => {

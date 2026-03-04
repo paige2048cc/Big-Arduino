@@ -13,7 +13,7 @@ import { sendMessage, isAIServiceConfigured, getFallbackResponse, parseAIRespons
 // Character positioning is available for future debugging hints feature
 // import { calculateCharacterPosition } from '../services/characterPositioning';
 import { OnboardingOverlay } from '../components/onboarding';
-import { AIDebuggingOverlay, OvercrowdedPinWarning } from '../components/ai';
+import { AIDebuggingOverlay, OvercrowdedPinWarning, SimulationWireWarning } from '../components/ai';
 import { useOnboardingStore } from '../store/onboardingStore';
 
 // Default panel configurations for the docking system
@@ -63,6 +63,7 @@ export function ProjectPage() {
     toggleSimulation,
     placedComponents,
     setHighlights,
+    wireAttemptsDuringSimulation,
     // Character functions available for future debugging hints
     // showAICharacter,
     // hideAICharacter,
@@ -176,11 +177,6 @@ export function ProjectPage() {
   const step = project?.steps[currentStep];
 
   const handleChatSubmit = useCallback(async (message: string, references?: ChatReference[]) => {
-    // DEBUG: Log placed components
-    console.log('[DEBUG handleChatSubmit] placedComponents:', placedComponents);
-    console.log('[DEBUG handleChatSubmit] placedComponents.length:', placedComponents.length);
-    console.log('[DEBUG handleChatSubmit] componentDefinitions size:', useCircuitStore.getState().componentDefinitions.size);
-
     // Add user message with references stored separately
     setChatMessages(prev => [...prev, {
       role: 'user',
@@ -423,6 +419,12 @@ export function ProjectPage() {
         <OvercrowdedPinWarning
           placedComponents={placedComponents}
           wires={wires}
+        />
+
+        {/* Simulation wire warning - shows when user tries to wire during simulation */}
+        <SimulationWireWarning
+          wireAttemptsDuringSimulation={wireAttemptsDuringSimulation}
+          isSimulating={isSimulating}
         />
       </div>
     </DockingProvider>

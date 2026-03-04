@@ -165,6 +165,9 @@ interface CircuitState {
   currentInstructionStep: number;
   totalInstructionSteps: number;
 
+  // Wire attempts during simulation (for yellow character warning)
+  wireAttemptsDuringSimulation: number;
+
   // Canvas viewport transform for coordinate conversion
   // Fabric.js viewportTransform: [scaleX, 0, 0, scaleY, panX, panY]
   canvasViewportTransform: number[];
@@ -298,6 +301,10 @@ interface CircuitActions {
   setAICharacterOut: (out: boolean) => void;
   setInstructionStep: (current: number, total: number) => void;
 
+  // Wire attempts during simulation
+  incrementWireAttemptsDuringSimulation: () => void;
+  resetWireAttemptsDuringSimulation: () => void;
+
   // Canvas viewport transform
   setCanvasViewportTransform: (vpt: number[]) => void;
 }
@@ -375,14 +382,13 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
     aiCharacterOut: false,
     currentInstructionStep: 0,
     totalInstructionSteps: 0,
+    wireAttemptsDuringSimulation: 0,
     canvasViewportTransform: [1, 0, 0, 1, 0, 0],
 
     // Component actions
     addComponent: (definition, x, y, properties = {}) => {
-      console.log('[STORE DEBUG] addComponent called:', definition.id, 'at', x, y);
       get().pushToHistory();
       const instanceId = generateComponentId();
-      console.log('[STORE DEBUG] Generated instanceId:', instanceId);
 
       // Extract default property values from definition
       const defaultProperties: Record<string, string | number> = {};
@@ -409,10 +415,8 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
           currentImage: definition.image,
         });
         state.componentDefinitions.set(instanceId, definition);
-        console.log('[STORE DEBUG] After push, placedComponents.length:', state.placedComponents.length);
       });
 
-      console.log('[STORE DEBUG] After set, store placedComponents:', get().placedComponents.length);
       return instanceId;
     },
 
@@ -843,6 +847,8 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
         state.isSimulating = false;
         state.simulationErrors = [];
         state.buttonStates.clear();
+        // Reset wire attempts counter
+        state.wireAttemptsDuringSimulation = 0;
         // Reset all components to OFF state
         state.placedComponents.forEach((c) => {
           c.state = 'off';
@@ -1306,6 +1312,18 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
       set((s) => {
         s.currentInstructionStep = current;
         s.totalInstructionSteps = total;
+      });
+    },
+
+    incrementWireAttemptsDuringSimulation: () => {
+      set((s) => {
+        s.wireAttemptsDuringSimulation += 1;
+      });
+    },
+
+    resetWireAttemptsDuringSimulation: () => {
+      set((s) => {
+        s.wireAttemptsDuringSimulation = 0;
       });
     },
 

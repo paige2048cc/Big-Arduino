@@ -85,8 +85,6 @@ export function AIDebuggingOverlay({
   onAddChatMessage,
   onSetHighlights,
 }: AIDebuggingOverlayProps) {
-  // DEBUG: Log props on every render
-  console.log('[AIDebuggingOverlay RENDER] placedComponents.length:', placedComponents.length);
   // ── Store reads ──────────────────────────────────────────────────────────
   const aiCharacterHovered = useCircuitStore((s) => s.aiCharacterHovered);
   const currentInstructionStep = useCircuitStore((s) => s.currentInstructionStep);
@@ -102,7 +100,6 @@ export function AIDebuggingOverlay({
   const retractTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasShownLastStepRef = useRef(false);
   const prevIsSimulatingRef = useRef(false);
-  const simErrorAutoTriggeredRef = useRef(false);
   // Tracks whether current animation was started by manual hover (trigger 1)
   const hoverTriggeredRef = useRef(false);
 
@@ -271,20 +268,12 @@ export function AIDebuggingOverlay({
     prevStepRef.current = currentInstructionStep;
   }, [currentInstructionStep, totalInstructionSteps, fireStuckTrigger]);
 
-  // ── Trigger 3: Simulation start with errors ───────────────────────────────
+  // ── Trigger 3: Simulation start with errors (DISABLED) ────────────────────
+  // Auto-debugging on simulation start is disabled per user request.
+  // Users can still manually trigger debugging by hovering over the character.
   useEffect(() => {
-    const wasSimulating = prevIsSimulatingRef.current;
     prevIsSimulatingRef.current = isSimulating;
-
-    if (!wasSimulating && isSimulating && simulationErrors.length > 0) {
-      simErrorAutoTriggeredRef.current = true;
-      hoverTriggeredRef.current = false;
-      clearRetractTimer();
-      setAnchorRect(getAnchorRect());
-      setSpeechBubbleText(null);
-      setAnimState('spinning');
-    }
-  }, [isSimulating, simulationErrors, clearRetractTimer]);
+  }, [isSimulating]);
 
   // ── Cleanup timer on unmount ──────────────────────────────────────────────
   useEffect(() => {
@@ -298,10 +287,6 @@ export function AIDebuggingOverlay({
     const freshPlacedComponents = storeState.placedComponents;
     const freshWires = storeState.wires;
     const componentDefinitions = storeState.componentDefinitions;
-
-    console.log('[AIDebuggingOverlay DEBUG] runDebuggingAnalysis called');
-    console.log('[AIDebuggingOverlay DEBUG] Fresh placedComponents.length:', freshPlacedComponents.length);
-    console.log('[AIDebuggingOverlay DEBUG] Fresh wires.length:', freshWires.length);
 
     const circuitState: CircuitState = {
       placedComponents: freshPlacedComponents.map((c) => {
