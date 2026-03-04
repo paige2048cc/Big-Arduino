@@ -85,6 +85,8 @@ export function AIDebuggingOverlay({
   onAddChatMessage,
   onSetHighlights,
 }: AIDebuggingOverlayProps) {
+  // DEBUG: Log props on every render
+  console.log('[AIDebuggingOverlay RENDER] placedComponents.length:', placedComponents.length);
   // ── Store reads ──────────────────────────────────────────────────────────
   const aiCharacterHovered = useCircuitStore((s) => s.aiCharacterHovered);
   const currentInstructionStep = useCircuitStore((s) => s.currentInstructionStep);
@@ -309,6 +311,11 @@ export function AIDebuggingOverlay({
 
   // ── Debugging analysis ────────────────────────────────────────────────────
   const runDebuggingAnalysis = useCallback(async () => {
+    console.log('[AIDebuggingOverlay DEBUG] runDebuggingAnalysis called');
+    console.log('[AIDebuggingOverlay DEBUG] placedComponents from props:', placedComponents);
+    console.log('[AIDebuggingOverlay DEBUG] placedComponents.length:', placedComponents.length);
+    console.log('[AIDebuggingOverlay DEBUG] wires.length:', wires.length);
+
     const circuitState: CircuitState = {
       placedComponents: placedComponents.map((c) => {
         const def = useCircuitStore.getState().componentDefinitions.get(c.instanceId);
