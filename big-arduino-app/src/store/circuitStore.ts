@@ -379,8 +379,10 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
 
     // Component actions
     addComponent: (definition, x, y, properties = {}) => {
+      console.log('[STORE DEBUG] addComponent called:', definition.id, 'at', x, y);
       get().pushToHistory();
       const instanceId = generateComponentId();
+      console.log('[STORE DEBUG] Generated instanceId:', instanceId);
 
       // Extract default property values from definition
       const defaultProperties: Record<string, string | number> = {};
@@ -407,8 +409,10 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
           currentImage: definition.image,
         });
         state.componentDefinitions.set(instanceId, definition);
+        console.log('[STORE DEBUG] After push, placedComponents.length:', state.placedComponents.length);
       });
 
+      console.log('[STORE DEBUG] After set, store placedComponents:', get().placedComponents.length);
       return instanceId;
     },
 
