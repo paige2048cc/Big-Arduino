@@ -10,6 +10,63 @@ All notable changes to Big Arduino App will be documented in this file.
 
 ---
 
+## [8.5.0] - 2026-03-04
+
+### Added
+- **"Start Project" button in AI Chat page**: When the AI assistant provides wiring/connection instructions (detected by keywords such as "connect", "wire", "GND", "5V", "breadboard", "resistor"), a "Start Project" button with a chevron-right icon appears below the relevant chat bubble. Clicking it navigates to a dedicated project page pre-loaded with the full AI conversation history.
+- **AI Chat session mode in Project Page**: The project page now accepts an `fromAIChat` route state to enter a special mode:
+  - The Instructions panel is hidden; the AI Assistant panel fills the full height of the right sidebar.
+  - All conversation from the AI Chat page is carried over and visible (scrollable).
+  - The project title matches the AI Chat page title.
+  - All other features (circuit canvas, simulation, serial connect, AI debugging overlay, etc.) are identical to a featured project page.
+
+---
+
+## [8.4.0] - 2026-03-03
+
+### Added
+- **Overcrowded Pin Warning overlay** (`OvercrowdedPinWarning`): A portal-rendered yellow angry character that pops up whenever two or more wires or component pin legs are detected sharing the same physical breadboard hole. In real life a single breadboard hole can only accommodate one conductor at a time.
+  - **Detection**: Monitors `placedComponents` (via `insertedPins`) and `wires` endpoints for any breadboard pin ID with > 1 occupant. Fires on the leading edge only (no-conflict → conflict).
+  - **Dismiss**: Automatically disappears after 5 seconds, or immediately when all conflicts are resolved.
+  - **Animation**: Pop-in + wobble (`ycw-pop-in` + `ycw-wobble`) on appear, shrink-out (`ycw-hide`) on dismiss.
+  - **Bubble style**: Same rounded-rect + arrow-pointer design as `debug-overlay-bubble`, accented in amber (`#e8a000`).
+  - **Asset**: `character_yellow_angry.svg` copied to `src/assets/` from design source.
+- Exported `OvercrowdedPinWarning` from `src/components/ai/index.ts`.
+- Mounted `<OvercrowdedPinWarning>` in `ProjectPage.tsx` alongside `<AIDebuggingOverlay>`.
+- **Canvas viewport tracking**: Added `canvasViewportTransform` + `setCanvasViewportTransform` to `circuitStore`. `CircuitCanvas` now writes the Fabric.js viewport transform to the store on every zoom and pan event (scroll-wheel zoom, zoom buttons, middle-mouse pan), enabling any overlay to accurately convert scene → screen coordinates.
+- `OvercrowdedPinWarning` uses the stored viewport transform + `[data-canvas-container]` bounding rect to position the yellow character at the exact screen location of the first overcrowded breadboard hole. Character and bubble track zoom/pan in real time.
+
+## [8.3.1] - 2026-03-03
+
+### Fixed
+- **Step 6 completion detection** (Connect Button to Power): Replaced the naïve `wires.length >= 3` check with real circuit topology analysis. The step now only completes when (1) the positive power rail is wired to Arduino 5V/VIN, AND (2) a breadboard row containing a button pin is wired to that positive rail. This prevents false positives from unrelated wires.
+- **Step 7 completion detection** (Complete the Circuit): Replaced the naïve `wires.length >= 5` check (which failed when components shared breadboard rows, reducing the needed wire count). The step now only completes when (1) the GND rail is wired to Arduino GND, AND (2) the breadboard row containing the LED cathode (or buzzer negative) is wired to that GND rail—correctly counting same-row connections without requiring extra wires.
+- Same fixes applied to both `LIGHT_UP_LED_STEPS` and `BUZZER_BUTTON_STEPS`.
+
+### Changed
+- **`StepCheckState`** now carries full wire connection endpoints (`startComponentId`, `startPinId`, `endComponentId`, `endPinId`) and component `insertedPins` (breadboard pin mapping), enabling accurate graph-based completion checks without re-running the circuit simulator.
+- Added breadboard pin net helpers (`getBreadboardPinNet`, `isPowerRailActive`, `isGNDRailActive`, `getComponentRowNets`, `isRowConnectedToPowerRail`, `isRowConnectedToGNDRail`) to `InstructionsPanel.tsx`.
+
+## [8.3.0] - 2026-03-02
+
+### Added
+- **AI Debugging Overlay**: A new proactive debugging feature where the blue AI character "jumps out" of the AI Assistant panel to offer help in three scenarios:
+  - **Hover trigger**: Hovering over the character icon in the AI Assistant panel header makes the character scale up and appear outside the panel with a "Tips & Debugging" button. Auto-retracts after 5 seconds if not clicked.
+  - **Last-step trigger**: When the user navigates to the final instruction step (e.g., step 8/8 "Time to Test!"), the character pops out with a speech bubble: *"Stuck? I can help you debug or give you a hint!"* — fires only once per session.
+  - **Simulation error trigger**: When the user starts simulation and errors are detected, the character auto-triggers a full debugging analysis immediately (spin → think → AI response → retract).
+- **Debugging analysis flow**: Clicking "Tips & Debugging" plays a 360° spin animation, shows a "Let me think..." bubble, runs a full circuit analysis via AI, applies component highlights, and adds the response to the chat panel.
+- **`AIDebuggingOverlay` component** (`src/components/ai/AIDebuggingOverlay.tsx`): Portal-rendered overlay with a 6-state animation machine (`idle → jumping → hovering → spinning → thinking → retracting`).
+- **`AIDebuggingOverlay.css`**: Keyframe animations for jump-out, retract, 360° spin, float/bob, and button slide-in.
+- **`aiCharacterHovered`, `currentInstructionStep`, `totalInstructionSteps`** added to `circuitStore` with corresponding setters `setAICharacterHovered` and `setInstructionStep`.
+- **`AIAssistantIcon`** sub-component in `DockContainer.tsx` with `data-debugging-anchor` attribute and hover → store integration.
+- **`breadboardPins` useMemo** in `ProjectPage.tsx`: extracted from `handleChatSubmit` into a memoized value shared with the debugging overlay.
+
+### Changed
+- **`InstructionsPanel`**: Calls `setInstructionStep` whenever `currentStepIndex` or `steps.length` changes, keeping the store in sync for the overlay's last-step trigger.
+- **`DockContainer`**: Replaced static character icon `<img>` with `AIAssistantIcon` component to enable hover tracking.
+
+---
+
 ## [8.2.0] - 2026-03-01
 
 ### Added

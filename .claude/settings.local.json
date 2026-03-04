@@ -80,7 +80,9 @@
       "Bash(git rm:*)",
       "Bash(vercel --prod)",
       "Bash(git remote add:*)",
-      "Bash(git fetch:*)"
+      "Bash(git fetch:*)",
+      "Bash(git status:*)",
+      "Bash(git restore:*)"
     ]
   }
 }

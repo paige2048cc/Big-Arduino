@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Usb, Unplug, Play, Square } from 'lucide-react';
 import { presetProjects } from '../data/projects';
 import { useSerial } from '../hooks/useSerial';
@@ -13,6 +13,7 @@ import { sendMessage, isAIServiceConfigured, getFallbackResponse, parseAIRespons
 // Character positioning is available for future debugging hints feature
 // import { calculateCharacterPosition } from '../services/characterPositioning';
 import { OnboardingOverlay } from '../components/onboarding';
+import { AIDebuggingOverlay, OvercrowdedPinWarning } from '../components/ai';
 import { useOnboardingStore } from '../store/onboardingStore';
 
 // Default panel configurations for the docking system
@@ -21,18 +22,35 @@ const DEFAULT_PANELS: PanelConfig[] = [
   { id: 'ai-assistant', title: 'AI Assistant', minHeight: 200, defaultHeight: 400 },
 ];
 
+const AI_CHAT_PANELS: PanelConfig[] = [
+  { id: 'ai-assistant', title: 'AI Assistant', minHeight: 200, defaultHeight: 400 },
+];
+
+interface AIChatLocationState {
+  fromAIChat?: boolean;
+  initialChatMessages?: Array<{ role: 'user' | 'assistant'; content: string }>;
+  projectTitle?: string;
+}
+
 export function ProjectPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const locationState = (location.state as AIChatLocationState | null);
+  const isAIChatMode = locationState?.fromAIChat === true;
 
   // Find the project
   const project = presetProjects.find(p => p.id === projectId);
 
   // State
   const [currentStep] = useState(0);
-  const [chatMessages, setChatMessages] = useState<Array<{role: 'user' | 'assistant', content: string, references?: ChatReference[]}>>([
-    { role: 'assistant', content: 'Hi! I\'m here to help you with this project. Ask me anything!' }
-  ]);
+  const [chatMessages, setChatMessages] = useState<Array<{role: 'user' | 'assistant', content: string, references?: ChatReference[]}>>(() => {
+    if (isAIChatMode && locationState?.initialChatMessages && locationState.initialChatMessages.length > 0) {
+      return locationState.initialChatMessages;
+    }
+    return [{ role: 'assistant', content: 'Hi! I\'m here to help you with this project. Ask me anything!' }];
+  });
 
   // Serial connection
   const { isConnected, isSupported, connect, disconnect } = useSerial();
@@ -56,6 +74,27 @@ export function ProjectPage() {
 
   // AI loading state
   const [isAILoading, setIsAILoading] = useState(false);
+
+  // Build breadboardPins for AI context (shared between handleChatSubmit and AIDebuggingOverlay)
+  const breadboardPins = useMemo(() => {
+    const pins: Record<string, Array<{ pinId: string; net: string }>> = {};
+    const componentDefinitions = useCircuitStore.getState().componentDefinitions;
+    for (const comp of placedComponents) {
+      if (comp.definitionId.includes('breadboard')) {
+        const def = componentDefinitions.get(comp.instanceId);
+        if (def && def.pins) {
+          const pinsWithNet = def.pins.filter((p) => p.net);
+          pins[comp.instanceId] = pinsWithNet.map((p) => ({ pinId: p.id, net: p.net! }));
+        }
+      }
+    }
+    return pins;
+  }, [placedComponents]);
+
+  // Callback for AIDebuggingOverlay to add messages to chat
+  const handleAddChatMessage = useCallback((role: 'user' | 'assistant', content: string) => {
+    setChatMessages((prev) => [...prev, { role, content }]);
+  }, []);
 
   // Onboarding
   const initOnboarding = useOnboardingStore((state) => state.initOnboarding);
@@ -156,28 +195,10 @@ export function ProjectPage() {
       return;
     }
 
-    // Build breadboard pin info for connectivity analysis
-    const breadboardPins: Record<string, Array<{pinId: string, net: string}>> = {};
-    const componentDefinitions = useCircuitStore.getState().componentDefinitions;
-    console.log('[BB Pins Debug] componentDefinitions keys:', Array.from(componentDefinitions.keys()));
-    for (const comp of placedComponents) {
-      if (comp.definitionId.includes('breadboard')) {
-        console.log('[BB Pins Debug] Found breadboard:', comp.instanceId, 'definitionId:', comp.definitionId);
-        // Note: componentDefinitions uses instanceId as key, not definitionId
-        const def = componentDefinitions.get(comp.instanceId);
-        console.log('[BB Pins Debug] Definition found:', !!def, 'pins count:', def?.pins?.length);
-        if (def && def.pins) {
-          const pinsWithNet = def.pins.filter(p => p.net);
-          console.log('[BB Pins Debug] Pins with net:', pinsWithNet.length, 'sample:', pinsWithNet.slice(0, 3));
-          breadboardPins[comp.instanceId] = pinsWithNet.map(p => ({ pinId: p.id, net: p.net! }));
-        } else {
-          console.log('[BB Pins Debug] No definition or pins found for breadboard');
-        }
-      }
-    }
-    console.log('[BB Pins Debug] Final breadboardPins:', breadboardPins);
+    // breadboardPins is computed via useMemo above (shared with AIDebuggingOverlay)
 
     // Build circuit state for AI
+    const componentDefinitions = useCircuitStore.getState().componentDefinitions;
     const circuitState: CircuitState = {
       placedComponents: placedComponents.map(c => {
         // Get internal connections from component definition
@@ -255,10 +276,10 @@ export function ProjectPage() {
     } finally {
       setIsAILoading(false);
     }
-  }, [placedComponents, wires, isSimulating, simulationErrors, setHighlights, project, currentStep, step]);
+  }, [placedComponents, wires, isSimulating, simulationErrors, breadboardPins, setHighlights, project, currentStep, step, chatMessages]);
 
-  // If project not found
-  if (!project) {
+  // If project not found and not in AI chat mode
+  if (!project && !isAIChatMode) {
     return (
       <div className="project-not-found">
         <h2>Project not found</h2>
@@ -266,6 +287,11 @@ export function ProjectPage() {
       </div>
     );
   }
+
+  // Display title: use AI chat title if in AI chat mode, otherwise use project title
+  const displayTitle = isAIChatMode
+    ? (locationState?.projectTitle || 'AI Project')
+    : (project?.title || '');
 
   const handleComponentDrop = (componentId: string, x: number, y: number) => {
     console.log(`Dropped component ${componentId} at (${x}, ${y})`);
@@ -291,10 +317,13 @@ export function ProjectPage() {
     />
   ), [chatMessages, handleChatSubmit, isAILoading]);
 
+  const activePanels = isAIChatMode ? AI_CHAT_PANELS : DEFAULT_PANELS;
+  const activePanelOrder = isAIChatMode ? ['ai-assistant'] : ['instructions', 'ai-assistant'];
+
   return (
     <DockingProvider
-      defaultPanels={DEFAULT_PANELS}
-      initialPanelOrder={['instructions', 'ai-assistant']}
+      defaultPanels={activePanels}
+      initialPanelOrder={activePanelOrder}
     >
       <div className="project-page">
         {/* Top Bar */}
@@ -303,7 +332,7 @@ export function ProjectPage() {
             <ArrowLeft size={20} />
             <span>Back</span>
           </button>
-          <h1>{project.title}</h1>
+          <h1>{displayTitle}</h1>
           <div className="header-actions">
             {/* Simulate Button */}
             <button
@@ -362,6 +391,34 @@ export function ProjectPage() {
 
         {/* Onboarding overlay */}
         <OnboardingOverlay />
+
+        {/* AI Debugging Overlay */}
+        <AIDebuggingOverlay
+          placedComponents={placedComponents}
+          wires={wires}
+          breadboardPins={breadboardPins}
+          isSimulating={isSimulating}
+          simulationErrors={simulationErrors.map((e) => ({
+            componentId: e.componentId,
+            wireId: e.wireId,
+            message: e.message,
+            severity: 'error' as const,
+          }))}
+          project={project ? {
+            title: project.title,
+            description: project.description ?? '',
+            goal: project.goal,
+            learningObjectives: project.learningObjectives,
+          } : undefined}
+          onAddChatMessage={handleAddChatMessage}
+          onSetHighlights={setHighlights}
+        />
+
+        {/* Overcrowded breadboard pin warning */}
+        <OvercrowdedPinWarning
+          placedComponents={placedComponents}
+          wires={wires}
+        />
       </div>
     </DockingProvider>
   );

@@ -32,8 +32,11 @@
     }
   ],
   "variants": {
-    "red-off": { "image": "LED_Red_OFF.png" },
-    "red-on": { "image": "LED_Red_ON.png" }
+    "red": { "image": "LED_Red_OFF.png" },
+    "green": { "image": "LED_Green.png" },
+    "blue": { "image": "LED_Blue.png" },
+    "yellow": { "image": "LED_yellow.png" },
+    "white": { "image": "LED_Red_OFF.png" }
   },
   "properties": {
     "color": {

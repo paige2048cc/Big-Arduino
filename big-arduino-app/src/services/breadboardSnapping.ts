@@ -31,26 +31,34 @@ export interface SnapResult {
 }
 
 /**
- * Check if two net names belong to the same row section
- * Valid combinations: both row-N-top, both row-N-bottom, or both same power rail
+ * Check if two net names are compatible for a two-pin component placement.
+ * Allows spanning the center gap (top + bottom) since real components can bridge it.
+ * Only rejects mixing power rails with terminal rows, or two different power rails.
  */
 export function areSameRowSection(net1: string, net2: string): boolean {
-  // Power rails - check if both are the same type
-  if (net1.startsWith('power-') && net2.startsWith('power-')) {
+  const isPower1 = net1.startsWith('power-');
+  const isPower2 = net2.startsWith('power-');
+
+  // Both power rails: must be the same rail
+  if (isPower1 && isPower2) {
     return net1 === net2;
   }
 
-  // Terminal rows - check if same section (top or bottom)
-  const match1 = net1.match(/^row-(\d+)-(top|bottom)$/);
-  const match2 = net2.match(/^row-(\d+)-(top|bottom)$/);
-
-  if (match1 && match2) {
-    // Must be same section type (both top or both bottom)
-    // But can be different row numbers (spanning columns)
-    return match1[2] === match2[2];
+  // One power rail, one terminal row: not valid
+  if (isPower1 || isPower2) {
+    return false;
   }
 
-  // Mixed types (power rail + terminal) - not valid for 2-pin components
+  // Both terminal rows (row-N-top or row-N-bottom):
+  // Allow spanning the center gap — components can bridge top and bottom sections
+  const isRow1 = /^row-\d+-(top|bottom)$/.test(net1);
+  const isRow2 = /^row-\d+-(top|bottom)$/.test(net2);
+
+  if (isRow1 && isRow2) {
+    // Only reject if both pins would land on the exact same net (would short the component)
+    return net1 !== net2;
+  }
+
   return false;
 }
 

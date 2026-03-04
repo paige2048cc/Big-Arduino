@@ -14,9 +14,36 @@ import { useDocking, type DropZone } from '../../contexts/DockingContext';
 import { DockablePanel } from './DockablePanel';
 import { FloatingPanel } from './FloatingPanel';
 import { InstructionsPanel } from './InstructionsPanel';
-import { Lightbulb, MessageCircle } from 'lucide-react';
-import characterIcon from '../../assets/character.svg';
+import { useCircuitStore } from '../../store/circuitStore';
+import { MessageCircle } from 'lucide-react';
+import characterIcon from '../../assets/character_blue.svg';
+import characterYellowIcon from '../../assets/character_yellow.svg';
 import './DockContainer.css';
+
+/** Small sub-component so it can use hooks for hover → store */
+function AIAssistantIcon() {
+  const setAICharacterHovered = useCircuitStore((s) => s.setAICharacterHovered);
+  const aiCharacterOut = useCircuitStore((s) => s.aiCharacterOut);
+  return (
+    <div
+      data-debugging-anchor="true"
+      style={{ display: 'flex', cursor: 'pointer' }}
+      onMouseEnter={() => setAICharacterHovered(true)}
+      onMouseLeave={() => setAICharacterHovered(false)}
+    >
+      <img
+        src={characterIcon}
+        alt=""
+        style={{
+          width: 28,
+          height: 28,
+          opacity: aiCharacterOut ? 0 : 1,
+          transition: 'opacity 0.3s ease',
+        }}
+      />
+    </div>
+  );
+}
 
 interface DockContainerProps {
   // Render function for AI Chat panel content
@@ -252,9 +279,9 @@ export function DockContainer({ renderAIChat }: DockContainerProps) {
   const getPanelIcon = (panelId: string) => {
     switch (panelId) {
       case 'instructions':
-        return <Lightbulb size={20} style={{ color: '#F5A623' }} />;
+        return <img src={characterYellowIcon} alt="" style={{ width: 28, height: 28 }} />;
       case 'ai-assistant':
-        return <img src={characterIcon} alt="" style={{ width: 28, height: 28 }} />;
+        return <AIAssistantIcon />;
       default:
         return <MessageCircle size={16} />;
     }

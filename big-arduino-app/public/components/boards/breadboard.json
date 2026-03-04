@@ -722,7 +722,7 @@
       "description": "Row 2, column D (bottom section)",
       "type": "terminal",
       "x": 59,
-      "y": 259,
+      "y": 261,
       "hitRadius": 8,
       "net": "row-2-bottom"
     },
@@ -812,7 +812,7 @@
       "description": "Row 3, column D (bottom section)",
       "type": "terminal",
       "x": 79,
-      "y": 259,
+      "y": 261,
       "hitRadius": 8,
       "net": "row-3-bottom"
     },
@@ -912,7 +912,7 @@
       "description": "Row 4, column D (bottom section)",
       "type": "terminal",
       "x": 99,
-      "y": 259,
+      "y": 261,
       "hitRadius": 8,
       "net": "row-4-bottom"
     },
@@ -1012,7 +1012,7 @@
       "description": "Row 5, column D (bottom section)",
       "type": "terminal",
       "x": 118,
-      "y": 259,
+      "y": 261,
       "hitRadius": 8,
       "net": "row-5-bottom"
     },
@@ -1112,7 +1112,7 @@
       "description": "Row 6, column D (bottom section)",
       "type": "terminal",
       "x": 138,
-      "y": 259,
+      "y": 261,
       "hitRadius": 8,
       "net": "row-6-bottom"
     },
@@ -1212,7 +1212,7 @@
       "description": "Row 7, column D (bottom section)",
       "type": "terminal",
       "x": 158,
-      "y": 259,
+      "y": 261,
       "hitRadius": 8,
       "net": "row-7-bottom"
     },
@@ -1312,7 +1312,7 @@
       "description": "Row 8, column D (bottom section)",
       "type": "terminal",
       "x": 178,
-      "y": 259,
+      "y": 261,
       "hitRadius": 8,
       "net": "row-8-bottom"
     },
@@ -1351,7 +1351,7 @@
       "label": "J9",
       "description": "Row 9, column J (top section)",
       "type": "terminal",
-      "x": 197,
+      "x": 199,
       "y": 102,
       "hitRadius": 8,
       "net": "row-9-top"
@@ -1361,7 +1361,7 @@
       "label": "I9",
       "description": "Row 9, column I (top section)",
       "type": "terminal",
-      "x": 197,
+      "x": 199,
       "y": 123,
       "hitRadius": 8,
       "net": "row-9-top"
@@ -1371,7 +1371,7 @@
       "label": "H9",
       "description": "Row 9, column H (top section)",
       "type": "terminal",
-      "x": 197,
+      "x": 199,
       "y": 142,
       "hitRadius": 8,
       "net": "row-9-top"
@@ -1381,7 +1381,7 @@
       "label": "G9",
       "description": "Row 9, column G (top section)",
       "type": "terminal",
-      "x": 197,
+      "x": 199,
       "y": 161,
       "hitRadius": 8,
       "net": "row-9-top"
@@ -1391,7 +1391,7 @@
       "label": "F9",
       "description": "Row 9, column F (top section)",
       "type": "terminal",
-      "x": 197,
+      "x": 199,
       "y": 182,
       "hitRadius": 8,
       "net": "row-9-top"
@@ -1401,7 +1401,7 @@
       "label": "E9",
       "description": "Row 9, column E (bottom section)",
       "type": "terminal",
-      "x": 197,
+      "x": 199,
       "y": 242,
       "hitRadius": 8,
       "net": "row-9-bottom"
@@ -1411,8 +1411,8 @@
       "label": "D9",
       "description": "Row 9, column D (bottom section)",
       "type": "terminal",
-      "x": 197,
-      "y": 259,
+      "x": 199,
+      "y": 261,
       "hitRadius": 8,
       "net": "row-9-bottom"
     },
@@ -1421,7 +1421,7 @@
       "label": "C9",
       "description": "Row 9, column C (bottom section)",
       "type": "terminal",
-      "x": 197,
+      "x": 199,
       "y": 280,
       "hitRadius": 8,
       "net": "row-9-bottom"
@@ -1431,7 +1431,7 @@
       "label": "B9",
       "description": "Row 9, column B (bottom section)",
       "type": "terminal",
-      "x": 197,
+      "x": 199,
       "y": 301,
       "hitRadius": 8,
       "net": "row-9-bottom"
@@ -1441,7 +1441,7 @@
       "label": "A9",
       "description": "Row 9, column A (bottom section)",
       "type": "terminal",
-      "x": 197,
+      "x": 199,
       "y": 322,
       "hitRadius": 8,
       "net": "row-9-bottom"
@@ -1451,7 +1451,7 @@
       "label": "J10",
       "description": "Row 10, column J (top section)",
       "type": "terminal",
-      "x": 217,
+      "x": 219,
       "y": 102,
       "hitRadius": 8,
       "net": "row-10-top"
@@ -1461,7 +1461,7 @@
       "label": "I10",
       "description": "Row 10, column I (top section)",
       "type": "terminal",
-      "x": 217,
+      "x": 219,
       "y": 123,
       "hitRadius": 8,
       "net": "row-10-top"
@@ -1471,7 +1471,7 @@
       "label": "H10",
       "description": "Row 10, column H (top section)",
       "type": "terminal",
-      "x": 217,
+      "x": 219,
       "y": 142,
       "hitRadius": 8,
       "net": "row-10-top"
@@ -1481,7 +1481,7 @@
       "label": "G10",
       "description": "Row 10, column G (top section)",
       "type": "terminal",
-      "x": 217,
+      "x": 219,
       "y": 161,
       "hitRadius": 8,
       "net": "row-10-top"
@@ -1491,7 +1491,7 @@
       "label": "F10",
       "description": "Row 10, column F (top section)",
       "type": "terminal",
-      "x": 217,
+      "x": 219,
       "y": 182,
       "hitRadius": 8,
       "net": "row-10-top"
@@ -1501,7 +1501,7 @@
       "label": "E10",
       "description": "Row 10, column E (bottom section)",
       "type": "terminal",
-      "x": 217,
+      "x": 219,
       "y": 242,
       "hitRadius": 8,
       "net": "row-10-bottom"
@@ -1511,8 +1511,8 @@
       "label": "D10",
       "description": "Row 10, column D (bottom section)",
       "type": "terminal",
-      "x": 217,
-      "y": 259,
+      "x": 219,
+      "y": 261,
       "hitRadius": 8,
       "net": "row-10-bottom"
     },
@@ -1521,7 +1521,7 @@
       "label": "C10",
       "description": "Row 10, column C (bottom section)",
       "type": "terminal",
-      "x": 217,
+      "x": 219,
       "y": 280,
       "hitRadius": 8,
       "net": "row-10-bottom"
@@ -1531,7 +1531,7 @@
       "label": "B10",
       "description": "Row 10, column B (bottom section)",
       "type": "terminal",
-      "x": 217,
+      "x": 219,
       "y": 301,
       "hitRadius": 8,
       "net": "row-10-bottom"
@@ -1541,7 +1541,7 @@
       "label": "A10",
       "description": "Row 10, column A (bottom section)",
       "type": "terminal",
-      "x": 217,
+      "x": 219,
       "y": 322,
       "hitRadius": 8,
       "net": "row-10-bottom"
@@ -1551,7 +1551,7 @@
       "label": "J11",
       "description": "Row 11, column J (top section)",
       "type": "terminal",
-      "x": 237,
+      "x": 239,
       "y": 102,
       "hitRadius": 8,
       "net": "row-11-top"
@@ -1561,7 +1561,7 @@
       "label": "I11",
       "description": "Row 11, column I (top section)",
       "type": "terminal",
-      "x": 237,
+      "x": 239,
       "y": 123,
       "hitRadius": 8,
       "net": "row-11-top"
@@ -1571,7 +1571,7 @@
       "label": "H11",
       "description": "Row 11, column H (top section)",
       "type": "terminal",
-      "x": 237,
+      "x": 239,
       "y": 142,
       "hitRadius": 8,
       "net": "row-11-top"
@@ -1581,7 +1581,7 @@
       "label": "G11",
       "description": "Row 11, column G (top section)",
       "type": "terminal",
-      "x": 237,
+      "x": 239,
       "y": 161,
       "hitRadius": 8,
       "net": "row-11-top"
@@ -1591,7 +1591,7 @@
       "label": "F11",
       "description": "Row 11, column F (top section)",
       "type": "terminal",
-      "x": 237,
+      "x": 239,
       "y": 182,
       "hitRadius": 8,
       "net": "row-11-top"
@@ -1601,7 +1601,7 @@
       "label": "E11",
       "description": "Row 11, column E (bottom section)",
       "type": "terminal",
-      "x": 237,
+      "x": 239,
       "y": 242,
       "hitRadius": 8,
       "net": "row-11-bottom"
@@ -1611,8 +1611,8 @@
       "label": "D11",
       "description": "Row 11, column D (bottom section)",
       "type": "terminal",
-      "x": 237,
-      "y": 259,
+      "x": 239,
+      "y": 261,
       "hitRadius": 8,
       "net": "row-11-bottom"
     },
@@ -1621,7 +1621,7 @@
       "label": "C11",
       "description": "Row 11, column C (bottom section)",
       "type": "terminal",
-      "x": 237,
+      "x": 239,
       "y": 280,
       "hitRadius": 8,
       "net": "row-11-bottom"
@@ -1631,7 +1631,7 @@
       "label": "B11",
       "description": "Row 11, column B (bottom section)",
       "type": "terminal",
-      "x": 237,
+      "x": 239,
       "y": 301,
       "hitRadius": 8,
       "net": "row-11-bottom"
@@ -1641,7 +1641,7 @@
       "label": "A11",
       "description": "Row 11, column A (bottom section)",
       "type": "terminal",
-      "x": 237,
+      "x": 239,
       "y": 322,
       "hitRadius": 8,
       "net": "row-11-bottom"
@@ -1701,7 +1701,7 @@
       "label": "E12",
       "description": "Row 12, column E (bottom section)",
       "type": "terminal",
-      "x": 257,
+      "x": 259,
       "y": 242,
       "hitRadius": 8,
       "net": "row-12-bottom"
@@ -1711,8 +1711,8 @@
       "label": "D12",
       "description": "Row 12, column D (bottom section)",
       "type": "terminal",
-      "x": 257,
-      "y": 259,
+      "x": 259,
+      "y": 261,
       "hitRadius": 8,
       "net": "row-12-bottom"
     },
@@ -1721,7 +1721,7 @@
       "label": "C12",
       "description": "Row 12, column C (bottom section)",
       "type": "terminal",
-      "x": 257,
+      "x": 259,
       "y": 280,
       "hitRadius": 8,
       "net": "row-12-bottom"
@@ -1731,7 +1731,7 @@
       "label": "B12",
       "description": "Row 12, column B (bottom section)",
       "type": "terminal",
-      "x": 257,
+      "x": 259,
       "y": 301,
       "hitRadius": 8,
       "net": "row-12-bottom"
@@ -1741,7 +1741,7 @@
       "label": "A12",
       "description": "Row 12, column A (bottom section)",
       "type": "terminal",
-      "x": 257,
+      "x": 259,
       "y": 322,
       "hitRadius": 8,
       "net": "row-12-bottom"
@@ -1801,7 +1801,7 @@
       "label": "E13",
       "description": "Row 13, column E (bottom section)",
       "type": "terminal",
-      "x": 276,
+      "x": 279,
       "y": 242,
       "hitRadius": 8,
       "net": "row-13-bottom"
@@ -1811,8 +1811,8 @@
       "label": "D13",
       "description": "Row 13, column D (bottom section)",
       "type": "terminal",
-      "x": 276,
-      "y": 259,
+      "x": 279,
+      "y": 261,
       "hitRadius": 8,
       "net": "row-13-bottom"
     },
@@ -1821,8 +1821,8 @@
       "label": "C13",
       "description": "Row 13, column C (bottom section)",
       "type": "terminal",
-      "x": 276,
-      "y": 280,
+      "x": 279,
+      "y": 279,
       "hitRadius": 8,
       "net": "row-13-bottom"
     },
@@ -1831,7 +1831,7 @@
       "label": "B13",
       "description": "Row 13, column B (bottom section)",
       "type": "terminal",
-      "x": 276,
+      "x": 279,
       "y": 301,
       "hitRadius": 8,
       "net": "row-13-bottom"
@@ -1841,7 +1841,7 @@
       "label": "A13",
       "description": "Row 13, column A (bottom section)",
       "type": "terminal",
-      "x": 276,
+      "x": 279,
       "y": 322,
       "hitRadius": 8,
       "net": "row-13-bottom"
@@ -1901,7 +1901,7 @@
       "label": "E14",
       "description": "Row 14, column E (bottom section)",
       "type": "terminal",
-      "x": 296,
+      "x": 299,
       "y": 242,
       "hitRadius": 8,
       "net": "row-14-bottom"
@@ -1911,8 +1911,8 @@
       "label": "D14",
       "description": "Row 14, column D (bottom section)",
       "type": "terminal",
-      "x": 296,
-      "y": 259,
+      "x": 299,
+      "y": 261,
       "hitRadius": 8,
       "net": "row-14-bottom"
     },
@@ -1921,7 +1921,7 @@
       "label": "C14",
       "description": "Row 14, column C (bottom section)",
       "type": "terminal",
-      "x": 296,
+      "x": 299,
       "y": 280,
       "hitRadius": 8,
       "net": "row-14-bottom"
@@ -1931,7 +1931,7 @@
       "label": "B14",
       "description": "Row 14, column B (bottom section)",
       "type": "terminal",
-      "x": 296,
+      "x": 299,
       "y": 301,
       "hitRadius": 8,
       "net": "row-14-bottom"
@@ -1941,7 +1941,7 @@
       "label": "A14",
       "description": "Row 14, column A (bottom section)",
       "type": "terminal",
-      "x": 296,
+      "x": 299,
       "y": 322,
       "hitRadius": 8,
       "net": "row-14-bottom"
@@ -2012,7 +2012,7 @@
       "description": "Row 15, column D (bottom section)",
       "type": "terminal",
       "x": 319,
-      "y": 259,
+      "y": 261,
       "hitRadius": 8,
       "net": "row-15-bottom"
     },
@@ -2112,7 +2112,7 @@
       "description": "Row 16, column D (bottom section)",
       "type": "terminal",
       "x": 339,
-      "y": 259,
+      "y": 261,
       "hitRadius": 8,
       "net": "row-16-bottom"
     },
@@ -2201,8 +2201,8 @@
       "label": "E17",
       "description": "Row 17, column E (bottom section)",
       "type": "terminal",
-      "x": 362,
-      "y": 242,
+      "x": 359,
+      "y": 240,
       "hitRadius": 8,
       "net": "row-17-bottom"
     },
@@ -2211,8 +2211,8 @@
       "label": "D17",
       "description": "Row 17, column D (bottom section)",
       "type": "terminal",
-      "x": 362,
-      "y": 259,
+      "x": 359,
+      "y": 261,
       "hitRadius": 8,
       "net": "row-17-bottom"
     },
@@ -2221,8 +2221,8 @@
       "label": "C17",
       "description": "Row 17, column C (bottom section)",
       "type": "terminal",
-      "x": 362,
-      "y": 280,
+      "x": 359,
+      "y": 278,
       "hitRadius": 8,
       "net": "row-17-bottom"
     },
@@ -2231,8 +2231,8 @@
       "label": "B17",
       "description": "Row 17, column B (bottom section)",
       "type": "terminal",
-      "x": 362,
-      "y": 301,
+      "x": 359,
+      "y": 299,
       "hitRadius": 8,
       "net": "row-17-bottom"
     },
@@ -2241,7 +2241,7 @@
       "label": "A17",
       "description": "Row 17, column A (bottom section)",
       "type": "terminal",
-      "x": 362,
+      "x": 359,
       "y": 322,
       "hitRadius": 8,
       "net": "row-17-bottom"
@@ -2301,7 +2301,7 @@
       "label": "E18",
       "description": "Row 18, column E (bottom section)",
       "type": "terminal",
-      "x": 382,
+      "x": 379,
       "y": 242,
       "hitRadius": 8,
       "net": "row-18-bottom"
@@ -2311,8 +2311,8 @@
       "label": "D18",
       "description": "Row 18, column D (bottom section)",
       "type": "terminal",
-      "x": 382,
-      "y": 259,
+      "x": 379,
+      "y": 261,
       "hitRadius": 8,
       "net": "row-18-bottom"
     },
@@ -2321,7 +2321,7 @@
       "label": "C18",
       "description": "Row 18, column C (bottom section)",
       "type": "terminal",
-      "x": 382,
+      "x": 379,
       "y": 280,
       "hitRadius": 8,
       "net": "row-18-bottom"
@@ -2331,7 +2331,7 @@
       "label": "B18",
       "description": "Row 18, column B (bottom section)",
       "type": "terminal",
-      "x": 382,
+      "x": 379,
       "y": 301,
       "hitRadius": 8,
       "net": "row-18-bottom"
@@ -2341,7 +2341,7 @@
       "label": "A18",
       "description": "Row 18, column A (bottom section)",
       "type": "terminal",
-      "x": 382,
+      "x": 379,
       "y": 322,
       "hitRadius": 8,
       "net": "row-18-bottom"
@@ -2401,8 +2401,8 @@
       "label": "E19",
       "description": "Row 19, column E (bottom section)",
       "type": "terminal",
-      "x": 401,
-      "y": 242,
+      "x": 399,
+      "y": 241,
       "hitRadius": 8,
       "net": "row-19-bottom"
     },
@@ -2411,8 +2411,8 @@
       "label": "D19",
       "description": "Row 19, column D (bottom section)",
       "type": "terminal",
-      "x": 401,
-      "y": 259,
+      "x": 399,
+      "y": 261,
       "hitRadius": 8,
       "net": "row-19-bottom"
     },
@@ -2421,7 +2421,7 @@
       "label": "C19",
       "description": "Row 19, column C (bottom section)",
       "type": "terminal",
-      "x": 401,
+      "x": 399,
       "y": 280,
       "hitRadius": 8,
       "net": "row-19-bottom"
@@ -2431,7 +2431,7 @@
       "label": "B19",
       "description": "Row 19, column B (bottom section)",
       "type": "terminal",
-      "x": 401,
+      "x": 399,
       "y": 301,
       "hitRadius": 8,
       "net": "row-19-bottom"
@@ -2441,7 +2441,7 @@
       "label": "A19",
       "description": "Row 19, column A (bottom section)",
       "type": "terminal",
-      "x": 401,
+      "x": 399,
       "y": 322,
       "hitRadius": 8,
       "net": "row-19-bottom"
@@ -2501,7 +2501,7 @@
       "label": "E20",
       "description": "Row 20, column E (bottom section)",
       "type": "terminal",
-      "x": 421,
+      "x": 419,
       "y": 242,
       "hitRadius": 8,
       "net": "row-20-bottom"
@@ -2511,8 +2511,8 @@
       "label": "D20",
       "description": "Row 20, column D (bottom section)",
       "type": "terminal",
-      "x": 421,
-      "y": 259,
+      "x": 419,
+      "y": 261,
       "hitRadius": 8,
       "net": "row-20-bottom"
     },
@@ -2521,7 +2521,7 @@
       "label": "C20",
       "description": "Row 20, column C (bottom section)",
       "type": "terminal",
-      "x": 421,
+      "x": 419,
       "y": 280,
       "hitRadius": 8,
       "net": "row-20-bottom"
@@ -2531,7 +2531,7 @@
       "label": "B20",
       "description": "Row 20, column B (bottom section)",
       "type": "terminal",
-      "x": 421,
+      "x": 419,
       "y": 301,
       "hitRadius": 8,
       "net": "row-20-bottom"
@@ -2541,7 +2541,7 @@
       "label": "A20",
       "description": "Row 20, column A (bottom section)",
       "type": "terminal",
-      "x": 421,
+      "x": 419,
       "y": 322,
       "hitRadius": 8,
       "net": "row-20-bottom"
@@ -2601,7 +2601,7 @@
       "label": "E21",
       "description": "Row 21, column E (bottom section)",
       "type": "terminal",
-      "x": 441,
+      "x": 439,
       "y": 242,
       "hitRadius": 8,
       "net": "row-21-bottom"
@@ -2611,8 +2611,8 @@
       "label": "D21",
       "description": "Row 21, column D (bottom section)",
       "type": "terminal",
-      "x": 441,
-      "y": 259,
+      "x": 439,
+      "y": 261,
       "hitRadius": 8,
       "net": "row-21-bottom"
     },
@@ -2621,7 +2621,7 @@
       "label": "C21",
       "description": "Row 21, column C (bottom section)",
       "type": "terminal",
-      "x": 441,
+      "x": 439,
       "y": 280,
       "hitRadius": 8,
       "net": "row-21-bottom"
@@ -2631,7 +2631,7 @@
       "label": "B21",
       "description": "Row 21, column B (bottom section)",
       "type": "terminal",
-      "x": 441,
+      "x": 439,
       "y": 301,
       "hitRadius": 8,
       "net": "row-21-bottom"
@@ -2641,7 +2641,7 @@
       "label": "A21",
       "description": "Row 21, column A (bottom section)",
       "type": "terminal",
-      "x": 441,
+      "x": 439,
       "y": 322,
       "hitRadius": 8,
       "net": "row-21-bottom"
@@ -2651,7 +2651,7 @@
       "label": "J22",
       "description": "Row 22, column J (top section)",
       "type": "terminal",
-      "x": 461,
+      "x": 459,
       "y": 102,
       "hitRadius": 8,
       "net": "row-22-top"
@@ -2661,7 +2661,7 @@
       "label": "I22",
       "description": "Row 22, column I (top section)",
       "type": "terminal",
-      "x": 461,
+      "x": 459,
       "y": 123,
       "hitRadius": 8,
       "net": "row-22-top"
@@ -2671,7 +2671,7 @@
       "label": "H22",
       "description": "Row 22, column H (top section)",
       "type": "terminal",
-      "x": 462,
+      "x": 460,
       "y": 142,
       "hitRadius": 8,
       "net": "row-22-top"
@@ -2681,7 +2681,7 @@
       "label": "G22",
       "description": "Row 22, column G (top section)",
       "type": "terminal",
-      "x": 461,
+      "x": 459,
       "y": 161,
       "hitRadius": 8,
       "net": "row-22-top"
@@ -2691,7 +2691,7 @@
       "label": "F22",
       "description": "Row 22, column F (top section)",
       "type": "terminal",
-      "x": 461,
+      "x": 459,
       "y": 182,
       "hitRadius": 8,
       "net": "row-22-top"
@@ -2701,7 +2701,7 @@
       "label": "E22",
       "description": "Row 22, column E (bottom section)",
       "type": "terminal",
-      "x": 461,
+      "x": 459,
       "y": 242,
       "hitRadius": 8,
       "net": "row-22-bottom"
@@ -2711,8 +2711,8 @@
       "label": "D22",
       "description": "Row 22, column D (bottom section)",
       "type": "terminal",
-      "x": 461,
-      "y": 259,
+      "x": 459,
+      "y": 261,
       "hitRadius": 8,
       "net": "row-22-bottom"
     },
@@ -2721,7 +2721,7 @@
       "label": "C22",
       "description": "Row 22, column C (bottom section)",
       "type": "terminal",
-      "x": 461,
+      "x": 459,
       "y": 280,
       "hitRadius": 8,
       "net": "row-22-bottom"
@@ -2731,7 +2731,7 @@
       "label": "B22",
       "description": "Row 22, column B (bottom section)",
       "type": "terminal",
-      "x": 461,
+      "x": 459,
       "y": 301,
       "hitRadius": 8,
       "net": "row-22-bottom"
@@ -2741,7 +2741,7 @@
       "label": "A22",
       "description": "Row 22, column A (bottom section)",
       "type": "terminal",
-      "x": 461,
+      "x": 459,
       "y": 322,
       "hitRadius": 8,
       "net": "row-22-bottom"
@@ -2751,7 +2751,7 @@
       "label": "J23",
       "description": "Row 23, column J (top section)",
       "type": "terminal",
-      "x": 480,
+      "x": 479,
       "y": 102,
       "hitRadius": 8,
       "net": "row-23-top"
@@ -2761,7 +2761,7 @@
       "label": "I23",
       "description": "Row 23, column I (top section)",
       "type": "terminal",
-      "x": 480,
+      "x": 479,
       "y": 123,
       "hitRadius": 8,
       "net": "row-23-top"
@@ -2771,7 +2771,7 @@
       "label": "H23",
       "description": "Row 23, column H (top section)",
       "type": "terminal",
-      "x": 481,
+      "x": 479,
       "y": 142,
       "hitRadius": 8,
       "net": "row-23-top"
@@ -2781,7 +2781,7 @@
       "label": "G23",
       "description": "Row 23, column G (top section)",
       "type": "terminal",
-      "x": 480,
+      "x": 479,
       "y": 161,
       "hitRadius": 8,
       "net": "row-23-top"
@@ -2791,8 +2791,8 @@
       "label": "F23",
       "description": "Row 23, column F (top section)",
       "type": "terminal",
-      "x": 480,
-      "y": 182,
+      "x": 479,
+      "y": 181,
       "hitRadius": 8,
       "net": "row-23-top"
     },
@@ -2801,7 +2801,7 @@
       "label": "E23",
       "description": "Row 23, column E (bottom section)",
       "type": "terminal",
-      "x": 480,
+      "x": 479,
       "y": 242,
       "hitRadius": 8,
       "net": "row-23-bottom"
@@ -2811,8 +2811,8 @@
       "label": "D23",
       "description": "Row 23, column D (bottom section)",
       "type": "terminal",
-      "x": 480,
-      "y": 259,
+      "x": 479,
+      "y": 261,
       "hitRadius": 8,
       "net": "row-23-bottom"
     },
@@ -2821,7 +2821,7 @@
       "label": "C23",
       "description": "Row 23, column C (bottom section)",
       "type": "terminal",
-      "x": 480,
+      "x": 479,
       "y": 280,
       "hitRadius": 8,
       "net": "row-23-bottom"
@@ -2831,7 +2831,7 @@
       "label": "B23",
       "description": "Row 23, column B (bottom section)",
       "type": "terminal",
-      "x": 480,
+      "x": 479,
       "y": 301,
       "hitRadius": 8,
       "net": "row-23-bottom"
@@ -2841,7 +2841,7 @@
       "label": "A23",
       "description": "Row 23, column A (bottom section)",
       "type": "terminal",
-      "x": 480,
+      "x": 479,
       "y": 322,
       "hitRadius": 8,
       "net": "row-23-bottom"
@@ -2912,7 +2912,7 @@
       "description": "Row 24, column D (bottom section)",
       "type": "terminal",
       "x": 500,
-      "y": 259,
+      "y": 261,
       "hitRadius": 8,
       "net": "row-24-bottom"
     },
@@ -3012,7 +3012,7 @@
       "description": "Row 25, column D (bottom section)",
       "type": "terminal",
       "x": 520,
-      "y": 259,
+      "y": 261,
       "hitRadius": 8,
       "net": "row-25-bottom"
     },
@@ -3112,7 +3112,7 @@
       "description": "Row 26, column D (bottom section)",
       "type": "terminal",
       "x": 540,
-      "y": 259,
+      "y": 261,
       "hitRadius": 8,
       "net": "row-26-bottom"
     },
@@ -3212,7 +3212,7 @@
       "description": "Row 27, column D (bottom section)",
       "type": "terminal",
       "x": 559,
-      "y": 259,
+      "y": 261,
       "hitRadius": 8,
       "net": "row-27-bottom"
     },
@@ -3312,7 +3312,7 @@
       "description": "Row 28, column D (bottom section)",
       "type": "terminal",
       "x": 579,
-      "y": 259,
+      "y": 261,
       "hitRadius": 8,
       "net": "row-28-bottom"
     },
@@ -3412,7 +3412,7 @@
       "description": "Row 29, column D (bottom section)",
       "type": "terminal",
       "x": 599,
-      "y": 259,
+      "y": 261,
       "hitRadius": 8,
       "net": "row-29-bottom"
     },
@@ -3512,7 +3512,7 @@
       "description": "Row 30, column D (bottom section)",
       "type": "terminal",
       "x": 619,
-      "y": 259,
+      "y": 261,
       "hitRadius": 8,
       "net": "row-30-bottom"
     },
@@ -4172,7 +4172,7 @@
       "description": "Row 1, column D (bottom section)",
       "type": "terminal",
       "x": 39,
-      "y": 259,
+      "y": 261,
       "hitRadius": 8,
       "net": "row-1-bottom"
     },

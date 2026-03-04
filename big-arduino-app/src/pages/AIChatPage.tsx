@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Send, Loader2 } from 'lucide-react';
+import { Send, Loader2, ChevronRight } from 'lucide-react';
 import { Sidebar } from '../components/layout/Sidebar';
 import { ScanResults } from '../components/scanner/ScanResults';
 import { BlueCharacter } from '../components/ai/BlueCharacter';
@@ -211,6 +211,43 @@ export function AIChatPage() {
     }
   };
 
+  // Detect if an assistant message contains wiring/connection instructions
+  const isConnectionMessage = (content: string): boolean => {
+    const lower = content.toLowerCase();
+    const keywords = ['connect', 'wire', 'gnd', '5v', 'resistor', 'pin', 'breadboard', 'step 1', 'step 2', 'step1', 'step2'];
+    return keywords.filter(kw => lower.includes(kw)).length >= 2;
+  };
+
+  // Find the last qualifying assistant message ID for the Start Project button
+  const getStartProjectMsgId = (): string | null => {
+    if (messages.length < 2) return null;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i];
+      if (msg.role === 'assistant' && msg.content && isConnectionMessage(msg.content)) {
+        return msg.id;
+      }
+    }
+    return null;
+  };
+  const startProjectMsgId = getStartProjectMsgId();
+
+  const handleStartProject = () => {
+    const chatHistory = messages
+      .filter(m => m.content)
+      .map(m => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content!,
+      }));
+
+    navigate('/project/ai-session', {
+      state: {
+        fromAIChat: true,
+        initialChatMessages: chatHistory,
+        projectTitle: getPageTitle(),
+      },
+    });
+  };
+
   const handleProjectClick = (projectId: string) => {
     navigate(`/project/${projectId}`);
   };
@@ -236,28 +273,38 @@ export function AIChatPage() {
 
           <div className="scan-chat-messages">
             {messages.map(msg => (
-              <div key={msg.id} className={`scan-chat-msg scan-chat-msg--${msg.role}`}>
-                {msg.role === 'assistant' && (
-                  <div className="scan-chat-avatar scan-chat-avatar--character">
-                    <BlueCharacter
-                      x={16}
-                      y={16}
-                      visible={true}
-                      mood="happy"
-                      size="small"
-                    />
+              <div key={msg.id}>
+                <div className={`scan-chat-msg scan-chat-msg--${msg.role}`}>
+                  {msg.role === 'assistant' && (
+                    <div className="scan-chat-avatar scan-chat-avatar--character">
+                      <BlueCharacter
+                        x={16}
+                        y={16}
+                        visible={true}
+                        mood="happy"
+                        size="small"
+                      />
+                    </div>
+                  )}
+                  <div className="scan-chat-bubble">
+                    {msg.scanData && (
+                      <ScanResults
+                        screenshot={msg.scanData.screenshot}
+                        detected={msg.scanData.detected}
+                        onProjectClick={handleProjectClick}
+                      />
+                    )}
+                    {msg.content && <div className="scan-chat-text">{parseMarkdown(msg.content)}</div>}
+                  </div>
+                </div>
+                {msg.id === startProjectMsgId && (
+                  <div className="start-project-action">
+                    <button className="start-project-btn" onClick={handleStartProject}>
+                      <span>Start Project</span>
+                      <ChevronRight size={16} />
+                    </button>
                   </div>
                 )}
-                <div className="scan-chat-bubble">
-                  {msg.scanData && (
-                    <ScanResults
-                      screenshot={msg.scanData.screenshot}
-                      detected={msg.scanData.detected}
-                      onProjectClick={handleProjectClick}
-                    />
-                  )}
-                  {msg.content && <div className="scan-chat-text">{parseMarkdown(msg.content)}</div>}
-                </div>
               </div>
             ))}
             {/* Thinking indicator */}

@@ -578,17 +578,17 @@ body {
 }
 
 .home-character-blue .home-character-eye.eye-1 {
-  width: 14px;
-  height: 16px;
-  left: 36.7px;
-  top: 47.5px;
+  width: 12px;
+  height: 15px;
+  left: 37px;
+  top: 49.5px;
 }
 
 .home-character-blue .home-character-eye.eye-2 {
-  width: 14px;
-  height: 16px;
-  left: 59.2px;
-  top: 44.1px;
+  width: 12px;
+  height: 15px;
+  left: 56.5px;
+  top: 46.5px;
 }
 
 .home-character-yellow .home-character-eye {
@@ -603,17 +603,17 @@ body {
 }
 
 .home-character-yellow .home-character-eye.eye-1 {
-  width: 8.742px;
-  height: 10.276px;
-  left: 21.193px;
-  top: 28.219px;
+  width: 7.9px;
+  height: 10.1px;
+  left: 22.2px;
+  top: 31.1px;
 }
 
 .home-character-yellow .home-character-eye.eye-2 {
-  width: 8.742px;
-  height: 10.276px;
-  left: 35.610px;
-  top: 30.367px;
+  width: 7.9px;
+  height: 10.1px;
+  left: 35.2px;
+  top: 33.2px;
 }
 
 .home-character-mouth {

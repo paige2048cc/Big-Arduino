@@ -10,6 +10,7 @@ import './ComponentOnboarding.css';
 
 // Map component definition IDs to their onboarding image filenames
 const ONBOARDING_IMAGES: Record<string, string> = {
+  'arduino-uno': 'UNO-Onboarding.png',
   'breadboard': 'Breadboard-Onboarding.png',
   'led-5mm': 'LED-Onboarding.png',
   'buzzer': 'Buzzer-Onboarding.png',

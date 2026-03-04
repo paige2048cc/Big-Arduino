@@ -35,7 +35,7 @@ const componentCategories = [
     id: 'passive',
     name: 'Passive',
     components: [
-      { id: 'Registor_220Ω', name: 'Resistor 220Ω', image: 'Registor_220Ω.png', folder: 'passive' },
+      { id: 'Registor_220Ω', name: 'Resistor', image: 'Registor_220Ω.png', folder: 'passive' },
     ]
   },
 ];

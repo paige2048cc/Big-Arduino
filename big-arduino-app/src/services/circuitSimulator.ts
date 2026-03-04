@@ -28,7 +28,7 @@ export interface CircuitError {
 export interface SimulationResult {
   isValid: boolean;
   errors: CircuitError[];
-  activeComponents: Map<string, 'on' | 'off'>;
+  activeComponents: Map<string, 'on' | 'off' | 'explosion'>;
 }
 
 // Node in the circuit graph
@@ -478,7 +478,7 @@ function validateLED(
   definitions: Map<string, ComponentDefinition>,
   buttonStates: Map<string, boolean>,
   components: PlacedComponent[]
-): { isOn: boolean; errors: CircuitError[] } {
+): { state: 'on' | 'off' | 'explosion'; errors: CircuitError[] } {
   const errors: CircuitError[] = [];
 
   // Trace from ANODE (positive) to find power
@@ -505,7 +505,7 @@ function validateLED(
       message: 'LED connected backwards - swap anode (+) and cathode (–)',
       componentId,
     });
-    return { isOn: false, errors };
+    return { state: 'off', errors };
   }
 
   if (!anodeHasPower) {
@@ -517,7 +517,7 @@ function validateLED(
       message: 'LED anode (+) must connect to power source',
       componentId,
     });
-    return { isOn: false, errors };
+    return { state: 'off', errors };
   }
 
   if (!cathodeHasGround) {
@@ -529,7 +529,7 @@ function validateLED(
       message: 'LED cathode (–) must connect to GND',
       componentId,
     });
-    return { isOn: false, errors };
+    return { state: 'off', errors };
   }
 
   // Check for resistor (combine both paths)
@@ -543,12 +543,12 @@ function validateLED(
       message: 'LED needs a resistor to prevent burnout',
       componentId,
     });
-    // Still turn on but with warning
-    return { isOn: true, errors };
+    // No resistor → LED explodes
+    return { state: 'explosion', errors };
   }
 
   // LED is properly connected
-  return { isOn: true, errors: [] };
+  return { state: 'on', errors: [] };
 }
 
 /**
@@ -646,7 +646,7 @@ export function analyzeCircuit(
     if (isLED(componentType)) {
       const result = validateLED(component.instanceId, wires, definitions, buttonStates, components);
       errors.push(...result.errors);
-      activeComponents.set(component.instanceId, result.isOn ? 'on' : 'off');
+      activeComponents.set(component.instanceId, result.state);
     }
 
     // Validate buttons (just check if they're in a circuit)

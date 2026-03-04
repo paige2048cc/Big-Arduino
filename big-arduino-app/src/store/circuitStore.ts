@@ -158,6 +158,16 @@ interface CircuitState {
     targetComponentId: string | null;
     bubblePosition: 'top' | 'bottom' | 'left' | 'right';
   };
+
+  // AI Debugging Overlay state
+  aiCharacterHovered: boolean;
+  aiCharacterOut: boolean;
+  currentInstructionStep: number;
+  totalInstructionSteps: number;
+
+  // Canvas viewport transform for coordinate conversion
+  // Fabric.js viewportTransform: [scaleX, 0, 0, scaleY, panX, panY]
+  canvasViewportTransform: number[];
 }
 
 interface CircuitActions {
@@ -172,7 +182,7 @@ interface CircuitActions {
   updateComponentPosition: (instanceId: string, x: number, y: number) => void;
   updateComponentRotation: (instanceId: string, rotation: number) => void;
   updateComponentFlip: (instanceId: string, flipX: boolean, flipY: boolean) => void;
-  updateComponentState: (instanceId: string, state: 'on' | 'off', currentImage?: string) => void;
+  updateComponentState: (instanceId: string, state: 'on' | 'off' | 'explosion', currentImage?: string) => void;
   updateComponentProperty: (
     instanceId: string,
     key: string,
@@ -281,6 +291,14 @@ interface CircuitActions {
     y: number,
     bubblePosition?: 'top' | 'bottom' | 'left' | 'right'
   ) => void;
+
+  // AI Debugging Overlay actions
+  setAICharacterHovered: (hovered: boolean) => void;
+  setAICharacterOut: (out: boolean) => void;
+  setInstructionStep: (current: number, total: number) => void;
+
+  // Canvas viewport transform
+  setCanvasViewportTransform: (vpt: number[]) => void;
 }
 
 // Generate unique IDs
@@ -352,6 +370,11 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
       targetComponentId: null,
       bubblePosition: 'right' as const,
     },
+    aiCharacterHovered: false,
+    aiCharacterOut: false,
+    currentInstructionStep: 0,
+    totalInstructionSteps: 0,
+    canvasViewportTransform: [1, 0, 0, 1, 0, 0],
 
     // Component actions
     addComponent: (definition, x, y, properties = {}) => {
@@ -1247,6 +1270,32 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
         if (bubblePosition) {
           s.aiCharacter.bubblePosition = bubblePosition;
         }
+      });
+    },
+
+    // AI Debugging Overlay actions
+    setAICharacterHovered: (hovered) => {
+      set((s) => {
+        s.aiCharacterHovered = hovered;
+      });
+    },
+
+    setAICharacterOut: (out) => {
+      set((s) => {
+        s.aiCharacterOut = out;
+      });
+    },
+
+    setInstructionStep: (current, total) => {
+      set((s) => {
+        s.currentInstructionStep = current;
+        s.totalInstructionSteps = total;
+      });
+    },
+
+    setCanvasViewportTransform: (vpt) => {
+      set((s) => {
+        s.canvasViewportTransform = [...vpt];
       });
     },
   }))

@@ -110,7 +110,7 @@ export interface PlacedComponent {
   // Flip state for horizontal/vertical mirroring
   flipX?: boolean;
   flipY?: boolean;
-  state: 'on' | 'off';
+  state: 'on' | 'off' | 'explosion';
   // Component-specific properties (LED color, resistor value)
   properties: Record<string, string | number>;
   // Current image being displayed (for variant switching)

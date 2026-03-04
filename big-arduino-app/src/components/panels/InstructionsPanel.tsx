@@ -33,9 +33,190 @@ interface StepCheckState {
     definitionId: string;
     instanceId: string;
     parentBreadboardId?: string;
+    insertedPins?: Record<string, string>; // component pin ID → breadboard pin ID
   }>;
-  wires: Array<{ id: string }>;
+  wires: Array<{
+    id: string;
+    startComponentId: string;
+    startPinId: string;
+    endComponentId: string;
+    endPinId: string;
+  }>;
   isSimulating: boolean;
+}
+
+// ─── Breadboard connectivity helpers ─────────────────────────────────────────
+
+/**
+ * Returns the net name for a breadboard pin ID.
+ * Row pins: column letter (A–J) + row number, e.g. "J5" → "row-5-top"
+ *   - Columns F–J → top section  → "row-N-top"
+ *   - Columns A–E → bottom section → "row-N-bottom"
+ * Power rails:
+ *   PWR_TOP_PLUS_X     → "power-top-plus"
+ *   PWR_TOP_MINUS_X    → "power-top-minus"
+ *   PWR_BOTTOM_PLUS_X  → "power-bottom-plus"
+ *   PWR_BOTTOM_MINUS_X → "power-bottom-minus"
+ */
+function getBreadboardPinNet(pinId: string): string | null {
+  if (pinId.startsWith('PWR_TOP_PLUS_'))     return 'power-top-plus';
+  if (pinId.startsWith('PWR_TOP_MINUS_'))    return 'power-top-minus';
+  if (pinId.startsWith('PWR_BOTTOM_PLUS_'))  return 'power-bottom-plus';
+  if (pinId.startsWith('PWR_BOTTOM_MINUS_')) return 'power-bottom-minus';
+
+  const m = pinId.match(/^([A-J])(\d+)$/);
+  if (m) {
+    const [, col, row] = m;
+    return 'FGHIJ'.includes(col) ? `row-${row}-top` : `row-${row}-bottom`;
+  }
+  return null;
+}
+
+const ARDUINO_POWER_PINS = new Set(['5V', '3.3V', '3V3', 'VIN']);
+const POWER_POS_NETS     = new Set(['power-top-plus', 'power-bottom-plus']);
+const POWER_NEG_NETS     = new Set(['power-top-minus', 'power-bottom-minus']);
+
+/** True if the breadboard pin belongs to a positive power rail */
+function isBBPowerPos(pinId: string): boolean {
+  const net = getBreadboardPinNet(pinId);
+  return net !== null && POWER_POS_NETS.has(net);
+}
+
+/** True if the breadboard pin belongs to a negative power rail */
+function isBBPowerNeg(pinId: string): boolean {
+  const net = getBreadboardPinNet(pinId);
+  return net !== null && POWER_NEG_NETS.has(net);
+}
+
+/**
+ * Checks if there is any wire connecting the breadboard's positive power rail
+ * to an Arduino power pin (5V / 3.3V / VIN).
+ */
+function isPowerRailActive(state: StepCheckState): boolean {
+  const bb  = state.placedComponents.find(c => c.definitionId === 'breadboard');
+  const uno = state.placedComponents.find(c => c.definitionId === 'arduino-uno');
+  if (!bb || !uno) return false;
+
+  return state.wires.some(w => {
+    const bbPin  = w.startComponentId === bb.instanceId  ? w.startPinId
+                 : w.endComponentId   === bb.instanceId  ? w.endPinId   : null;
+    const ardPin = w.startComponentId === uno.instanceId ? w.startPinId
+                 : w.endComponentId   === uno.instanceId ? w.endPinId   : null;
+    return bbPin !== null && ardPin !== null
+        && ARDUINO_POWER_PINS.has(ardPin)
+        && isBBPowerPos(bbPin);
+  });
+}
+
+/**
+ * Checks if there is any wire connecting the breadboard's negative power rail
+ * to an Arduino GND pin.
+ */
+function isGNDRailActive(state: StepCheckState): boolean {
+  const bb  = state.placedComponents.find(c => c.definitionId === 'breadboard');
+  const uno = state.placedComponents.find(c => c.definitionId === 'arduino-uno');
+  if (!bb || !uno) return false;
+
+  return state.wires.some(w => {
+    const bbPin  = w.startComponentId === bb.instanceId  ? w.startPinId
+                 : w.endComponentId   === bb.instanceId  ? w.endPinId   : null;
+    const ardPin = w.startComponentId === uno.instanceId ? w.startPinId
+                 : w.endComponentId   === uno.instanceId ? w.endPinId   : null;
+    return bbPin !== null && ardPin !== null
+        && ardPin.includes('GND')
+        && isBBPowerNeg(bbPin);
+  });
+}
+
+/**
+ * Returns the set of breadboard row nets occupied by the given component's
+ * inserted pins.  e.g. { "row-5-top", "row-8-top", "row-5-bottom", "row-8-bottom" }
+ */
+function getComponentRowNets(
+  comp: { insertedPins?: Record<string, string> } | undefined
+): Set<string> {
+  const nets = new Set<string>();
+  if (!comp?.insertedPins) return nets;
+  for (const bbPinId of Object.values(comp.insertedPins)) {
+    const net = getBreadboardPinNet(bbPinId);
+    if (net && net.startsWith('row-')) nets.add(net);
+  }
+  return nets;
+}
+
+/**
+ * Returns true if any wire connects a row in `rowNets` to the positive power
+ * rail (within the breadboard), OR directly from Arduino power to that row.
+ */
+function isRowConnectedToPowerRail(
+  rowNets: Set<string>,
+  state: StepCheckState
+): boolean {
+  const bb  = state.placedComponents.find(c => c.definitionId === 'breadboard');
+  const uno = state.placedComponents.find(c => c.definitionId === 'arduino-uno');
+  if (!bb) return false;
+
+  return state.wires.some(w => {
+    // Case A: both ends on the breadboard
+    if (w.startComponentId === bb.instanceId && w.endComponentId === bb.instanceId) {
+      const sNet = getBreadboardPinNet(w.startPinId);
+      const eNet = getBreadboardPinNet(w.endPinId);
+      if (!sNet || !eNet) return false;
+      return (POWER_POS_NETS.has(sNet) && rowNets.has(eNet))
+          || (POWER_POS_NETS.has(eNet) && rowNets.has(sNet));
+    }
+    // Case B: direct wire from Arduino power pin to a row
+    if (uno) {
+      const bbPin  = w.startComponentId === bb.instanceId  ? w.startPinId
+                   : w.endComponentId   === bb.instanceId  ? w.endPinId   : null;
+      const ardPin = w.startComponentId === uno.instanceId ? w.startPinId
+                   : w.endComponentId   === uno.instanceId ? w.endPinId   : null;
+      if (bbPin && ardPin && ARDUINO_POWER_PINS.has(ardPin)) {
+        const bbNet = getBreadboardPinNet(bbPin);
+        return bbNet !== null && rowNets.has(bbNet);
+      }
+    }
+    return false;
+  });
+}
+
+/**
+ * Returns true if any wire connects a specific breadboard row net to the
+ * negative power rail, OR if a component pin goes directly to Arduino GND.
+ *
+ * @param rowNet        The net of the row that should reach GND (e.g. "row-5-bottom")
+ * @param compId        Instance ID of the component whose pin should reach GND
+ * @param compGNDPinId  The pin ID on that component that is the negative/cathode pin
+ */
+function isRowConnectedToGNDRail(
+  rowNet: string,
+  compId: string,
+  compGNDPinId: string,
+  state: StepCheckState
+): boolean {
+  const bb  = state.placedComponents.find(c => c.definitionId === 'breadboard');
+  const uno = state.placedComponents.find(c => c.definitionId === 'arduino-uno');
+  if (!bb) return false;
+
+  return state.wires.some(w => {
+    // Case A: breadboard row → negative power rail
+    if (w.startComponentId === bb.instanceId && w.endComponentId === bb.instanceId) {
+      const sNet = getBreadboardPinNet(w.startPinId);
+      const eNet = getBreadboardPinNet(w.endPinId);
+      if (!sNet || !eNet) return false;
+      return (POWER_NEG_NETS.has(sNet) && eNet === rowNet)
+          || (POWER_NEG_NETS.has(eNet) && sNet === rowNet);
+    }
+    // Case B: direct wire from component GND pin to Arduino GND
+    if (uno) {
+      const isCompGND = (w.startComponentId === compId && w.startPinId === compGNDPinId)
+                     || (w.endComponentId   === compId && w.endPinId   === compGNDPinId);
+      const ardPin = w.startComponentId === uno.instanceId ? w.startPinId
+                   : w.endComponentId   === uno.instanceId ? w.endPinId   : null;
+      return isCompGND && ardPin !== null && ardPin.includes('GND');
+    }
+    return false;
+  });
 }
 
 // Light Up an LED project instructions (8 steps)
@@ -100,7 +281,15 @@ export const LIGHT_UP_LED_STEPS: InstructionStep[] = [
     description: "Now connect the button so it can control the flow of electricity.\n\n\u2022 Connect one side of the button to the red power rail (+).",
     encouragingMessage: 'Great! Power is connected to the button.',
     checkCompletion: (state) => {
-      return state.wires.length >= 3;
+      const button = state.placedComponents.find(c => c.definitionId === 'pushbutton');
+      if (!button?.insertedPins) return false;
+
+      // The power rail must be connected to Arduino 5V/VIN (from step 2)
+      if (!isPowerRailActive(state)) return false;
+
+      // One of the button's row nets must be wired to the positive power rail
+      const buttonRowNets = getComponentRowNets(button);
+      return isRowConnectedToPowerRail(buttonRowNets, state);
     },
   },
   {
@@ -109,7 +298,19 @@ export const LIGHT_UP_LED_STEPS: InstructionStep[] = [
     description: "Finish the path so electricity can return to ground.\n\n\u2022 Connect the other side of the button to the resistor (if not already connected).\n\u2022 Ensure the resistor connects to the LED's long leg (anode, +).\n\u2022 Connect the LED's short leg (cathode, -) to the blue ground rail (-).\n\nTip: If components share the same row, they are already connected. No wire needed.",
     encouragingMessage: 'Excellent wiring! Your circuit is complete.',
     checkCompletion: (state) => {
-      return state.wires.length >= 5;
+      const led = state.placedComponents.find(c => c.definitionId === 'led-5mm');
+      if (!led?.insertedPins) return false;
+
+      // The GND rail must be connected to Arduino GND (from step 2)
+      if (!isGNDRailActive(state)) return false;
+
+      // LED CATHODE row must connect to the negative power rail (or directly to Arduino GND)
+      const cathodeBBPin = led.insertedPins['CATHODE'];
+      if (!cathodeBBPin) return false;
+      const cathodeNet = getBreadboardPinNet(cathodeBBPin);
+      if (!cathodeNet || !cathodeNet.startsWith('row-')) return false;
+
+      return isRowConnectedToGNDRail(cathodeNet, led.instanceId, 'CATHODE', state);
     },
   },
   {
@@ -185,7 +386,15 @@ export const BUZZER_BUTTON_STEPS: InstructionStep[] = [
     description: "Now connect the button so it can control the flow of electricity.\n\n\u2022 Connect one side of the button to the red power rail (+).",
     encouragingMessage: 'Great! Power is connected to the button.',
     checkCompletion: (state) => {
-      return state.wires.length >= 3;
+      const button = state.placedComponents.find(c => c.definitionId === 'pushbutton');
+      if (!button?.insertedPins) return false;
+
+      // The power rail must be connected to Arduino 5V/VIN (from step 2)
+      if (!isPowerRailActive(state)) return false;
+
+      // One of the button's row nets must be wired to the positive power rail
+      const buttonRowNets = getComponentRowNets(button);
+      return isRowConnectedToPowerRail(buttonRowNets, state);
     },
   },
   {
@@ -194,7 +403,19 @@ export const BUZZER_BUTTON_STEPS: InstructionStep[] = [
     description: "Finish the path so electricity can return to ground.\n\n\u2022 Connect the other side of the button to the resistor (if not already connected).\n\u2022 Ensure the resistor connects to the buzzer's anode (+).\n\u2022 Connect the buzzer's cathode (\u2013) to the blue ground rail (\u2013).\n\nTip: If components share the same row, they are already connected. No wire needed.",
     encouragingMessage: 'Excellent wiring! Your circuit is complete.',
     checkCompletion: (state) => {
-      return state.wires.length >= 5;
+      const buzzer = state.placedComponents.find(c => c.definitionId === 'buzzer');
+      if (!buzzer?.insertedPins) return false;
+
+      // The GND rail must be connected to Arduino GND (from step 2)
+      if (!isGNDRailActive(state)) return false;
+
+      // Buzzer NEGATIVE row must connect to the negative power rail (or directly to Arduino GND)
+      const negativeBBPin = buzzer.insertedPins['NEGATIVE'];
+      if (!negativeBBPin) return false;
+      const negativeNet = getBreadboardPinNet(negativeBBPin);
+      if (!negativeNet || !negativeNet.startsWith('row-')) return false;
+
+      return isRowConnectedToGNDRail(negativeNet, buzzer.instanceId, 'NEGATIVE', state);
     },
   },
   {
@@ -234,6 +455,7 @@ export function InstructionsPanel({
   const wires = useCircuitStore((state) => state.wires);
   const isSimulating = useCircuitStore((state) => state.isSimulating);
   const setHighlightedToolbarComponents = useCircuitStore((state) => state.setHighlightedToolbarComponents);
+  const setInstructionStep = useCircuitStore((state) => state.setInstructionStep);
 
   // Build state for completion checks
   const checkState: StepCheckState = useMemo(() => ({
@@ -241,8 +463,15 @@ export function InstructionsPanel({
       definitionId: c.definitionId,
       instanceId: c.instanceId,
       parentBreadboardId: c.parentBreadboardId,
+      insertedPins: c.insertedPins,
     })),
-    wires: wires.map(w => ({ id: w.id })),
+    wires: wires.map(w => ({
+      id: w.id,
+      startComponentId: w.startComponentId,
+      startPinId: w.startPinId,
+      endComponentId: w.endComponentId,
+      endPinId: w.endPinId,
+    })),
     isSimulating,
   }), [placedComponents, wires, isSimulating]);
 
@@ -255,6 +484,11 @@ export function InstructionsPanel({
   const currentStep = steps[currentStepIndex];
   const isCurrentStepComplete = stepCompletion[currentStepIndex];
   const [justCompleted, setJustCompleted] = useState(false);
+
+  // Sync instruction step to store for AI debugging overlay
+  useEffect(() => {
+    setInstructionStep(currentStepIndex, steps.length);
+  }, [currentStepIndex, steps.length, setInstructionStep]);
 
   // Trigger checkmark animation on completion
   useEffect(() => {

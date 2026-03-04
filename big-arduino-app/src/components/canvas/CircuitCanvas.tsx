@@ -11,6 +11,7 @@ import {
 import type { CircuitError } from '../../services/circuitSimulator';
 import { createComponentReference, createWireReference } from '../../types/chat';
 import { loadComponentByFileName, getPinAtPosition } from '../../services/componentService';
+import { registerSceneToScreenConverter } from '../../services/canvasCoordinates';
 import { calculateSnapPosition, shouldRemoveFromBreadboard } from '../../services/breadboardSnapping';
 import { routeOrthogonalManhattan, type Rect as RouterRect, type Point as RouterPoint } from '../../services/routing/orthogonalRouter';
 import { hasOnboardingImage, getOnboardingImageUrl } from './ComponentOnboarding';
@@ -262,7 +263,7 @@ interface CircuitCanvasProps {
 // Extended FabricObject to include our custom data
 interface ComponentFabricObject extends fabric.FabricObject {
   data?: {
-    type: 'component' | 'grid' | 'wire' | 'wire-outline' | 'wire-segment-handle' | 'pin-highlight' | 'onboarding' | 'highlight';
+    type: 'component' | 'grid' | 'wire' | 'wire-outline' | 'wire-segment-handle' | 'pin-highlight' | 'onboarding' | 'highlight' | 'led-overlay';
     instanceId?: string;
     definitionId?: string;
     componentId?: string;
@@ -328,6 +329,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     showOnboarding,
     hideOnboarding,
     hasShownOnboarding,
+    setCanvasViewportTransform,
   } = useCircuitStore();
 
   const hoveredPin = useHoveredPin();
@@ -360,6 +362,11 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
 
   // Map instanceId to Fabric object
   const instanceToFabricMap = useRef<Map<string, fabric.FabricObject>>(new Map());
+
+  // Map LED instanceId to overlay FabricImage (LED_ON.png or LED_explosion.png)
+  const ledOverlayMap = useRef<Map<string, fabric.FabricImage>>(new Map());
+  // Track the current overlay state per LED to avoid redundant rebuilds
+  const ledOverlayStateMap = useRef<Map<string, 'on' | 'off' | 'explosion'>>(new Map());
 
   // Map wireId to Fabric path object
   const wireToFabricMap = useRef<Map<string, fabric.Path>>(new Map());
@@ -509,6 +516,164 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     }
   }, [getComponentDefinition, updateComponentState, placedComponents]);
 
+  // Update LED base image based on color property (no on/off switching – overlays handle that)
+  const updateLEDBaseImage = useCallback((instanceId: string) => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    const fabricObj = instanceToFabricMap.current.get(instanceId);
+    if (!fabricObj || !(fabricObj instanceof fabric.FabricImage)) return;
+
+    const definition = getComponentDefinition(instanceId);
+    if (!definition?.variants) return;
+
+    const component = placedComponents.find(c => c.instanceId === instanceId);
+    const color = (component?.properties?.color as string) || 'red';
+
+    const variant = definition.variants[color];
+    if (!variant?.image) return;
+
+    const imageUrl = `${import.meta.env.BASE_URL}components/${definition.category}/${variant.image}`;
+
+    if (component?.currentImage === imageUrl) return;
+
+    const applyImage = (img: HTMLImageElement) => {
+      if (fabricObj instanceof fabric.FabricImage) {
+        fabricObj.setElement(img);
+        canvas.renderAll();
+      }
+    };
+
+    const cached = imageCache.current.get(imageUrl);
+    if (cached) {
+      applyImage(cached);
+      updateComponentState(instanceId, component?.state || 'off', imageUrl);
+    } else {
+      const img = new Image();
+      img.onload = () => {
+        imageCache.current.set(imageUrl, img);
+        applyImage(img);
+        updateComponentState(instanceId, component?.state || 'off', imageUrl);
+      };
+      img.src = imageUrl;
+    }
+  }, [getComponentDefinition, updateComponentState, placedComponents]);
+
+  // Update resistor image based on resistance property
+  const updateResistorImage = useCallback((instanceId: string) => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    const fabricObj = instanceToFabricMap.current.get(instanceId);
+    if (!fabricObj || !(fabricObj instanceof fabric.FabricImage)) return;
+
+    const definition = getComponentDefinition(instanceId);
+    if (!definition?.variants) return;
+
+    const component = placedComponents.find(c => c.instanceId === instanceId);
+    const resistance = (component?.properties?.resistance as string) || '220Ω';
+
+    const variant = definition.variants[resistance];
+    if (!variant?.image) return;
+
+    const imageUrl = `${import.meta.env.BASE_URL}components/${definition.category}/${variant.image}`;
+
+    if (component?.currentImage === imageUrl) return;
+
+    const applyImage = (img: HTMLImageElement) => {
+      if (fabricObj instanceof fabric.FabricImage) {
+        fabricObj.setElement(img);
+        canvas.renderAll();
+      }
+    };
+
+    const cached = imageCache.current.get(imageUrl);
+    if (cached) {
+      applyImage(cached);
+      updateComponentState(instanceId, 'off', imageUrl);
+    } else {
+      const img = new Image();
+      img.onload = () => {
+        imageCache.current.set(imageUrl, img);
+        applyImage(img);
+        updateComponentState(instanceId, 'off', imageUrl);
+      };
+      img.src = imageUrl;
+    }
+  }, [getComponentDefinition, updateComponentState, placedComponents]);
+
+  // Manage LED overlay image (LED_ON.png or LED_explosion.png) on top of the LED base image
+  const updateLEDOverlay = useCallback((instanceId: string, state: 'on' | 'off' | 'explosion') => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    const fabricObj = instanceToFabricMap.current.get(instanceId);
+    if (!fabricObj) return;
+
+    const definition = getComponentDefinition(instanceId);
+    if (!definition) return;
+
+    // Skip if overlay state is already correct
+    if (ledOverlayStateMap.current.get(instanceId) === state) return;
+    ledOverlayStateMap.current.set(instanceId, state);
+
+    // Remove existing overlay
+    const existingOverlay = ledOverlayMap.current.get(instanceId);
+    if (existingOverlay) {
+      canvas.remove(existingOverlay);
+      ledOverlayMap.current.delete(instanceId);
+    }
+
+    if (state === 'off') {
+      canvas.renderAll();
+      return;
+    }
+
+    const overlayImageName = state === 'explosion' ? 'LED_explosion.png' : 'LED_ON.png';
+    const overlayUrl = `${import.meta.env.BASE_URL}components/${definition.category}/${overlayImageName}`;
+
+    const ledLeft = (fabricObj.left || 0);
+    const ledTop = (fabricObj.top || 0);
+
+    const loadAndAddOverlay = (img: HTMLImageElement) => {
+      const overlayImg = new fabric.FabricImage(img, {
+        left: ledLeft + definition.width / 2,
+        top: ledTop + definition.height / 2,
+        originX: 'center',
+        originY: 'center',
+        hasControls: false,
+        hasBorders: false,
+        selectable: false,
+        evented: false,
+        angle: fabricObj.angle || 0,
+        flipX: (fabricObj as fabric.FabricImage).flipX || false,
+        flipY: (fabricObj as fabric.FabricImage).flipY || false,
+      });
+
+      (overlayImg as ComponentFabricObject).data = {
+        type: 'led-overlay',
+        instanceId,
+      };
+
+      canvas.add(overlayImg);
+      canvas.bringObjectToFront(overlayImg);
+      ledOverlayMap.current.set(instanceId, overlayImg);
+      canvas.renderAll();
+    };
+
+    const cached = imageCache.current.get(overlayUrl);
+    if (cached) {
+      loadAndAddOverlay(cached);
+    } else {
+      const img = new Image();
+      img.onload = () => {
+        imageCache.current.set(overlayUrl, img);
+        loadAndAddOverlay(img);
+      };
+      img.src = overlayUrl;
+    }
+  }, [getComponentDefinition]);
+
   // Show insertion highlights on breadboard pins when a component is inserted
   const showInsertionHighlights = useCallback((
     breadboardInstanceId: string,
@@ -557,6 +722,21 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     fabricCanvasRef.current = fabricCanvas;
     // Initialise viewport transform ref so animation overlay starts correct
     viewportTransformRef.current = fabricCanvas.viewportTransform as number[];
+    setCanvasViewportTransform(fabricCanvas.viewportTransform as number[]);
+
+    // Register a live scene→screen converter so OvercrowdedPinWarning (and others)
+    // always read the *current* Fabric viewport, never a stale store snapshot.
+    registerSceneToScreenConverter((sceneX, sceneY) => {
+      const canvas = fabricCanvasRef.current;
+      const container = canvasContainerRef.current;
+      if (!canvas || !container) return null;
+      const vpt = canvas.viewportTransform ?? [1, 0, 0, 1, 0, 0];
+      const rect = container.getBoundingClientRect();
+      return {
+        x: sceneX * vpt[0] + vpt[4] + rect.left,
+        y: sceneY * vpt[3] + vpt[5] + rect.top,
+      };
+    });
 
     // Selection handlers (for components - wires use custom selection)
     fabricCanvas.on('selection:created', (e) => {
@@ -708,6 +888,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       fabricCanvas.zoomToPoint(pointer, newZoom);
       // zoomToPoint may create a new transform array – keep ref in sync
       viewportTransformRef.current = fabricCanvas.viewportTransform as number[];
+      setCanvasViewportTransform(fabricCanvas.viewportTransform as number[]);
 
       setZoom(newZoom);
       setViewportVersion(v => v + 1);
@@ -895,6 +1076,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
         vpt[5] += mouseEvent.clientY - lastPanPointRef.current.y;
         canvas.setViewportTransform(vpt);
         lastPanPointRef.current = { x: mouseEvent.clientX, y: mouseEvent.clientY };
+        setCanvasViewportTransform([...vpt]);
         // Trigger re-render for onboarding overlay
         setViewportVersion(v => v + 1);
       }
@@ -1556,6 +1738,13 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       if (!storeInstanceIds.has(instanceId)) {
         canvas.remove(fabricObj);
         instanceToFabricMap.current.delete(instanceId);
+        // Also remove any LED overlay for this component
+        const overlay = ledOverlayMap.current.get(instanceId);
+        if (overlay) {
+          canvas.remove(overlay);
+          ledOverlayMap.current.delete(instanceId);
+          ledOverlayStateMap.current.delete(instanceId);
+        }
       }
     });
 
@@ -2757,6 +2946,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     const newZoom = Math.min(zoom + 0.25, 3);
     canvas.setZoom(newZoom);
     viewportTransformRef.current = canvas.viewportTransform as number[];
+    setCanvasViewportTransform(canvas.viewportTransform as number[]);
     setZoom(newZoom);
     setViewportVersion(v => v + 1);
     canvas.renderAll();
@@ -2769,6 +2959,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     const newZoom = Math.max(zoom - 0.25, 0.5);
     canvas.setZoom(newZoom);
     viewportTransformRef.current = canvas.viewportTransform as number[];
+    setCanvasViewportTransform(canvas.viewportTransform as number[]);
     setZoom(newZoom);
     setViewportVersion(v => v + 1);
     canvas.renderAll();
@@ -3337,19 +3528,31 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     }
   }, [isSimulating, updateComponentImage]);
 
-  // Update component images based on simulation state
+  // Update component images based on simulation state and properties
   useEffect(() => {
-    // Update all component images based on their state
     placedComponents.forEach(component => {
       const definition = getComponentDefinition(component.instanceId);
-      if (!definition?.variants) return;
+      if (!definition) return;
 
-      // When simulation is running, use the component's current state
-      // When simulation stops, reset all to 'off'
-      const targetState = isSimulating ? component.state : 'off';
-      updateComponentImage(component.instanceId, targetState);
+      const defId = definition.id.toLowerCase();
+      const isLEDComponent = defId.includes('led');
+      const isResistorComponent = defId.includes('registor') || defId.includes('resistor');
+
+      if (isLEDComponent) {
+        // LEDs: base image tracks color, overlay tracks simulation state
+        updateLEDBaseImage(component.instanceId);
+        const overlayState = isSimulating ? component.state : 'off';
+        updateLEDOverlay(component.instanceId, overlayState);
+      } else if (isResistorComponent) {
+        // Resistors: image tracks resistance property
+        updateResistorImage(component.instanceId);
+      } else if (definition.variants) {
+        // Other stateful components (buttons etc): standard on/off image switching
+        const targetState: 'on' | 'off' = isSimulating && component.state === 'on' ? 'on' : 'off';
+        updateComponentImage(component.instanceId, targetState);
+      }
     });
-  }, [isSimulating, placedComponents, getComponentDefinition, updateComponentImage]);
+  }, [isSimulating, placedComponents, getComponentDefinition, updateComponentImage, updateLEDBaseImage, updateLEDOverlay, updateResistorImage]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -3433,6 +3636,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       <div
         ref={canvasContainerRef}
         className={`canvas-area ${isDragOver ? 'drag-over' : ''} ${wireDrawing.isDrawing ? 'wire-drawing' : ''} ${clickToPlace.isActive ? 'click-to-place' : ''}`}
+        data-canvas-container="true"
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}

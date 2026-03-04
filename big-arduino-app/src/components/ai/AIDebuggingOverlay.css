@@ -1,0 +1,146 @@
+/* =============================================
+   AI Debugging Overlay – Keyframes & Styles
+   ============================================= */
+
+/* --- Jump out (scale up from small) --- */
+@keyframes debug-jump-out {
+  0%   { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
+  70%  { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1);   opacity: 1; }
+}
+
+/* --- Retract back into panel --- */
+@keyframes debug-retract {
+  0%   { transform: translate(-50%, -50%) scale(1);   opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
+}
+
+/* --- One full 360° spin --- */
+@keyframes debug-spin-once {
+  0%   { transform: translate(-50%, -50%) rotate(0deg)   scale(1); }
+  100% { transform: translate(-50%, -50%) rotate(360deg) scale(1); }
+}
+
+/* --- Continuous floating bob --- */
+@keyframes debug-float {
+  0%, 100% { transform: translate(-50%, -50%) translateY(0);    }
+  50%       { transform: translate(-50%, -50%) translateY(-6px); }
+}
+
+/* --- Button slide-in --- */
+@keyframes debug-button-appear {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+
+/* =============================================
+   Character wrapper
+   ============================================= */
+.debug-overlay-character {
+  position: fixed;
+  width: 90px;
+  height: 87px;
+  pointer-events: auto;
+  z-index: 2000;
+}
+
+.debug-overlay-character--jumping {
+  animation: debug-jump-out 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.debug-overlay-character--hovering {
+  /* No animation – just sits at scaled position */
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+}
+
+.debug-overlay-character--spinning {
+  animation: debug-spin-once 0.55s ease-in-out both;
+}
+
+.debug-overlay-character--thinking {
+  animation: debug-float 2s ease-in-out infinite;
+}
+
+.debug-overlay-character--retracting {
+  animation: debug-retract 0.35s ease-in both;
+}
+
+/* Character SVG blob */
+.debug-overlay-character svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* =============================================
+   "Tips & Debugging" floating button
+   ============================================= */
+.debug-overlay-button {
+  position: fixed;
+  z-index: 2001;
+  transform: translateY(-50%);
+
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  padding: 8px 14px;
+  border: none;
+  border-radius: 20px;
+  background: #1A2BC3;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(26, 43, 195, 0.4);
+
+  animation: debug-button-appear 0.25s ease both;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.debug-overlay-button:hover {
+  background: #1320a0;
+  box-shadow: 0 6px 20px rgba(26, 43, 195, 0.5);
+}
+
+.debug-overlay-button:active {
+  background: #0d1870;
+}
+
+.debug-overlay-button svg {
+  flex-shrink: 0;
+}
+
+/* =============================================
+   Speech bubble (last-step hint)
+   ============================================= */
+.debug-overlay-bubble {
+  position: fixed;
+  z-index: 2001;
+  transform: translateY(-50%);
+
+  background: #fff;
+  border: 2px solid #1A2BC3;
+  border-radius: 12px;
+  padding: 10px 14px;
+  max-width: 200px;
+
+  font-size: 13px;
+  color: #1a1a2e;
+  line-height: 1.4;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+
+  animation: debug-button-appear 0.25s ease both;
+}
+
+.debug-overlay-bubble::after {
+  content: '';
+  position: absolute;
+  right: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 8px solid transparent;
+  border-left-color: #1A2BC3;
+  border-right: none;
+}

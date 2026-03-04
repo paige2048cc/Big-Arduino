@@ -44,47 +44,47 @@
   transition: transform 0.08s ease-out;
 }
 
-/* Eye positions - scaled for different sizes */
+/* Eye positions - scaled for different sizes (based on 202x196 viewBox in 106x106 container) */
 .blue-character--medium .blue-character__eye--1 {
-  width: 14px;
-  height: 16px;
-  left: 36.7px;
-  top: 47.5px;
+  width: 12px;
+  height: 15px;
+  left: 37px;
+  top: 49.5px;
 }
 
 .blue-character--medium .blue-character__eye--2 {
-  width: 14px;
-  height: 16px;
-  left: 59.2px;
-  top: 44.1px;
+  width: 12px;
+  height: 15px;
+  left: 56.5px;
+  top: 46.5px;
 }
 
 .blue-character--small .blue-character__eye--1 {
-  width: 7px;
-  height: 8px;
-  left: 18.35px;
-  top: 23.75px;
+  width: 6px;
+  height: 7.5px;
+  left: 18.5px;
+  top: 24.75px;
 }
 
 .blue-character--small .blue-character__eye--2 {
-  width: 7px;
-  height: 8px;
-  left: 29.6px;
-  top: 22.05px;
+  width: 6px;
+  height: 7.5px;
+  left: 28.25px;
+  top: 23.25px;
 }
 
 .blue-character--large .blue-character__eye--1 {
-  width: 21px;
-  height: 24px;
-  left: 55.05px;
-  top: 71.25px;
+  width: 18px;
+  height: 22.5px;
+  left: 55.5px;
+  top: 74.25px;
 }
 
 .blue-character--large .blue-character__eye--2 {
-  width: 21px;
-  height: 24px;
-  left: 88.8px;
-  top: 66.15px;
+  width: 18px;
+  height: 22.5px;
+  left: 84.75px;
+  top: 69.75px;
 }
 
 /* ============================================

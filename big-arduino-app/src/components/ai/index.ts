@@ -9,3 +9,9 @@ export type { BlueCharacterProps, CharacterMood } from './BlueCharacter';
 
 export { SpeechBubble } from './SpeechBubble';
 export type { SpeechBubbleProps } from './SpeechBubble';
+
+export { AIDebuggingOverlay } from './AIDebuggingOverlay';
+export type { AIDebuggingOverlayProps } from './AIDebuggingOverlay';
+
+export { OvercrowdedPinWarning } from './OvercrowdedPinWarning';
+export type { OvercrowdedPinWarningProps } from './OvercrowdedPinWarning';

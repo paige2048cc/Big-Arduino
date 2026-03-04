@@ -1,0 +1,108 @@
+/* =============================================
+   Overcrowded Pin Warning – Yellow Character
+   ============================================= */
+
+/* ── Keyframes ─────────────────────────────── */
+
+@keyframes ycw-pop-in {
+  0%   { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
+  70%  { transform: translate(-50%, -50%) scale(1.12); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1);   opacity: 1; }
+}
+
+@keyframes ycw-wobble {
+  0%, 100% { transform: translate(-50%, -50%) rotate(0deg)   scale(1); }
+  20%       { transform: translate(-50%, -50%) rotate(-8deg)  scale(1.05); }
+  40%       { transform: translate(-50%, -50%) rotate(8deg)   scale(1.05); }
+  60%       { transform: translate(-50%, -50%) rotate(-5deg)  scale(1); }
+  80%       { transform: translate(-50%, -50%) rotate(5deg)   scale(1); }
+}
+
+@keyframes ycw-hide {
+  0%   { transform: translate(-50%, -50%) scale(1);   opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
+}
+
+@keyframes ycw-bubble-in {
+  from { opacity: 0; transform: translateY(-50%) scale(0.9); }
+  to   { opacity: 1; transform: translateY(-50%) scale(1); }
+}
+
+/* ── Root wrapper ──────────────────────────── */
+/*
+ * The root is positioned at the pin's screen coordinates (set via inline style).
+ * width/height = 0 so the children use translate(-50%,-50%) to center on that point.
+ */
+.ycw-root {
+  position: fixed;
+  width: 0;
+  height: 0;
+  z-index: 2100;
+  pointer-events: none;
+}
+
+/* ── Animations on root children ────────────*/
+
+.ycw-root--visible .ycw-character {
+  animation:
+    ycw-pop-in  0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both,
+    ycw-wobble  0.6s ease-in-out 0.5s both;
+}
+
+.ycw-root--hiding .ycw-character {
+  animation: ycw-hide 0.35s ease-in both;
+}
+
+.ycw-root--hiding .ycw-bubble {
+  animation: ycw-hide 0.25s ease-in both;
+}
+
+/* ── Character image ─────────────────────────*/
+
+.ycw-character {
+  position: absolute;
+  width: 88px;
+  height: 84px;
+  /* Center on the lifted anchor point */
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ── Speech bubble ───────────────────────────*/
+/*  Same visual treatment as .debug-overlay-bubble  */
+
+.ycw-bubble {
+  position: absolute;
+  /* Bubble sits to the left of the character center; right-pointing arrow  */
+  right: calc(50% + 52px);  /* 52 ≈ half char width + gap                  */
+  top: 0;
+  transform: translateY(-50%);
+
+  background: #fff;
+  border: 2px solid #e8a000;
+  border-radius: 12px;
+  padding: 10px 14px;
+  width: 170px;
+
+  font-size: 13px;
+  color: #1a1a2e;
+  line-height: 1.45;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
+  white-space: normal;
+
+  animation: ycw-bubble-in 0.25s ease both;
+  pointer-events: none;
+}
+
+/* Right-pointing arrow toward the character */
+.ycw-bubble::after {
+  content: '';
+  position: absolute;
+  right: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 8px solid transparent;
+  border-left-color: #e8a000;
+  border-right: none;
+}

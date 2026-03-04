@@ -31,10 +31,18 @@
       "hitRadius": 8
     }
   ],
+  "variants": {
+    "100Ω": { "image": "Registor_100Ω.png" },
+    "220Ω": { "image": "Registor_220Ω.png" },
+    "1KΩ": { "image": "Registor_1KΩ.png" },
+    "10KΩ": { "image": "Registor_10KΩ.png" },
+    "1MΩ": { "image": "Registor_1MΩ.png" },
+    "10MΩ": { "image": "Registor_10MΩ.png" }
+  },
   "properties": {
     "resistance": {
       "type": "select",
-      "options": ["100Ω", "220Ω", "330Ω", "470Ω", "1kΩ", "2.2kΩ", "4.7kΩ", "10kΩ"],
+      "options": ["100Ω", "220Ω", "1KΩ", "10KΩ", "1MΩ", "10MΩ"],
       "default": "220Ω"
     }
   }

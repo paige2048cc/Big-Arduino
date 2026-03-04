@@ -12,6 +12,7 @@
 
 import type { CSSProperties } from 'react';
 import type { OnboardingPhase, OnboardingStepConfig } from '../../types/onboarding';
+import characterYellow from '../../assets/character_yellow.svg';
 import './CoachmarkCard.css';
 
 interface CoachmarkCardProps {
@@ -71,47 +72,17 @@ function BlueMascotCharacter({ className }: { className?: string }) {
   );
 }
 
-// Yellow mascot character SVG
+// Yellow mascot character
 function YellowMascotCharacter({ className }: { className?: string }) {
   return (
-    <svg
-      className={className}
+    <img
+      src={characterYellow}
       width="68"
       height="71"
-      viewBox="0 0 68 71"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M59.8308 61.0793C65.2293 56.1716 58.9106 49.7302 55.0764 47.1229C64.6465 46.5095 68.0261 40.3353 67.8059 37.3075C67.039 26.7624 54.5141 26.9809 48.9418 28.1056C52.6226 24.7315 56.15 1.11308 48.9418 0.0395152C42.8777 -0.863662 36.1622 13.9725 34.8225 18.248C34.5603 14.0137 30.3967 -0.545828 25.0167 0.0395152C19.8241 0.604472 20.3555 14.9302 21.9494 22.431L19.8022 20.1305C15.1501 16.4497 5.5043 10.862 1.70503 16.4497C-3.18554 23.6425 15.6742 37.1349 15.2013 37.3075C14.2792 37.6441 10.907 38.8412 9.37334 39.608C6.35714 41.5506 -0.3936 46.887 0.0180054 52.6441C0.442589 58.5827 9.44141 56.795 13.0541 54.9446L13.0523 54.9474C11.2694 57.6362 6.59451 64.6866 10.907 69.5144C16.8226 76.1368 27.1638 58.472 27.1638 58.472C27.1638 58.472 31.5348 71.3548 36.3658 69.5144C41.1968 67.674 40.7623 61.1304 40.66 56.785C44.8009 60.2613 54.4323 65.987 59.8308 61.0793Z"
-        fill="#FFC425"
-      />
-      <ellipse
-        cx="4.37094"
-        cy="5.13777"
-        rx="4.37094"
-        ry="5.13777"
-        transform="matrix(-1 0 0 1 44.352 30.3667)"
-        fill="#FDFCFC"
-      />
-      <ellipse
-        cx="4.37094"
-        cy="5.13777"
-        rx="4.37094"
-        ry="5.13777"
-        transform="matrix(-1 0 0 1 29.935 28.2192)"
-        fill="#FDFCFC"
-      />
-      {/* Pupils */}
-      <circle cx="39.981" cy="35.505" r="2.3" fill="black" />
-      <circle cx="25.564" cy="33.357" r="2.3" fill="black" />
-      <path
-        d="M33.769 36.4243C33.5901 37.0378 32.9164 37.9196 32.082 37.9196C31.1235 37.9196 30.9317 36.8333 30.7784 36.4243"
-        stroke="black"
-        strokeWidth="0.920197"
-        strokeLinecap="round"
-      />
-    </svg>
+      className={className}
+      alt=""
+      draggable={false}
+    />
   );
 }
 
