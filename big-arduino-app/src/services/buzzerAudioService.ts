@@ -1,79 +1,128 @@
 /**
  * Buzzer Audio Service
  *
- * Manages audio playback for buzzer components during simulation.
- * Supports looping playback that starts/stops based on buzzer state.
+ * Uses the Web Audio API (AudioBufferSourceNode) for sample-accurate,
+ * gapless looping.  HTMLAudioElement.loop leaves a small gap between
+ * iterations because of MP3 encoder delay and browser re-buffering;
+ * AudioBufferSourceNode.loop works on the decoded PCM buffer directly,
+ * so the loop point is seamless.
  */
 
 const BUZZER_AUDIO_PATH = '/audio/buzzer_audio.MP3';
 
 class BuzzerAudioService {
-  private audioElements: Map<string, HTMLAudioElement> = new Map();
-  private isInitialized = false;
+  private audioContext: AudioContext | null = null;
+  private audioBuffer: AudioBuffer | null = null;
+  private activeSources = new Map<string, AudioBufferSourceNode>();
+  private gainNodes = new Map<string, GainNode>();
+  private pendingPlay = new Set<string>();
+  private loadPromise: Promise<void> | null = null;
+
+  private getContext(): AudioContext {
+    if (!this.audioContext) {
+      this.audioContext = new AudioContext();
+    }
+    return this.audioContext;
+  }
 
   /**
-   * Pre-load the audio file so playback is instant when needed.
-   * Call once on first user interaction to satisfy autoplay policies.
+   * Pre-load the audio buffer so playback starts instantly later.
+   * Safe to call multiple times.
    */
   initialize(): void {
-    if (this.isInitialized) return;
-    this.isInitialized = true;
+    if (!this.loadPromise) {
+      this.loadPromise = this.loadAudioBuffer();
+    }
   }
 
-  private getOrCreateAudio(buzzerId: string): HTMLAudioElement {
-    let audio = this.audioElements.get(buzzerId);
-    if (!audio) {
-      audio = new Audio(BUZZER_AUDIO_PATH);
-      audio.loop = true;
-      audio.preload = 'auto';
-      this.audioElements.set(buzzerId, audio);
+  private async loadAudioBuffer(): Promise<void> {
+    if (this.audioBuffer) return;
+    try {
+      const ctx = this.getContext();
+      const response = await fetch(BUZZER_AUDIO_PATH);
+      const arrayBuffer = await response.arrayBuffer();
+      this.audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+    } catch (err) {
+      console.error('[BuzzerAudioService] Failed to load audio:', err);
     }
-    return audio;
   }
 
   /**
-   * Start playing buzzer audio in a loop for a given buzzer instance.
-   * If already playing, this is a no-op.
+   * Start gapless looping for the given buzzer.
+   * No-op if already playing or a play is in progress.
    */
   play(buzzerId: string): void {
-    const audio = this.getOrCreateAudio(buzzerId);
-    if (audio.paused) {
-      audio.currentTime = 0;
-      audio.play().catch(() => {
-        // Browser may block autoplay if no prior user gesture
-      });
+    if (this.activeSources.has(buzzerId) || this.pendingPlay.has(buzzerId)) return;
+    this.pendingPlay.add(buzzerId);
+    this.playAsync(buzzerId).finally(() => this.pendingPlay.delete(buzzerId));
+  }
+
+  private async playAsync(buzzerId: string): Promise<void> {
+    if (!this.audioBuffer) {
+      if (!this.loadPromise) this.loadPromise = this.loadAudioBuffer();
+      await this.loadPromise;
+      if (!this.audioBuffer) return;
     }
+
+    if (this.activeSources.has(buzzerId)) return;
+
+    const ctx = this.getContext();
+    if (ctx.state === 'suspended') {
+      await ctx.resume();
+    }
+
+    const source = ctx.createBufferSource();
+    source.buffer = this.audioBuffer;
+    source.loop = true;
+
+    const gain = ctx.createGain();
+    gain.gain.value = 1;
+
+    source.connect(gain);
+    gain.connect(ctx.destination);
+    source.start(0);
+
+    this.activeSources.set(buzzerId, source);
+    this.gainNodes.set(buzzerId, gain);
   }
 
   /**
-   * Stop playing buzzer audio for a given buzzer instance.
+   * Stop buzzer audio for a given instance.
    */
   stop(buzzerId: string): void {
-    const audio = this.audioElements.get(buzzerId);
-    if (audio && !audio.paused) {
-      audio.pause();
-      audio.currentTime = 0;
+    const source = this.activeSources.get(buzzerId);
+    if (source) {
+      try { source.stop(); } catch { /* already stopped */ }
+      source.disconnect();
+      this.activeSources.delete(buzzerId);
+    }
+    const gain = this.gainNodes.get(buzzerId);
+    if (gain) {
+      gain.disconnect();
+      this.gainNodes.delete(buzzerId);
     }
   }
 
   /**
-   * Stop all buzzer audio and clean up resources.
-   * Call when simulation ends.
+   * Stop all buzzer audio. Call when simulation ends.
    */
   stopAll(): void {
-    this.audioElements.forEach((audio) => {
-      audio.pause();
-      audio.currentTime = 0;
-    });
+    for (const [id] of this.activeSources) {
+      this.stop(id);
+    }
   }
 
   /**
-   * Clean up all audio elements entirely.
+   * Release all resources including the AudioContext.
    */
   dispose(): void {
     this.stopAll();
-    this.audioElements.clear();
-    this.isInitialized = false;
+    if (this.audioContext) {
+      this.audioContext.close().catch(() => {});
+      this.audioContext = null;
+    }
+    this.audioBuffer = null;
+    this.loadPromise = null;
   }
 }
 

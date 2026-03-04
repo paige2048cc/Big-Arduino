@@ -97,15 +97,56 @@ function isGroundPin(compType: string, pinId: string, pinType: string): boolean 
 
 /**
  * Returns pin IDs that are internally connected to the given pin within the
- * same component (e.g. resistor terminals, LED anode→cathode for animation).
+ * same component.  Reads the component definition's `internalConnections`
+ * field when available; falls back to hardcoded rules for legacy components.
  */
 function getInternalConnections(
   compType: string,
   pinId: string,
   compId?: string,
-  buttonStates?: Map<string, boolean>
+  buttonStates?: Map<string, boolean>,
+  definition?: ComponentDefinition
 ): string[] {
-  // Resistors: two terminals are always connected
+  // ── Data-driven internal connections from the component definition ──────
+  if (definition?.internalConnections) {
+    const ic = definition.internalConnections;
+    const connected = new Set<string>();
+
+    // "always" groups – bidirectional
+    if (ic.always) {
+      for (const group of ic.always) {
+        if (group.includes(pinId)) {
+          for (const p of group) {
+            if (p !== pinId) connected.add(p);
+          }
+        }
+      }
+    }
+
+    // "whenPressed" groups – only when the component's button is pressed
+    const isButtonComp =
+      compType.toLowerCase().includes('pushbutton') ||
+      compType.toLowerCase().includes('button');
+    const isPressed =
+      isButtonComp && compId && buttonStates
+        ? (buttonStates.get(compId) ?? false)
+        : false;
+
+    if (isPressed && ic.whenPressed) {
+      for (const group of ic.whenPressed) {
+        if (group.includes(pinId)) {
+          for (const p of group) {
+            if (p !== pinId) connected.add(p);
+          }
+        }
+      }
+    }
+
+    if (connected.size > 0) return [...connected];
+  }
+
+  // ── Hardcoded fallbacks for definitions that lack internalConnections ───
+  // Resistors
   if (
     compType.toLowerCase().includes('resistor') ||
     compType.toLowerCase().includes('registor')
@@ -225,7 +266,7 @@ function traceFrom(
       ? (buttonStates.get(compId) ?? false)
       : false;
 
-  for (const internalPinId of getInternalConnections(compType, pinId, compId, buttonStates)) {
+  for (const internalPinId of getInternalConnections(compType, pinId, compId, buttonStates, def)) {
     const sub = traceFrom(compId, internalPinId, components, definitions, wires, visited, buttonStates);
     // Only accept sub-paths that make real progress (reach GND or include actual wires).
     // A highlights-only result means we landed on an unconnected breadboard row —
@@ -500,7 +541,7 @@ function floodFillFrom(
   out.componentIds.add(compId);
 
   // ── Internal connections (bidirectional for flood-fill) ───────────────────
-  const internalPins = getInternalConnections(compType, pinId, compId, buttonStates);
+  const internalPins = getInternalConnections(compType, pinId, compId, buttonStates, def);
   // LED: also allow CATHODE→ANODE for flood-fill (traceFrom only allows ANODE→CATHODE)
   if (compType.toLowerCase().includes('led') && pinId === 'CATHODE' && !internalPins.includes('ANODE')) {
     internalPins.push('ANODE');

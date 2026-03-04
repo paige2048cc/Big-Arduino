@@ -9,7 +9,8 @@
 .sww-root {
   position: fixed;
   top: 80px;
-  right: 24px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -27,15 +28,15 @@
 @keyframes sww-show {
   0% {
     opacity: 0;
-    transform: translateX(60px) scale(0.8);
+    transform: translateX(-50%) translateY(-20px) scale(0.8);
   }
   60% {
     opacity: 1;
-    transform: translateX(-8px) scale(1.02);
+    transform: translateX(-50%) translateY(4px) scale(1.02);
   }
   100% {
     opacity: 1;
-    transform: translateX(0) scale(1);
+    transform: translateX(-50%) translateY(0) scale(1);
   }
 }
 
@@ -48,11 +49,11 @@
 @keyframes sww-hide {
   0% {
     opacity: 1;
-    transform: translateX(0) scale(1);
+    transform: translateX(-50%) translateY(0) scale(1);
   }
   100% {
     opacity: 0;
-    transform: translateX(60px) scale(0.8);
+    transform: translateX(-50%) translateY(-20px) scale(0.8);
   }
 }
 

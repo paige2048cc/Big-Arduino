@@ -62,6 +62,14 @@ export function CircuitAnimation({
   const holdTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fadeTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ── Immediately snap ball to park position via DOM ref ──────────────────
+  useEffect(() => {
+    if (parkPosition && ballRef.current) {
+      ballRef.current.setAttribute('cx', String(parkPosition.x));
+      ballRef.current.setAttribute('cy', String(parkPosition.y));
+    }
+  }, [parkPosition]);
+
   // ── Recompute path geometry when the path prop changes ────────────────────
   useEffect(() => {
     const validWaypoints = path.waypoints.filter(

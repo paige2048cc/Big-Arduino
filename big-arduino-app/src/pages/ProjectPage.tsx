@@ -15,6 +15,7 @@ import { sendMessage, isAIServiceConfigured, getFallbackResponse, parseAIRespons
 import { OnboardingOverlay } from '../components/onboarding';
 import { AIDebuggingOverlay, OvercrowdedPinWarning, SimulationWireWarning } from '../components/ai';
 import { useOnboardingStore } from '../store/onboardingStore';
+import { useDevStore } from '../store/devStore';
 
 // Default panel configurations for the docking system
 const DEFAULT_PANELS: PanelConfig[] = [
@@ -97,15 +98,19 @@ export function ProjectPage() {
     setChatMessages((prev) => [...prev, { role, content }]);
   }, []);
 
+  // Dev feature flags
+  const devGlobalOnboarding = useDevStore((s) => s.globalOnboarding);
+  const devYellowCharacter = useDevStore((s) => s.yellowCharacter);
+
   // Onboarding
   const initOnboarding = useOnboardingStore((state) => state.initOnboarding);
   const updateToolbarRect = useOnboardingStore((state) => state.updateToolbarRect);
   const updateTargetRect = useOnboardingStore((state) => state.updateTargetRect);
 
-  // Initialize onboarding on mount
+  // Initialize onboarding on mount (respects dev flag)
   useEffect(() => {
-    initOnboarding();
-  }, [initOnboarding]);
+    if (devGlobalOnboarding) initOnboarding();
+  }, [initOnboarding, devGlobalOnboarding]);
 
   // Track all target rects for onboarding overlay positioning
   useEffect(() => {
@@ -404,7 +409,7 @@ export function ProjectPage() {
         </main>
 
         {/* Onboarding overlay */}
-        <OnboardingOverlay />
+        {devGlobalOnboarding && <OnboardingOverlay />}
 
         {/* AI Debugging Overlay */}
         <AIDebuggingOverlay
@@ -429,16 +434,20 @@ export function ProjectPage() {
         />
 
         {/* Overcrowded breadboard pin warning */}
-        <OvercrowdedPinWarning
-          placedComponents={placedComponents}
-          wires={wires}
-        />
+        {devYellowCharacter && (
+          <OvercrowdedPinWarning
+            placedComponents={placedComponents}
+            wires={wires}
+          />
+        )}
 
         {/* Simulation wire warning - shows when user tries to wire during simulation */}
-        <SimulationWireWarning
-          wireAttemptsDuringSimulation={wireAttemptsDuringSimulation}
-          isSimulating={isSimulating}
-        />
+        {devYellowCharacter && (
+          <SimulationWireWarning
+            wireAttemptsDuringSimulation={wireAttemptsDuringSimulation}
+            isSimulating={isSimulating}
+          />
+        )}
       </div>
     </DockingProvider>
   );

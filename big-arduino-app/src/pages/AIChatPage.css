@@ -93,6 +93,16 @@
   overflow: visible;
 }
 
+/* Static (no-animation) wrapper — used on header & non-latest avatars */
+.blue-character-static .blue-character,
+.blue-character-static .blue-character--happy,
+.blue-character-static .blue-character--thinking,
+.blue-character-static .blue-character--concerned,
+.blue-character-static .blue-character--celebrating {
+  animation: none;
+  opacity: 1;
+}
+
 /* Bubble */
 .scan-chat-bubble {
   background: #f8fafc;
@@ -364,73 +374,85 @@
 }
 
 /* ==========================================
-   Goal Choice Buttons (Learning / Exploring)
+   Goal Choice — minimal radio list
    ========================================== */
 
-.goal-choice-container {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  padding: 4px 18px 18px;
-}
-
-.goal-choice-btn {
+.goal-choice-list {
   display: flex;
   flex-direction: column;
+  gap: 2px;
+  padding: 2px 18px 14px;
+}
+
+.goal-choice-row {
+  display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 20px 16px;
-  border: 2px solid #e2e8f0;
-  border-radius: 16px;
-  background: #ffffff;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1.5px solid transparent;
+  border-radius: 10px;
+  background: transparent;
   cursor: pointer;
-  text-align: center;
-  transition: all 200ms ease;
+  transition: border-color 150ms ease, background 150ms ease;
 }
 
-.goal-choice-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+.goal-choice-row:hover:not(:disabled) {
+  border-color: #e2e8f0;
+  background: #fafbfc;
 }
 
-.goal-choice-btn--learning:hover {
-  border-color: #34a853;
-  box-shadow: 0 4px 16px rgba(52, 168, 83, 0.15);
+.goal-choice-row:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
-.goal-choice-btn--exploring:hover {
+.goal-choice-row.selected {
   border-color: #193cb8;
-  box-shadow: 0 4px 16px rgba(25, 60, 184, 0.15);
+  background: #f0f4ff;
 }
 
-.goal-choice-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
+.goal-radio {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid #cbd5e1;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ffffff;
+  flex-shrink: 0;
+  transition: border-color 150ms ease;
 }
 
-.goal-choice-btn--learning .goal-choice-icon {
-  background: linear-gradient(135deg, #34a853, #2d9249);
+.goal-choice-row:hover:not(:disabled) .goal-radio {
+  border-color: #94a3b8;
 }
 
-.goal-choice-btn--exploring .goal-choice-icon {
-  background: linear-gradient(135deg, #193cb8, #4a6cf7);
+.goal-choice-row.selected .goal-radio {
+  border-color: #193cb8;
 }
 
-.goal-choice-label {
-  font-size: 15px;
-  font-weight: 700;
+.goal-radio-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #193cb8;
+  animation: radioFadeIn 200ms ease-out;
+}
+
+@keyframes radioFadeIn {
+  from { transform: scale(0); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+.goal-choice-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: #334155;
+}
+
+.goal-choice-row.selected .goal-choice-text {
   color: #0f172b;
-}
-
-.goal-choice-desc {
-  font-size: 12px;
-  color: #64748b;
-  line-height: 1.4;
+  font-weight: 600;
 }
 
 /* ==========================================
@@ -600,9 +622,6 @@
 /* Responsive: stack cards on narrow screens */
 @media (max-width: 600px) {
   .featured-projects-grid {
-    grid-template-columns: 1fr;
-  }
-  .goal-choice-container {
     grid-template-columns: 1fr;
   }
 }

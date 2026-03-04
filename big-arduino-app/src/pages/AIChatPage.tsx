@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Send, Loader2, ChevronRight, BookOpen, Compass, Cpu, Package } from 'lucide-react';
+import { Send, Loader2, ChevronRight, Cpu, Package } from 'lucide-react';
 import { Sidebar } from '../components/layout/Sidebar';
 import { BlueCharacter } from '../components/ai/BlueCharacter';
 import type { DetectedComponent, ProjectMatch } from '../utils/componentMatcher';
@@ -41,6 +41,7 @@ export function AIChatPage() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [choiceMade, setChoiceMade] = useState(false);
+  const [selectedChoice, setSelectedChoice] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Convert chat messages to conversation history for AI
@@ -289,6 +290,14 @@ export function AIChatPage() {
   };
   const startProjectMsgId = getStartProjectMsgId();
 
+  // Only the latest assistant message gets an animated avatar
+  const lastAssistantMsgId = (() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'assistant') return messages[i].id;
+    }
+    return null;
+  })();
+
   const handleStartProject = () => {
     const chatHistory = messages
       .filter(m => m.content)
@@ -311,7 +320,11 @@ export function AIChatPage() {
   };
 
   const handleGoalChoice = async (choiceId: string) => {
-    if (choiceMade) return;
+    if (choiceMade || selectedChoice) return;
+    setSelectedChoice(choiceId);
+
+    // Brief delay to show the selected radio state before proceeding
+    await new Promise(r => setTimeout(r, 400));
     setChoiceMade(true);
 
     const choiceLabel = choiceId === 'learning' ? 'Learning' : 'Exploring';
@@ -339,17 +352,9 @@ export function AIChatPage() {
       };
       setMessages(prev => [...prev, projectMsg]);
     } else {
-      // Exploring: start AI chat guided flow
+      // Exploring: go straight to AI thinking, no intermediate message
       const detected = state?.detected || [];
       const componentNames = detected.map(d => d.className).join(', ');
-
-      const greetingId = `exploring-greeting-${Date.now()}`;
-      const exploringGreeting: ChatMessage = {
-        id: greetingId,
-        role: 'assistant',
-        content: `Awesome! Let's explore what you can create with **${componentNames}**. Tell me — is there a feeling, theme, or idea you'd like to express through a project? For example, something calming, playful, or interactive?`,
-      };
-      setMessages(prev => [...prev, exploringGreeting]);
 
       if (isAIServiceConfigured()) {
         setIsLoading(true);
@@ -369,7 +374,7 @@ export function AIChatPage() {
           const response = await sendMessage(exploringPrompt, [], circuitState);
           const parsed = parseAIResponse(response.content);
           setMessages(prev => [
-            ...prev.filter(m => m.id !== greetingId),
+            ...prev,
             {
               id: `assistant-explore-${Date.now()}`,
               role: 'assistant',
@@ -377,10 +382,26 @@ export function AIChatPage() {
             },
           ]);
         } catch {
-          // Keep the static greeting if AI fails
+          setMessages(prev => [
+            ...prev,
+            {
+              id: `assistant-explore-fallback-${Date.now()}`,
+              role: 'assistant',
+              content: `Let's explore what you can create with **${componentNames}**! Tell me — is there a feeling, theme, or idea you'd like to express through a project?`,
+            },
+          ]);
         } finally {
           setIsLoading(false);
         }
+      } else {
+        setMessages(prev => [
+          ...prev,
+          {
+            id: `assistant-explore-${Date.now()}`,
+            role: 'assistant',
+            content: `Let's explore what you can create with **${componentNames}**! Tell me — is there a feeling, theme, or idea you'd like to express through a project?`,
+          },
+        ]);
       }
     }
   };
@@ -392,7 +413,7 @@ export function AIChatPage() {
 
         <main className="scan-chat-main">
           <div className="scan-chat-header">
-            <div className="scan-chat-header-icon">
+            <div className="scan-chat-header-icon blue-character-static">
               <BlueCharacter
                 x={18}
                 y={18}
@@ -409,7 +430,7 @@ export function AIChatPage() {
               <div key={msg.id}>
                 <div className={`scan-chat-msg scan-chat-msg--${msg.role}`}>
                   {msg.role === 'assistant' && (
-                    <div className="scan-chat-avatar scan-chat-avatar--character">
+                    <div className={`scan-chat-avatar scan-chat-avatar--character ${msg.id !== lastAssistantMsgId ? 'blue-character-static' : ''}`}>
                       <BlueCharacter
                         x={16}
                         y={16}
@@ -448,19 +469,19 @@ export function AIChatPage() {
 
                     {/* Choice question */}
                     {msg.choiceQuestion && !choiceMade && (
-                      <div className="goal-choice-container">
+                      <div className="goal-choice-list">
                         {msg.choiceQuestion.options.map(opt => (
                           <button
                             key={opt.id}
-                            className={`goal-choice-btn goal-choice-btn--${opt.icon}`}
+                            className={`goal-choice-row ${selectedChoice === opt.id ? 'selected' : ''}`}
                             onClick={() => handleGoalChoice(opt.id)}
+                            disabled={!!selectedChoice && selectedChoice !== opt.id}
                             type="button"
                           >
-                            <div className="goal-choice-icon">
-                              {opt.icon === 'learning' ? <BookOpen size={24} /> : <Compass size={24} />}
-                            </div>
-                            <div className="goal-choice-label">{opt.label}</div>
-                            <div className="goal-choice-desc">{opt.description}</div>
+                            <span className="goal-radio">
+                              {selectedChoice === opt.id && <span className="goal-radio-dot" />}
+                            </span>
+                            <span className="goal-choice-text">{opt.label}</span>
                           </button>
                         ))}
                       </div>

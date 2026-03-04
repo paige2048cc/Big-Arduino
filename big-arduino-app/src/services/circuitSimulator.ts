@@ -113,7 +113,7 @@ function isLED(componentType: string): boolean {
 /**
  * Identifies if a component is a pushbutton
  */
-function isButton(componentType: string): boolean {
+export function isButton(componentType: string): boolean {
   return componentType.toLowerCase().includes('button') ||
          componentType.toLowerCase().includes('pushbutton');
 }
@@ -196,6 +196,19 @@ function getInternalConnections(
   if (isResistor(componentType)) {
     if (pinId === 'TERM1') return ['TERM2'];
     if (pinId === 'TERM2') return ['TERM1'];
+  }
+
+  // Data-driven internal connections from the component definition
+  if (definition?.internalConnections?.always) {
+    const connected: string[] = [];
+    for (const group of definition.internalConnections.always) {
+      if (group.includes(pinId)) {
+        for (const p of group) {
+          if (p !== pinId) connected.push(p);
+        }
+      }
+    }
+    if (connected.length > 0) return connected;
   }
 
   // Net-based connections for NON-BREADBOARD components only.
@@ -942,4 +955,28 @@ export function getDetailedDiagnostics(
     suggestions,
     componentStatus
   };
+}
+
+/**
+ * Returns an educational guidance hint for a given error type.
+ * Hints guide the learner toward understanding the issue
+ * without giving away the exact solution.
+ */
+export function getGuidanceHint(errorType: CircuitErrorType): string {
+  switch (errorType) {
+    case 'no-ground':
+      return "This part of the circuit may be missing a return path. Where does electricity need to flow back to?";
+    case 'no-power':
+      return "Something here isn't receiving energy. Think about where the power source is and how it connects.";
+    case 'wrong-polarity':
+      return "Direction matters for this component. Consider which side is positive and which is negative.";
+    case 'missing-resistor':
+      return "This component might need protection from too much current. What could limit the flow?";
+    case 'short-circuit':
+      return "There might be an unintended direct path. Is electricity bypassing something important?";
+    case 'open-circuit':
+      return "The circuit path seems incomplete here. Does electricity have a complete loop to travel?";
+    default:
+      return "There seems to be an issue here. Double-check your connections.";
+  }
 }

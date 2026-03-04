@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { HomePage } from './pages/HomePage';
 import { ProjectPage } from './pages/ProjectPage';
 import { AIChatPage } from './pages/AIChatPage';
+import { DevPanel } from './components/shared/DevPanel';
 import './App.css';
 
 // Use base path for GitHub Pages deployment
@@ -15,6 +16,7 @@ function App() {
         <Route path="/project/:projectId" element={<ProjectPage />} />
         <Route path="/ai-chat" element={<AIChatPage />} />
       </Routes>
+      <DevPanel />
     </Router>
   );
 }

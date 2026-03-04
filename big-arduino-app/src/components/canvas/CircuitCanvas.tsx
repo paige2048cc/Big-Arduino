@@ -8,7 +8,8 @@ import {
   useIsOnboardingActive,
   useOnboardingPhase,
 } from '../../store/onboardingStore';
-import type { CircuitError } from '../../services/circuitSimulator';
+import { useDevStore } from '../../store/devStore';
+import { getGuidanceHint, type CircuitError } from '../../services/circuitSimulator';
 import { createComponentReference, createWireReference } from '../../types/chat';
 import { loadComponentByFileName, getPinAtPosition } from '../../services/componentService';
 import { registerSceneToScreenConverter } from '../../services/canvasCoordinates';
@@ -347,6 +348,9 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
   const aiCharacter = useAICharacter();
   const hideAICharacter = useCircuitStore(state => state.hideAICharacter);
 
+  // Dev feature flags
+  const devComponentOnboarding = useDevStore((s) => s.componentOnboarding);
+
   // Onboarding hooks
   const isOnboardingActive = useIsOnboardingActive();
   const onboardingPhase = useOnboardingPhase();
@@ -359,9 +363,35 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
   // (to skip adding references during drop)
   const isDroppingFromLibraryRef = useRef(false);
 
-  // Hovered wire error for tooltip
+  // Hovered wire/component error for guidance tooltip
   const [hoveredWireError, setHoveredWireError] = useState<CircuitError | null>(null);
   const [wireErrorPosition, setWireErrorPosition] = useState<{ x: number; y: number } | null>(null);
+  const [hoveredComponentHint, setHoveredComponentHint] = useState<string | null>(null);
+  const [componentHintPosition, setComponentHintPosition] = useState<{ x: number; y: number } | null>(null);
+
+  // Auto-generate component highlights from simulation errors
+  const simulationComponentHighlights = useMemo(() => {
+    if (!isSimulating || simulationErrors.length === 0) return [];
+
+    const seen = new Set<string>();
+    return simulationErrors
+      .filter(e => e.componentId && !seen.has(e.componentId) && (seen.add(e.componentId), true))
+      .map(e => ({
+        type: 'component' as const,
+        id: e.componentId!,
+        severity: 'error' as const,
+        message: getGuidanceHint(e.errorType),
+      }));
+  }, [isSimulating, simulationErrors]);
+
+  // Combine AI highlights with simulation-derived component highlights
+  const combinedHighlights = useMemo(() => {
+    if (highlightedItems.length > 0) return highlightedItems;
+    return simulationComponentHighlights;
+  }, [highlightedItems, simulationComponentHighlights]);
+
+  // Map of component IDs to their guidance hint messages (for hover tooltip)
+  const componentHintMapRef = useRef<Map<string, string>>(new Map());
 
   // Map instanceId to Fabric object
   const instanceToFabricMap = useRef<Map<string, fabric.FabricObject>>(new Map());
@@ -429,6 +459,8 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
   const [animPersist, setAnimPersist] = useState(false);
   // Fixed position for ball when parked at a button break point
   const [ballParkPosition, setBallParkPosition] = useState<{ x: number; y: number } | null>(null);
+  // Previous park position – used to trim waypoints when button transitions from parked → animating
+  const prevBallParkRef = useRef<{ x: number; y: number } | null>(null);
   // Stable callback so the rAF loop in CircuitAnimation doesn't restart on re-renders.
   const handleAnimDone = useCallback(() => setAnimPath(null), []);
   // Button states – used to retrace the circuit when a button is pressed in simulation.
@@ -875,26 +907,35 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       handleMouseUpRef.current?.(fabricCanvas, e.e as MouseEvent);
     });
 
-    // Mouse over for wire error tooltips
+    // Mouse over for guidance tooltips on error wires and highlighted components
     fabricCanvas.on('mouse:over', (e) => {
       const target = e.target as ComponentFabricObject;
+      const mouseEvent = e.e as MouseEvent;
+      const rect = container.getBoundingClientRect();
+      const pos = { x: mouseEvent.clientX - rect.left, y: mouseEvent.clientY - rect.top };
+
       if (target?.data?.type === 'wire' && target.data.error) {
-        const mouseEvent = e.e as MouseEvent;
-        const rect = container.getBoundingClientRect();
         setHoveredWireError(target.data.error);
-        setWireErrorPosition({
-          x: mouseEvent.clientX - rect.left,
-          y: mouseEvent.clientY - rect.top,
-        });
+        setWireErrorPosition(pos);
+      } else if (target?.data?.type === 'component') {
+        const instanceId = target.data.instanceId;
+        const hint = componentHintMapRef.current.get(instanceId);
+        if (hint) {
+          setHoveredComponentHint(hint);
+          setComponentHintPosition(pos);
+        }
       }
     });
 
-    // Mouse out for hiding wire error tooltips
+    // Mouse out for hiding guidance tooltips
     fabricCanvas.on('mouse:out', (e) => {
       const target = e.target as ComponentFabricObject;
       if (target?.data?.type === 'wire') {
         setHoveredWireError(null);
         setWireErrorPosition(null);
+      } else if (target?.data?.type === 'component') {
+        setHoveredComponentHint(null);
+        setComponentHintPosition(null);
       }
     });
 
@@ -1099,6 +1140,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
         vpt[4] += mouseEvent.clientX - lastPanPointRef.current.x;
         vpt[5] += mouseEvent.clientY - lastPanPointRef.current.y;
         canvas.setViewportTransform(vpt);
+        viewportTransformRef.current = canvas.viewportTransform as number[];
         lastPanPointRef.current = { x: mouseEvent.clientX, y: mouseEvent.clientY };
         setCanvasViewportTransform([...vpt]);
         // Trigger re-render for onboarding overlay
@@ -2075,6 +2117,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     if (!isSimulating) {
       setAnimPath(null);
       setBallParkPosition(null);
+      prevBallParkRef.current = null;
       // Reset tracking so design-mode effect does a fresh computation
       prevHighlightsRef.current = {
         wireIds: new Set(),
@@ -2159,6 +2202,8 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     setAnimPersist(true);
     setAnimLooping(false);
 
+    const wasParkingAtButton = prevBallParkRef.current !== null;
+
     if (bestPath.breakReason === 'button-unpressed' && bestPath.breakPosition) {
       // Ball parks at the unpressed button's power-side pin
       setAnimPath({
@@ -2166,13 +2211,38 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
         wireIds: [...connected.wireIds],
       });
       setBallParkPosition(bestPath.breakPosition);
+      prevBallParkRef.current = bestPath.breakPosition;
     } else {
-      // Ball animates along the full path (one-shot, stays at end)
+      // Button was just pressed (transitioning from parked → animating):
+      // trim waypoints so the ball continues from where it was parked
+      // instead of jumping back to the power source.
+      let animWaypoints = bestPath.waypoints;
+
+      if (wasParkingAtButton && prevBallParkRef.current) {
+        const parkPos = prevBallParkRef.current;
+        let startIdx = 0;
+        let minDist = Infinity;
+        for (let i = 0; i < animWaypoints.length; i++) {
+          const dx = animWaypoints[i].x - parkPos.x;
+          const dy = animWaypoints[i].y - parkPos.y;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d < minDist) {
+            minDist = d;
+            startIdx = i;
+          }
+        }
+        if (minDist < 10) {
+          animWaypoints = animWaypoints.slice(startIdx);
+        }
+      }
+
       setAnimPath({
         ...bestPath,
+        waypoints: animWaypoints,
         wireIds: [...connected.wireIds],
       });
       setBallParkPosition(null);
+      prevBallParkRef.current = null;
     }
   }, [isSimulating, buttonStates]); // buttonStates dep re-traces when button pressed
 
@@ -2350,7 +2420,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     }
   }, [wireDrawing, hoveredPin?.componentId]);
 
-  // Render highlight overlays for AI-identified issues
+  // Render highlight overlays for AI-identified issues and simulation errors
   useEffect(() => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
@@ -2361,7 +2431,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     });
     highlightObjectsRef.current = [];
 
-    if (!highlightedItems || highlightedItems.length === 0) {
+    if (!combinedHighlights || combinedHighlights.length === 0) {
       canvas.renderAll();
       return;
     }
@@ -2374,10 +2444,17 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       info: { stroke: '#3b82f6', fill: 'rgba(59, 130, 246, 0.15)' },
     };
 
-    for (const item of highlightedItems) {
+    // Build a map of component highlights for hover tooltip lookup
+    const componentHintMap = new Map<string, string>();
+
+    for (const item of combinedHighlights) {
       const colors = severityColors[item.severity] || severityColors.info;
 
       if (item.type === 'component') {
+        if (item.message) {
+          componentHintMap.set(item.id, item.message);
+        }
+
         // Find the component's Fabric object
         const fabricObj = instanceToFabricMap.current.get(item.id);
         if (fabricObj) {
@@ -2398,7 +2475,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
             ry: 8,
             selectable: false,
             evented: false,
-            data: { type: 'highlight', itemId: item.id },
+            data: { type: 'highlight', itemId: item.id, hintMessage: item.message },
           });
 
           canvas.add(highlight);
@@ -2438,14 +2515,27 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
       }
     }
 
+    // Store component hint map in ref for hover detection
+    componentHintMapRef.current = componentHintMap;
+
     canvas.renderAll();
-  }, [highlightedItems]);
+  }, [combinedHighlights]);
 
   // Handle component onboarding images as Fabric.js objects (supports multiple simultaneous)
   // Renders onboarding images on the canvas, positioned just above each component
   useEffect(() => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
+
+    // When component onboarding is disabled, remove any existing onboarding images
+    if (!devComponentOnboarding) {
+      for (const [id, obj] of onboardingFabricsRef.current) {
+        canvas.remove(obj);
+        onboardingFabricsRef.current.delete(id);
+      }
+      canvas.renderAll();
+      return;
+    }
 
     const currentIds = new Set(activeOnboardings.keys());
     const renderedIds = new Set(onboardingFabricsRef.current.keys());
@@ -2575,7 +2665,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
         }
       }
     };
-  }, [activeOnboardings, hideOnboarding, getComponentDefinition, placedComponents]);
+  }, [activeOnboardings, hideOnboarding, getComponentDefinition, placedComponents, devComponentOnboarding]);
 
   // Update onboarding positions when components move
   useEffect(() => {
@@ -3893,17 +3983,31 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
           );
         })()}
 
-        {/* Wire Error Tooltip */}
-        {hoveredWireError && wireErrorPosition && (
+        {/* Wire Error Guidance Tooltip */}
+        {isSimulating && hoveredWireError && wireErrorPosition && (
           <div
-            className="wire-error-tooltip"
+            className="wire-error-tooltip wire-error-tooltip--guidance"
             style={{
               left: wireErrorPosition.x,
-              top: wireErrorPosition.y - 40,
+              top: wireErrorPosition.y - 50,
               transform: 'translateX(-50%)',
             }}
           >
-            {hoveredWireError.message}
+            {getGuidanceHint(hoveredWireError.errorType)}
+          </div>
+        )}
+
+        {/* Component Highlight Guidance Tooltip */}
+        {isSimulating && hoveredComponentHint && componentHintPosition && (
+          <div
+            className="wire-error-tooltip wire-error-tooltip--guidance"
+            style={{
+              left: componentHintPosition.x,
+              top: componentHintPosition.y - 50,
+              transform: 'translateX(-50%)',
+            }}
+          >
+            {hoveredComponentHint}
           </div>
         )}
 

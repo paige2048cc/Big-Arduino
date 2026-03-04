@@ -22,6 +22,7 @@ import { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react
 import { createPortal } from 'react-dom';
 import { Wrench } from 'lucide-react';
 import { useCircuitStore } from '../../store/circuitStore';
+import { useDevStore } from '../../store/devStore';
 import {
   sendMessage,
   parseAIResponse,
@@ -95,6 +96,10 @@ export function AIDebuggingOverlay({
   const totalInstructionSteps = useCircuitStore((s) => s.totalInstructionSteps);
   const setAICharacterOut = useCircuitStore((s) => s.setAICharacterOut);
 
+  // Dev feature flags
+  const devAIHover = useDevStore((s) => s.aiAssistantHover);
+  const devAutoDebug = useDevStore((s) => s.autoDebugging);
+
   // ── Local state ──────────────────────────────────────────────────────────
   const [animState, setAnimState] = useState<AnimState>('idle');
   const [anchorRect, setAnchorRect] = useState<AnchorRect | null>(null);
@@ -165,11 +170,12 @@ export function AIDebuggingOverlay({
 
   // ── Trigger 1: Hover ──────────────────────────────────────────────────────
   useEffect(() => {
+    if (!devAIHover) return;
     if (!aiCharacterHovered) return;
     if (animState !== 'idle') return;
     hoverTriggeredRef.current = true;
     jumpOut(null, false);
-  }, [aiCharacterHovered, animState, jumpOut]);
+  }, [aiCharacterHovered, animState, jumpOut, devAIHover]);
 
   // ── Mouse-based retract (trigger 1 only) ──────────────────────────────────
   useEffect(() => {
@@ -200,6 +206,7 @@ export function AIDebuggingOverlay({
 
   // ── Trigger 2: Last step ──────────────────────────────────────────────────
   useEffect(() => {
+    if (!devAutoDebug) return;
     if (hasShownLastStepRef.current) return;
     if (totalInstructionSteps === 0) return;
     if (currentInstructionStep !== totalInstructionSteps - 1) return;
@@ -208,10 +215,11 @@ export function AIDebuggingOverlay({
     hasShownLastStepRef.current = true;
     hoverTriggeredRef.current = false;
     jumpOut("Almost there! 🎉 Want me to check your circuit or give you a hint?", true);
-  }, [currentInstructionStep, totalInstructionSteps, animState, jumpOut]);
+  }, [currentInstructionStep, totalInstructionSteps, animState, jumpOut, devAutoDebug]);
 
   // ── Trigger 4: Stuck (inactivity OR repeated step-back) ───────────────────
   const fireStuckTrigger = useCallback(() => {
+    if (!devAutoDebug) return;
     if (animStateRef.current !== 'idle') return;
     if (hasShownStuckRef.current) return;
     if (currentStepRef.current === 0) return;
@@ -219,7 +227,7 @@ export function AIDebuggingOverlay({
     hasShownStuckRef.current = true;
     hoverTriggeredRef.current = false;
     jumpOut("Stuck? I can help you debug or give you a hint!", true);
-  }, [jumpOut, totalInstructionSteps]);
+  }, [jumpOut, totalInstructionSteps, devAutoDebug]);
 
   // Inactivity detection: fire trigger 4 after 2 min of no user activity
   useEffect(() => {
@@ -272,11 +280,112 @@ export function AIDebuggingOverlay({
     prevStepRef.current = currentInstructionStep;
   }, [currentInstructionStep, totalInstructionSteps, fireStuckTrigger]);
 
-  // ── Trigger 3: Simulation start with errors (DISABLED) ────────────────────
-  // Auto-debugging on simulation start is disabled per user request.
-  // Users can still manually trigger debugging by hovering over the character.
+  // ── Silent debugging (no character animation, just highlights + chat) ──
+  const runSilentDebugging = useCallback(async () => {
+    const storeState = useCircuitStore.getState();
+    const freshPlacedComponents = storeState.placedComponents;
+    const freshWires = storeState.wires;
+    const freshSimulationErrors = storeState.simulationErrors;
+    const componentDefinitions = storeState.componentDefinitions;
+
+    if (freshPlacedComponents.length === 0 || freshWires.length === 0) return;
+
+    const circuitState: CircuitState = {
+      placedComponents: freshPlacedComponents.map((c) => {
+        const def = componentDefinitions.get(c.instanceId);
+        return {
+          instanceId: c.instanceId,
+          definitionId: c.definitionId,
+          x: c.x,
+          y: c.y,
+          rotation: c.rotation,
+          parentBreadboardId: c.parentBreadboardId,
+          insertedPins: c.insertedPins,
+          internalConnections: def?.internalConnections,
+        };
+      }),
+      wires: freshWires.map((w) => ({
+        id: w.id,
+        startComponentId: w.startComponentId,
+        startPinId: w.startPinId,
+        endComponentId: w.endComponentId,
+        endPinId: w.endPinId,
+        color: w.color,
+      })),
+      isSimulating: true,
+      simulationErrors: freshSimulationErrors.map((e) => ({
+        componentId: e.componentId,
+        wireId: e.wireId,
+        message: e.message,
+        severity: 'error' as const,
+      })),
+      breadboardPins,
+    };
+
+    const projectContext: ProjectContext | undefined = project
+      ? {
+          title: project.title,
+          description: project.description,
+          goal: project.goal,
+          learningObjectives: project.learningObjectives ?? [],
+          currentStepIndex: storeState.currentInstructionStep,
+          totalSteps: storeState.totalInstructionSteps,
+        }
+      : undefined;
+
+    const debugPrompt = freshSimulationErrors.length > 0
+      ? `I started simulation and there are ${freshSimulationErrors.length} error(s). Please analyze my circuit and explain what's wrong and how to fix it. Errors: ${freshSimulationErrors.map((e) => e.message).join('; ')}`
+      : `Please analyze my circuit and give me debugging tips or a hint about what to do next.`;
+
+    try {
+      const response = await sendMessage(debugPrompt, [], circuitState, projectContext, []);
+      const parsed = parseAIResponse(response.content);
+
+      if (parsed.highlights && parsed.highlights.length > 0) {
+        onSetHighlights(parsed.highlights);
+      }
+
+      if (parsed.onboardingDefinitionIds.length > 0) {
+        const storeNow = useCircuitStore.getState();
+        for (const defId of parsed.onboardingDefinitionIds) {
+          const matchingComponent = storeNow.placedComponents.find(
+            c => c.definitionId === defId || c.definitionId.includes(defId)
+          );
+          if (matchingComponent) {
+            storeNow.triggerOnboardingForComponent(matchingComponent.instanceId);
+          }
+        }
+      }
+
+      onAddChatMessage('assistant', parsed.content);
+    } catch (err) {
+      console.error('[AIDebuggingOverlay] Silent debugging failed:', err);
+    }
+  }, [breadboardPins, project, onAddChatMessage, onSetHighlights]);
+
+  // ── Trigger 3: Silent auto-debugging on simulation start ───────────────────
+  const hasRunSilentDebugRef = useRef(false);
   useEffect(() => {
+    const justStartedSimulating = isSimulating && !prevIsSimulatingRef.current;
     prevIsSimulatingRef.current = isSimulating;
+
+    if (!justStartedSimulating) return;
+    if (hasRunSilentDebugRef.current) return;
+
+    hasRunSilentDebugRef.current = true;
+
+    const timer = setTimeout(() => {
+      runSilentDebugging();
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [isSimulating, runSilentDebugging]);
+
+  // Reset silent debug flag when simulation stops
+  useEffect(() => {
+    if (!isSimulating) {
+      hasRunSilentDebugRef.current = false;
+    }
   }, [isSimulating]);
 
   // ── Cleanup timer on unmount ──────────────────────────────────────────────

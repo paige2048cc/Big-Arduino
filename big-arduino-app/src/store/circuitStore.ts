@@ -15,7 +15,7 @@ import type {
   HoveredPinInfo,
   HistorySnapshot,
 } from '../types/components';
-import { analyzeCircuit, type CircuitError } from '../services/circuitSimulator';
+import { analyzeCircuit, isButton, type CircuitError } from '../services/circuitSimulator';
 import type {
   ChatReference,
   PendingReference,
@@ -870,7 +870,7 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
 
       if (!isSimulating) return;
 
-      // Run circuit analysis
+      // Run circuit analysis with actual button states (for visual component states)
       const result = analyzeCircuit(
         placedComponents,
         wires,
@@ -878,9 +878,35 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
         buttonStates
       );
 
+      // Run a second analysis with all buttons pressed to filter button-caused errors.
+      // Errors that disappear when buttons are pressed are not real bugs —
+      // they are expected behavior (button controls the circuit).
+      const hasButtons = placedComponents.some(c => {
+        const def = componentDefinitions.get(c.instanceId);
+        return def && isButton(def.id);
+      });
+
+      let debugErrors = result.errors;
+      if (hasButtons) {
+        const allButtonsPressed = new Map<string, boolean>();
+        for (const comp of placedComponents) {
+          const def = componentDefinitions.get(comp.instanceId);
+          if (def && isButton(def.id)) {
+            allButtonsPressed.set(comp.instanceId, true);
+          }
+        }
+        const debugResult = analyzeCircuit(
+          placedComponents,
+          wires,
+          componentDefinitions,
+          allButtonsPressed
+        );
+        debugErrors = debugResult.errors;
+      }
+
       set((state) => {
-        state.simulationErrors = result.errors;
-        // Update component states based on simulation
+        state.simulationErrors = debugErrors;
+        // Update component states based on actual button states
         result.activeComponents.forEach((componentState, componentId) => {
           const component = state.placedComponents.find(c => c.instanceId === componentId);
           if (component) {
@@ -1198,6 +1224,12 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
     // Component onboarding actions
     showOnboarding: (instanceId, definitionId, centerX, centerY) => {
       set((state) => {
+        // Auto-triggered onboardings are exclusive: remove previous non-manual ones
+        for (const [id, entry] of state.activeOnboardings) {
+          if (!entry.manual) {
+            state.activeOnboardings.delete(id);
+          }
+        }
         state.activeOnboardings.set(instanceId, { instanceId, definitionId, centerX, centerY });
         state.shownOnboardings.add(definitionId);
       });

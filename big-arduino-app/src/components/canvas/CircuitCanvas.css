@@ -318,7 +318,7 @@
   box-shadow: 0 0 0 2px white, 0 0 0 4px #202124;
 }
 
-/* Wire Error Tooltip */
+/* Wire/Component Guidance Tooltip */
 .wire-error-tooltip {
   position: absolute;
   background: #dc2626;
@@ -332,6 +332,24 @@
   pointer-events: none;
   box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
   white-space: nowrap;
+}
+
+.wire-error-tooltip--guidance {
+  background: rgba(30, 30, 40, 0.92);
+  max-width: 300px;
+  white-space: normal;
+  line-height: 1.45;
+  font-size: 13px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(6px);
+  animation: guidance-fade-in 0.2s ease-out;
+}
+
+@keyframes guidance-fade-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(4px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
 /* Click-to-place cursor */
