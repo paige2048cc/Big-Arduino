@@ -628,7 +628,7 @@ export function analyzeCircuit(
   buttonStates: Map<string, boolean>
 ): SimulationResult {
   const errors: CircuitError[] = [];
-  const activeComponents = new Map<string, 'on' | 'off'>();
+  const activeComponents = new Map<string, 'on' | 'off' | 'explosion'>();
 
   // Initialize all components to off
   for (const component of components) {
