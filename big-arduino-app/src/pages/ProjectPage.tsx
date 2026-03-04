@@ -81,7 +81,7 @@ export function ProjectPage() {
     const componentDefinitions = useCircuitStore.getState().componentDefinitions;
     for (const comp of placedComponents) {
       if (comp.definitionId.includes('breadboard')) {
-        const def = componentDefinitions.get(comp.definitionId);
+        const def = componentDefinitions.get(comp.instanceId);
         if (def && def.pins) {
           const pinsWithNet = def.pins.filter((p) => p.net);
           pins[comp.instanceId] = pinsWithNet.map((p) => ({ pinId: p.id, net: p.net! }));
@@ -176,6 +176,11 @@ export function ProjectPage() {
   const step = project?.steps[currentStep];
 
   const handleChatSubmit = useCallback(async (message: string, references?: ChatReference[]) => {
+    // DEBUG: Log placed components
+    console.log('[DEBUG handleChatSubmit] placedComponents:', placedComponents);
+    console.log('[DEBUG handleChatSubmit] placedComponents.length:', placedComponents.length);
+    console.log('[DEBUG handleChatSubmit] componentDefinitions size:', useCircuitStore.getState().componentDefinitions.size);
+
     // Add user message with references stored separately
     setChatMessages(prev => [...prev, {
       role: 'user',
@@ -202,7 +207,7 @@ export function ProjectPage() {
     const circuitState: CircuitState = {
       placedComponents: placedComponents.map(c => {
         // Get internal connections from component definition
-        const def = componentDefinitions.get(c.definitionId);
+        const def = componentDefinitions.get(c.instanceId);
         return {
           instanceId: c.instanceId,
           definitionId: c.definitionId,
