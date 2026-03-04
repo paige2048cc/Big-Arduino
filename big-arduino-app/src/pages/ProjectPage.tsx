@@ -81,7 +81,7 @@ export function ProjectPage() {
     const componentDefinitions = useCircuitStore.getState().componentDefinitions;
     for (const comp of placedComponents) {
       if (comp.definitionId.includes('breadboard')) {
-        const def = componentDefinitions.get(comp.instanceId);
+        const def = componentDefinitions.get(comp.definitionId);
         if (def && def.pins) {
           const pinsWithNet = def.pins.filter((p) => p.net);
           pins[comp.instanceId] = pinsWithNet.map((p) => ({ pinId: p.id, net: p.net! }));
@@ -202,7 +202,7 @@ export function ProjectPage() {
     const circuitState: CircuitState = {
       placedComponents: placedComponents.map(c => {
         // Get internal connections from component definition
-        const def = componentDefinitions.get(c.instanceId);
+        const def = componentDefinitions.get(c.definitionId);
         return {
           instanceId: c.instanceId,
           definitionId: c.definitionId,

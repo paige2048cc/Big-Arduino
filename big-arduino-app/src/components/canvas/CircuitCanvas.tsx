@@ -303,6 +303,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     setHoveredPin,
     isSimulating,
     updateComponentState,
+    updateCurrentImage,
     startWireDrawing,
     updateWireDrawing,
     addWireBendPoint,
@@ -517,6 +518,7 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
   }, [getComponentDefinition, updateComponentState, placedComponents]);
 
   // Update LED base image based on color property (no on/off switching – overlays handle that)
+  // Uses updateCurrentImage (not updateComponentState) to avoid overwriting simulation state.
   const updateLEDBaseImage = useCallback((instanceId: string) => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
@@ -547,17 +549,18 @@ export function CircuitCanvas({ onComponentDrop, onComponentSelect }: CircuitCan
     const cached = imageCache.current.get(imageUrl);
     if (cached) {
       applyImage(cached);
-      updateComponentState(instanceId, component?.state || 'off', imageUrl);
+      // Only update currentImage, never touch state – prevents race with simulation
+      updateCurrentImage(instanceId, imageUrl);
     } else {
       const img = new Image();
       img.onload = () => {
         imageCache.current.set(imageUrl, img);
         applyImage(img);
-        updateComponentState(instanceId, component?.state || 'off', imageUrl);
+        updateCurrentImage(instanceId, imageUrl);
       };
       img.src = imageUrl;
     }
-  }, [getComponentDefinition, updateComponentState, placedComponents]);
+  }, [getComponentDefinition, updateCurrentImage, placedComponents]);
 
   // Update resistor image based on resistance property
   const updateResistorImage = useCallback((instanceId: string) => {

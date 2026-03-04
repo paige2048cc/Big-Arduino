@@ -183,6 +183,7 @@ interface CircuitActions {
   updateComponentRotation: (instanceId: string, rotation: number) => void;
   updateComponentFlip: (instanceId: string, flipX: boolean, flipY: boolean) => void;
   updateComponentState: (instanceId: string, state: 'on' | 'off' | 'explosion', currentImage?: string) => void;
+  updateCurrentImage: (instanceId: string, imageUrl: string) => void;
   updateComponentProperty: (
     instanceId: string,
     key: string,
@@ -499,6 +500,17 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
           if (currentImage !== undefined) {
             component.currentImage = currentImage;
           }
+        }
+      });
+    },
+
+    updateCurrentImage: (instanceId, imageUrl) => {
+      set((state) => {
+        const component = state.placedComponents.find(
+          (c) => c.instanceId === instanceId
+        );
+        if (component) {
+          component.currentImage = imageUrl;
         }
       });
     },
