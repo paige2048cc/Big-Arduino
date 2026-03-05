@@ -8,8 +8,21 @@ import './ComponentScanner.css';
 import * as tmImage from '@teachablemachine/image';
 
 const MODEL_URL = `${import.meta.env.BASE_URL}tm-model/`;
-const CONFIDENCE_THRESHOLD = 0.9;
-const SUSTAINED_DURATION_MS = 1000;
+
+const CONFIDENCE_HIGH = 0.9;
+const DURATION_HIGH_MS = 1000;
+const CONFIDENCE_LOW = 0.8;
+const DURATION_LOW_MS = 1500;
+const GRACE_PERIOD_MS = 400;
+const EMA_ALPHA = 0.35;
+const MAX_PREDICTIONS_SHOWN = 6;
+
+interface TrackEntry {
+  start80: number;
+  start90: number | null;
+  last80: number;
+  last90: number;
+}
 
 interface ComponentScannerProps {
   open: boolean;
@@ -28,7 +41,8 @@ export function ComponentScanner({ open, onClose, onComplete }: ComponentScanner
   const webcamContainerRef = useRef<HTMLDivElement>(null);
   const loopRunningRef = useRef(false);
   const mountedRef = useRef(true);
-  const sustainedTrackRef = useRef<Map<string, number>>(new Map());
+  const sustainedTrackRef = useRef<Map<string, TrackEntry>>(new Map());
+  const smoothedRef = useRef<Map<string, number>>(new Map());
 
   const cleanup = useCallback(() => {
     loopRunningRef.current = false;
@@ -53,6 +67,7 @@ export function ComponentScanner({ open, onClose, onComplete }: ComponentScanner
       setPredictions([]);
       setConfirmed(new Set());
       sustainedTrackRef.current.clear();
+      smoothedRef.current.clear();
       return;
     }
 
@@ -109,31 +124,51 @@ export function ComponentScanner({ open, onClose, onComplete }: ComponentScanner
 
           if (!loopRunningRef.current || parentCancelled || !mountedRef.current) break;
 
+          const smoothed = smoothedRef.current;
           const mapped: DetectedComponent[] = preds
             .filter((p: any) => p.className !== 'None')
-            .map((p: any) => ({
-              className: p.className,
-              probability: p.probability,
-            }));
+            .map((p: any) => {
+              const prev = smoothed.get(p.className) ?? p.probability;
+              const val = EMA_ALPHA * p.probability + (1 - EMA_ALPHA) * prev;
+              smoothed.set(p.className, val);
+              return { className: p.className, probability: val };
+            });
           setPredictions(mapped);
 
           const now = Date.now();
           const track = sustainedTrackRef.current;
 
           for (const p of mapped) {
-            if (p.probability >= CONFIDENCE_THRESHOLD) {
-              if (!track.has(p.className)) {
-                track.set(p.className, now);
+            const entry = track.get(p.className);
+
+            if (p.probability >= CONFIDENCE_LOW) {
+              if (!entry) {
+                track.set(p.className, {
+                  start80: now,
+                  start90: p.probability >= CONFIDENCE_HIGH ? now : null,
+                  last80: now,
+                  last90: p.probability >= CONFIDENCE_HIGH ? now : 0,
+                });
+              } else {
+                entry.last80 = now;
+                if (p.probability >= CONFIDENCE_HIGH) {
+                  if (entry.start90 === null) entry.start90 = now;
+                  entry.last90 = now;
+                } else if (entry.start90 !== null && now - entry.last90 > GRACE_PERIOD_MS) {
+                  entry.start90 = null;
+                }
               }
-            } else {
+            } else if (entry && now - entry.last80 > GRACE_PERIOD_MS) {
               track.delete(p.className);
             }
           }
 
           setConfirmed(prev => {
             const next = new Set(prev);
-            for (const [className, firstSeen] of track.entries()) {
-              if (now - firstSeen >= SUSTAINED_DURATION_MS) {
+            for (const [className, entry] of track.entries()) {
+              const highOk = entry.start90 !== null && now - entry.start90 >= DURATION_HIGH_MS;
+              const lowOk = now - entry.start80 >= DURATION_LOW_MS;
+              if (highOk || lowOk) {
                 next.add(className);
               }
             }
@@ -216,12 +251,13 @@ export function ComponentScanner({ open, onClose, onComplete }: ComponentScanner
               <div className="scanner-bars">
                 {[...predictions]
                   .sort((a, b) => b.probability - a.probability)
+                  .slice(0, MAX_PREDICTIONS_SHOWN)
                   .map(p => (
                     <div key={p.className} className="scanner-bar-row">
                       <span className="scanner-bar-name">{p.className}</span>
                       <div className="scanner-bar-track">
                         <div
-                          className={`scanner-bar-fill ${p.probability >= CONFIDENCE_THRESHOLD ? 'high' : ''}`}
+                          className={`scanner-bar-fill ${p.probability >= CONFIDENCE_HIGH ? 'high' : p.probability >= CONFIDENCE_LOW ? 'medium' : ''}`}
                           style={{ width: `${Math.round(p.probability * 100)}%` }}
                         />
                       </div>

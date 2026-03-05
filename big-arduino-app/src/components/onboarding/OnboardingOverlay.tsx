@@ -25,9 +25,11 @@ import type { OnboardingStep } from '../../types/onboarding';
 import './OnboardingOverlay.css';
 
 // Card positioning constants
-const CARD_GAP = 24; // Gap between card and target element
+const CARD_GAP = 24;
 const CARD_WIDTH = 320;
 const CARD_WIDTH_COMPLETION = 360;
+const CARD_HEIGHT_ESTIMATE = 380; // Approximate max card height for viewport clamping
+const VIEWPORT_PADDING = 16;
 
 interface OverlayRegions {
   top: React.CSSProperties;
@@ -85,7 +87,6 @@ function calculateCardPosition(
   }
 
   if (!targetRect) {
-    // Fallback position
     return {
       top: 100,
       left: 320,
@@ -93,29 +94,38 @@ function calculateCardPosition(
   }
 
   const cardWidth = config.cardVariant === 'completion' ? CARD_WIDTH_COMPLETION : CARD_WIDTH;
+  const vh = window.innerHeight;
+  const vw = window.innerWidth;
+
+  let top: number;
+  let left: number;
 
   switch (config.cardPosition) {
     case 'right':
-      return {
-        top: targetRect.top + 60,
-        left: targetRect.right + CARD_GAP,
-      };
+      top = targetRect.top + 60;
+      left = targetRect.right + CARD_GAP;
+      break;
     case 'left':
-      return {
-        top: targetRect.top + 60,
-        left: targetRect.left - cardWidth - CARD_GAP,
-      };
+      top = targetRect.top + 60;
+      left = targetRect.left - cardWidth - CARD_GAP;
+      break;
     case 'above':
-      return {
-        top: targetRect.top - 280, // Approximate card height
-        left: targetRect.left + (targetRect.width - cardWidth) / 2,
-      };
+      top = targetRect.top - 280;
+      left = targetRect.left + (targetRect.width - cardWidth) / 2;
+      break;
     default:
-      return {
-        top: 100,
-        left: 320,
-      };
+      top = 100;
+      left = 320;
+      break;
   }
+
+  // Clamp to viewport bounds so the card is always fully visible
+  const maxTop = vh - CARD_HEIGHT_ESTIMATE - VIEWPORT_PADDING;
+  const maxLeft = vw - cardWidth - VIEWPORT_PADDING;
+  top = Math.max(VIEWPORT_PADDING, Math.min(top, maxTop));
+  left = Math.max(VIEWPORT_PADDING, Math.min(left, maxLeft));
+
+  return { top, left };
 }
 
 // Get the target rect for current step

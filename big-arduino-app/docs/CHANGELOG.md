@@ -10,6 +10,18 @@ All notable changes to Big Arduino App will be documented in this file.
 
 ---
 
+## [8.8.0] - 2026-03-05
+
+### Fixed
+- **Camera recognition stability**: Applied EMA (Exponential Moving Average) smoothing to raw confidence values, eliminating the rapid fluctuation between high confidence and zero that previously caused repeated timer resets.
+- **Grace period for confidence dips**: Brief drops below threshold (< 400ms) no longer reset the sustained-recognition timer, preventing single bad frames from disrupting an otherwise successful detection.
+
+### Added
+- **Dual-tier recognition conditions**: Components can now be confirmed via two independent paths — 90% confidence sustained for 1 second, OR 80% confidence sustained for 1.5 seconds — whichever is met first.
+- **Medium confidence bar indicator**: Live detection bars now show amber/yellow color at 80%+ confidence (in addition to blue at 90%+) to visualize the dual-tier system.
+
+---
+
 ## [8.7.0] - 2026-03-04
 
 ### Changed

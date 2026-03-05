@@ -84,7 +84,8 @@
   padding: 16px 20px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
+  min-height: 0;
 }
 
 /* Webcam area */
@@ -95,6 +96,14 @@
   border-radius: 14px;
   overflow: hidden;
   background: #0f172b;
+  flex-shrink: 0;
+}
+
+@media (max-height: 800px) {
+  .scanner-webcam-area {
+    aspect-ratio: unset;
+    height: min(55vh, 320px);
+  }
 }
 
 .scanner-webcam {
@@ -149,7 +158,9 @@
 .scanner-predictions {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+  flex-shrink: 1;
+  overflow: hidden;
 }
 
 .scanner-predictions-label {
@@ -195,6 +206,10 @@
   border-radius: 3px;
   background: #cbd5e1;
   transition: width 200ms ease;
+}
+
+.scanner-bar-fill.medium {
+  background: #f59e0b;
 }
 
 .scanner-bar-fill.high {
