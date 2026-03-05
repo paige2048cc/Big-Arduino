@@ -1,13 +1,30 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Wrench } from 'lucide-react';
 import { useDevStore, ALL_KEYS, FEATURE_LABELS, type FeatureKey } from '../../store/devStore';
+import { useOnboardingStore } from '../../store/onboardingStore';
 import './DevPanel.css';
 
 export function DevPanel() {
+  const { pathname } = useLocation();
+  const isHomePage = pathname === '/' || pathname === '';
+
   const [open, setOpen] = useState(false);
 
   const store = useDevStore();
   const allOn = ALL_KEYS.every((k) => store[k]);
+
+  // When globalOnboarding is toggled from off → on, reset the completion state
+  const prevGlobalOnboarding = useRef(store.globalOnboarding);
+  useEffect(() => {
+    const cur = store.globalOnboarding;
+    if (!prevGlobalOnboarding.current && cur) {
+      useOnboardingStore.getState().resetOnboarding();
+    }
+    prevGlobalOnboarding.current = cur;
+  }, [store.globalOnboarding]);
+
+  if (!isHomePage) return null;
 
   return (
     <>
