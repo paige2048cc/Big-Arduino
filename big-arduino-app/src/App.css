@@ -960,16 +960,19 @@ body {
 .home-project-body {
   display: flex;
   align-items: flex-start;
+  justify-content: center;
   padding: 2px 2px 0;
 }
 
 .home-project-body h3 {
   margin: 0;
-  font-size: 20px;
-  line-height: 28px;
+  width: 100%;
+  font-size: 16px;
+  line-height: 24px;
   font-weight: 700;
   color: #172033;
   letter-spacing: -0.02em;
+  text-align: center;
 }
 
 @media (max-width: 1400px) {
