@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Send, Camera, ChevronRight, Cpu } from 'lucide-react';
+import { Send, Camera, ChevronRight } from 'lucide-react';
 import { presetProjects } from '../data/projects';
 import { Sidebar } from '../components/layout/Sidebar';
 import { ComponentScanner } from '../components/scanner/ComponentScanner';
@@ -15,6 +15,19 @@ type EyeRefs = {
   socket: RefObject<HTMLDivElement | null>;
   pupil: RefObject<HTMLDivElement | null>;
 };
+
+function getProjectPreviewAssets(projectId: string) {
+  switch (projectId) {
+    case 'led-button':
+      return [];
+    case 'buzzer-button':
+      return [];
+    case 'plant-monitor':
+      return [];
+    default:
+      return [{ src: '/components/microcontrollers/arduino-uno.png', className: 'home-project-preview--uno' }];
+  }
+}
 
 export function HomePage() {
   const [ideaInput, setIdeaInput] = useState('');
@@ -46,15 +59,6 @@ export function HomePage() {
   const handleScanComplete = (detected: DetectedComponent[], screenshot: string) => {
     setScannerOpen(false);
     navigate('/ai-chat', { state: { detected, screenshot } });
-  };
-
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case 'beginner': return 'difficulty-beginner';
-      case 'intermediate': return 'difficulty-intermediate';
-      case 'advanced': return 'difficulty-advanced';
-      default: return '';
-    }
   };
 
   useEffect(() => {
@@ -268,8 +272,8 @@ export function HomePage() {
               <div className="home-featured-grid">
                 {presetProjects.slice(0, 3).map((project) => {
                   const isComingSoon = project.steps.length === 0;
-                  const difficultyClass = getDifficultyColor(project.difficulty);
                   const difficultyLabel = project.difficulty.toUpperCase();
+                  const previewAssets = getProjectPreviewAssets(project.id);
 
                   return (
                     <button
@@ -279,22 +283,22 @@ export function HomePage() {
                       disabled={isComingSoon}
                       type="button"
                     >
-                      <div className={`home-project-icon ${difficultyClass}`} aria-hidden="true">
-                        <Cpu size={22} />
+                      <div className={`home-project-visual home-project-visual--${project.id}`} aria-hidden="true">
+                        <span className={`home-project-badge home-project-badge--${project.difficulty}`}>{difficultyLabel}</span>
+                        {previewAssets.map((asset) => (
+                          <img
+                            key={`${project.id}-${asset.className}`}
+                            src={asset.src}
+                            alt=""
+                            className={`home-project-preview ${asset.className}`}
+                            loading="lazy"
+                          />
+                        ))}
                       </div>
 
                       <div className="home-project-body">
-                        <span className={`home-project-badge ${difficultyClass}`}>{difficultyLabel}</span>
                         <h3>{project.title}</h3>
-                        <p>{project.description}</p>
-                        {!isComingSoon && (
-                          <div className="home-project-action">
-                            Start Building <ChevronRight size={16} />
-                          </div>
-                        )}
                       </div>
-
-                      {isComingSoon && <div className="home-project-soon">Soon</div>}
                     </button>
                   );
                 })}
