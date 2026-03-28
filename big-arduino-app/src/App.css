@@ -224,9 +224,12 @@ body {
 }
 
 .home-sidebar.collapsed .sidebar-nav-item {
+  width: 44px;
+  height: 44px;
   justify-content: center;
   padding: 0;
   gap: 0;
+  margin: 0 auto;
 }
 
 .home-sidebar.collapsed .sidebar-nav-item span {
@@ -248,7 +251,10 @@ body {
   inset: 0;
   align-items: center;
   justify-content: center;
-  padding: 0 6px;
+  width: 44px;
+  height: 44px;
+  margin: auto;
+  padding: 0 4px;
   font-size: 12px;
   line-height: 14px;
   text-align: center;
