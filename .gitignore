@@ -1,0 +1,10 @@
+.vercel
+.env*.local
+
+# Local Claude Code settings (machine-specific paths)
+.claude/
+
+# Claude Code temporary files
+tmpclaude-*
+tmpclaude-*-cwd
+nul

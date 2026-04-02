@@ -1,0 +1,443 @@
+/* ==================== */
+/* Right Panel Container */
+/* ==================== */
+
+.right-panel-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background: var(--bg-primary, #ffffff);
+}
+
+/* ==================== */
+/* Chat Messages Area   */
+/* ==================== */
+
+.right-panel-container .chat-messages {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Empty State */
+.right-panel-container .chat-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+  color: var(--text-secondary, #5f6368);
+  padding: 32px 16px;
+}
+
+.right-panel-container .chat-empty-state p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.right-panel-container .chat-empty-state .chat-hint {
+  margin-top: 8px;
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+/* ==================== */
+/* Chat Message Bubbles */
+/* ==================== */
+
+.right-panel-container .chat-message {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: flex-start;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  width: 100%;
+  align-self: stretch;
+  animation: messageSlideIn 0.2s ease-out;
+}
+
+@keyframes messageSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.right-panel-container .chat-message.user {
+  justify-content: flex-end;
+  max-width: 100%;
+}
+
+.right-panel-container .chat-message.assistant {
+  justify-content: flex-start;
+  max-width: 100%;
+}
+
+/* Message bubble base */
+.right-panel-container .message-bubble {
+  display: inline-block;
+  width: fit-content; /* hug content when short */
+  min-width: 40px;
+  max-width: 100%; /* when long, expand to available width and wrap */
+  padding: 12px 14px;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+/* User message bubble */
+.right-panel-container .chat-message.user .message-bubble {
+  background: #f3f5f8; /* light gray bubble for user */
+  color: var(--text-primary, #202124);
+  border-radius: 16px 16px 4px 16px;
+  border: 1px solid rgba(18, 30, 61, 0.08);
+  box-shadow: 0 2px 10px rgba(18, 30, 61, 0.06);
+}
+
+/* Assistant message bubble */
+.right-panel-container .chat-message.assistant .message-bubble {
+  background: #ffffff;
+  color: var(--text-primary, #202124);
+  border-radius: 16px 16px 16px 4px;
+  border: 1px solid rgba(18, 30, 61, 0.08);
+  box-shadow: 0 2px 10px rgba(18, 30, 61, 0.06);
+}
+
+/* Message text */
+.right-panel-container .message-text {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+/* Issues container in assistant messages */
+.right-panel-container .message-issues {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+/* Text content in messages with references */
+.right-panel-container .message-text-content {
+  margin: 0;
+  white-space: pre-wrap;
+  display: inline;
+}
+
+/* Reference tags in user messages - stand out on blue background */
+.right-panel-container .chat-message.user .message-bubble .reference-tag {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border: none !important;
+}
+
+/* ==================== */
+/* Chat Input Container */
+/* ==================== */
+
+.right-panel-container .chat-input-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border-top: 1px solid var(--border-color, #e8eaed);
+  background: var(--bg-primary, #ffffff);
+}
+
+/* Composer: input + send button inside the input field */
+.right-panel-container .chat-input-composer {
+  display: flex;
+  align-items: center;
+  min-width: 0;  /* Allow shrinking */
+  width: 100%;
+  position: relative;
+}
+
+/* Hide native file input */
+.right-panel-container .chat-input-composer .chat-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Input field takes full width - padding is handled inside the editor */
+.right-panel-container .chat-input-composer .chat-input-field {
+  width: 100%;
+}
+
+/* Button bar - fixed at bottom with background for masking effect */
+.right-panel-container .chat-input-composer .input-button-bar {
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  bottom: 1px;
+  height: 48px;
+  background: #f6f8fb;  /* Match input field background */
+  border-radius: 0 0 21px 21px;  /* Match input field bottom corners */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  pointer-events: none;  /* Allow clicks to pass through to editor */
+}
+
+/* Attach button (inside button bar, left) */
+.right-panel-container .chat-input-composer .attach-button {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: rgba(96, 107, 127, 0.85);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  pointer-events: auto;  /* Re-enable clicks for button */
+}
+
+.right-panel-container .chat-input-composer .attach-button:hover {
+  background: rgba(237, 246, 255, 0.9);
+  color: rgba(26, 43, 195, 0.95);
+}
+
+.right-panel-container .chat-input-composer .attach-button:active {
+  transform: scale(0.98);
+}
+
+/* Send button (inside button bar, right) */
+.right-panel-container .chat-input-composer .send-button {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  border: none;
+  border-radius: 999px;
+  background: #1a2bc3;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  box-shadow: 0 6px 14px rgba(26, 43, 195, 0.22);
+  pointer-events: auto;  /* Re-enable clicks for button */
+}
+
+.right-panel-container .chat-input-composer .send-button:hover:not(:disabled) {
+  background: #1423a8;
+  box-shadow: 0 8px 18px rgba(26, 43, 195, 0.26);
+}
+
+.right-panel-container .chat-input-composer .send-button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.right-panel-container .chat-input-composer .send-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ==================== */
+/* Typing Indicator     */
+/* ==================== */
+
+.right-panel-container .typing-indicator {
+  display: flex;
+  gap: 4px;
+  padding: 4px 0;
+}
+
+.right-panel-container .typing-indicator span {
+  width: 8px;
+  height: 8px;
+  background: var(--text-tertiary, #9aa0a6);
+  border-radius: 50%;
+  animation: typing 1.4s ease-in-out infinite;
+}
+
+.right-panel-container .typing-indicator span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.right-panel-container .typing-indicator span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+/* ==================== */
+/* Message Content      */
+/* ==================== */
+
+.right-panel-container .message-content {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 10px;
+}
+
+.right-panel-container .message-content .message-text-segment {
+  display: inline;
+}
+
+/* Reference tags inside bubbles should wrap safely */
+.right-panel-container .message-bubble .reference-tag {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+.right-panel-container .message-bubble .reference-tag .reference-tag__name {
+  max-width: none;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+/* ==================== */
+/* Markdown Styles      */
+/* ==================== */
+
+.right-panel-container .message-content .markdown-list {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.right-panel-container .message-content .markdown-list li {
+  margin: 4px 0;
+}
+
+.right-panel-container .message-content strong {
+  font-weight: 600;
+}
+
+/* ==================== */
+/* Unknown References   */
+/* ==================== */
+
+.right-panel-container .unknown-component,
+.right-panel-container .unknown-reference {
+  background: var(--bg-tertiary, #f1f3f4);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--text-secondary, #5f6368);
+}
+
+/* ==================== */
+/* Thinking Indicator   */
+/* ==================== */
+
+.right-panel-container .chat-message.thinking .thinking-bubble {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px dashed rgba(26, 43, 195, 0.2);
+  color: #64748b;
+  font-style: italic;
+}
+
+.right-panel-container .thinking-spinner {
+  animation: spin 1s linear infinite;
+  color: #1a2bc3;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.right-panel-container .thinking-text {
+  font-size: 13px;
+  color: #64748b;
+}
+
+/* ==================== */
+/* Markdown Content     */
+/* ==================== */
+
+.right-panel-container .message-markdown {
+  line-height: 1.6;
+}
+
+.right-panel-container .message-markdown p {
+  margin: 0 0 8px 0;
+}
+
+.right-panel-container .message-markdown p:last-child {
+  margin-bottom: 0;
+}
+
+.right-panel-container .message-markdown strong {
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.right-panel-container .message-markdown ul,
+.right-panel-container .message-markdown ol {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.right-panel-container .message-markdown li {
+  margin: 4px 0;
+}
+
+.right-panel-container .message-markdown code {
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  font-size: 13px;
+}
+
+.right-panel-container .message-markdown pre {
+  background: #f8fafc;
+  padding: 12px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.right-panel-container .message-markdown pre code {
+  background: none;
+  padding: 0;
+}
+
+.right-panel-container .message-markdown blockquote {
+  border-left: 3px solid #1a2bc3;
+  margin: 8px 0;
+  padding-left: 12px;
+  color: #64748b;
+}

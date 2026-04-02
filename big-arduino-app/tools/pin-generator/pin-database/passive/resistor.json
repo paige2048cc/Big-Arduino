@@ -1,0 +1,21 @@
+{
+  "componentId": "resistor",
+  "componentName": "Resistor",
+  "category": "passive",
+  "source": "Generic resistor",
+  "description": "Through-hole resistor. Non-polarized - can be connected in either direction. Common values: 220, 330, 1K, 10K ohms.",
+  "pins": [
+    {
+      "id": "TERM1",
+      "label": "Terminal 1",
+      "description": "First terminal. Resistors are non-polarized, so terminals are interchangeable.",
+      "type": "terminal"
+    },
+    {
+      "id": "TERM2",
+      "label": "Terminal 2",
+      "description": "Second terminal. Resistors are non-polarized, so terminals are interchangeable.",
+      "type": "terminal"
+    }
+  ]
+}

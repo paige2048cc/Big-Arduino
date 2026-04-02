@@ -1,0 +1,119 @@
+/**
+ * SimulationWireWarning styles
+ *
+ * Yellow character appears in top-right corner when user tries to wire during simulation.
+ */
+
+/* ─── Container ─────────────────────────────────────────────────────────────── */
+
+.sww-root {
+  position: fixed;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  z-index: 10000;
+}
+
+/* ─── Show animation ────────────────────────────────────────────────────────── */
+
+.sww-root--visible {
+  animation: sww-show 0.4s ease-out forwards;
+}
+
+@keyframes sww-show {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px) scale(0.8);
+  }
+  60% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(4px) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+/* ─── Hide animation ────────────────────────────────────────────────────────── */
+
+.sww-root--hiding {
+  animation: sww-hide 0.35s ease-in forwards;
+}
+
+@keyframes sww-hide {
+  0% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px) scale(0.8);
+  }
+}
+
+/* ─── Speech bubble ─────────────────────────────────────────────────────────── */
+
+.sww-bubble {
+  position: relative;
+  max-width: 200px;
+  padding: 10px 14px;
+  background: #fff8e1;
+  border: 2px solid #f9a825;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #5d4037;
+  line-height: 1.4;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Arrow pointing to the right (toward the character) */
+.sww-bubble::after {
+  content: '';
+  position: absolute;
+  right: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 6px solid transparent;
+  border-left-color: #fff8e1;
+}
+
+.sww-bubble::before {
+  content: '';
+  position: absolute;
+  right: -14px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 8px solid transparent;
+  border-left-color: #f9a825;
+}
+
+/* ─── Character ─────────────────────────────────────────────────────────────── */
+
+.sww-character {
+  width: 56px;
+  height: auto;
+  flex-shrink: 0;
+  animation: sww-bounce 0.6s ease-in-out;
+}
+
+@keyframes sww-bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-8px);
+  }
+  50% {
+    transform: translateY(0);
+  }
+  70% {
+    transform: translateY(-4px);
+  }
+}

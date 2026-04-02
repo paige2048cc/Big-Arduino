@@ -1,0 +1,96 @@
+/**
+ * DragGuidanceAnimation Styles
+ */
+
+.drag-guidance-animation {
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  pointer-events: none;
+}
+
+.drag-guidance-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Flowing dashed line */
+.guidance-path {
+  stroke-dashoffset: 0;
+  animation: dash-flow 0.8s linear infinite;
+}
+
+@keyframes dash-flow {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+/* Animated dot */
+.guidance-dot {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+/* Hand icon */
+.guidance-hand {
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.25));
+}
+
+/* Target indicator at drop zone */
+.guidance-target {
+  position: fixed;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.guidance-target-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 60px;
+  height: 60px;
+  border: 3px solid #FFC425;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: target-pulse 1.5s ease-out infinite;
+}
+
+.guidance-target-ring--delayed {
+  animation-delay: 0.5s;
+}
+
+@keyframes target-pulse {
+  0% {
+    width: 20px;
+    height: 20px;
+    opacity: 1;
+    border-width: 3px;
+  }
+  100% {
+    width: 80px;
+    height: 80px;
+    opacity: 0;
+    border-width: 1px;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .guidance-path {
+    animation: none;
+  }
+
+  .guidance-dot animateMotion,
+  .guidance-hand animateMotion {
+    animation: none;
+  }
+
+  .guidance-target-ring {
+    animation: none;
+    width: 40px;
+    height: 40px;
+    opacity: 0.7;
+  }
+}

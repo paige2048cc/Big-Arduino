@@ -1,0 +1,46 @@
+{
+  "id": "pushbutton_off",
+  "name": "Tactile Pushbutton",
+  "category": "passive",
+  "image": "pushbutton_OFF.png",
+  "width": 54,
+  "height": 68,
+  "pins": [
+    {
+      "id": "PIN1A",
+      "label": "Pin 1A",
+      "description": "A-side top pin. Always internally connected to PIN2A (same side). Connects to B-side when button is pressed.",
+      "type": "terminal",
+      "x": 47,
+      "y": 3,
+      "hitRadius": 8
+    },
+    {
+      "id": "PIN1B",
+      "label": "Pin 1B",
+      "description": "B-side top pin. Always internally connected to PIN2B (same side). Connects to A-side when button is pressed.",
+      "type": "terminal",
+      "x": 7,
+      "y": 3,
+      "hitRadius": 8
+    },
+    {
+      "id": "PIN2A",
+      "label": "Pin 2A",
+      "description": "A-side bottom pin. Always internally connected to PIN1A (same side). Connects to B-side when button is pressed.",
+      "type": "terminal",
+      "x": 48,
+      "y": 64,
+      "hitRadius": 8
+    },
+    {
+      "id": "PIN2B",
+      "label": "Pin 2B",
+      "description": "B-side bottom pin. Always internally connected to PIN1B (same side). Connects to A-side when button is pressed.",
+      "type": "terminal",
+      "x": 7,
+      "y": 63,
+      "hitRadius": 8
+    }
+  ]
+}

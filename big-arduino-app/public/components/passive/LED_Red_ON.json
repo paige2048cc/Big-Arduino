@@ -1,0 +1,28 @@
+{
+  "id": "led_red_on",
+  "name": "Red LED (5mm)",
+  "category": "passive",
+  "image": "LED_Red_ON.png",
+  "width": 40,
+  "height": 73,
+  "pins": [
+    {
+      "id": "ANODE",
+      "label": "Anode (+)",
+      "description": "Positive terminal. Connect to power through a current-limiting resistor. Longer leg on physical LED.",
+      "type": "terminal",
+      "x": 35,
+      "y": 69,
+      "hitRadius": 8
+    },
+    {
+      "id": "CATHODE",
+      "label": "Cathode (-)",
+      "description": "Negative terminal. Connect to ground. Shorter leg on physical LED, flat side of LED case.",
+      "type": "terminal",
+      "x": 13,
+      "y": 69,
+      "hitRadius": 8
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+/* Circuit power-flow animation highlight fade transition */
+.circuit-anim-highlight {
+  transition: opacity 0.8s ease-out;
+}

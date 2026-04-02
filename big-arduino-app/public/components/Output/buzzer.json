@@ -1,0 +1,34 @@
+{
+  "id": "buzzer",
+  "name": "Piezo Buzzer",
+  "category": "Output",
+  "image": "Buzzer.svg",
+  "width": 80,
+  "height": 87,
+  "internalConnections": {
+    "always": [
+      ["POSITIVE", "NEGATIVE"]
+    ],
+    "notes": "Polarized. POSITIVE receives signal, NEGATIVE connects to ground. Produces sound when voltage is applied."
+  },
+  "pins": [
+    {
+      "id": "POSITIVE",
+      "label": "Positive (+)",
+      "description": "Signal input. Connect to digital or PWM pin.",
+      "type": "terminal",
+      "x": 11,
+      "y": 86,
+      "hitRadius": 8
+    },
+    {
+      "id": "NEGATIVE",
+      "label": "Negative (-)",
+      "description": "Ground. Connect to GND.",
+      "type": "terminal",
+      "x": 70,
+      "y": 86,
+      "hitRadius": 8
+    }
+  ]
+}
