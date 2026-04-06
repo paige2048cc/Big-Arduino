@@ -18,6 +18,9 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Large Vite + TF.js bundle can hit the default Node heap limit on ubuntu-latest
+    env:
+      NODE_OPTIONS: --max-old-space-size=8192
     defaults:
       run:
         working-directory: big-arduino-app
@@ -33,7 +36,8 @@ jobs:
           cache-dependency-path: big-arduino-app/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        # Keep in sync with big-arduino-app/vercel.json (peer deps from fabric / tooling)
+        run: npm ci --legacy-peer-deps
 
       - name: Build
         env:
