@@ -1,0 +1,7 @@
+{
+  "framework": "vite",
+  "installCommand": "npm install --legacy-peer-deps --prefix big-arduino-app",
+  "buildCommand": "npm run build --prefix big-arduino-app",
+  "outputDirectory": "big-arduino-app/dist",
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}
