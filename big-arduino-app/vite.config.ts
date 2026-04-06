@@ -2,8 +2,9 @@ import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
-// Use '/' for Vercel, '/Big-Arduino/' for GitHub Pages
-const base = process.env.VERCEL ? '/' : '/Big-Arduino/'
+// Vercel: '/'. GitHub Pages project site: https://<user>.github.io/<repo>/
+const repoName = process.env.GITHUB_REPOSITORY?.split('/')[1] ?? 'Designtoolforarduino'
+const base = process.env.VERCEL ? '/' : `/${repoName}/`
 
 // Supported Gemini model
 const GEMINI_MODEL = 'gemini-2.0-flash';

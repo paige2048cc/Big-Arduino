@@ -1,4 +1,4 @@
-# Deploy to GitHub Pages
+# Deploy big-arduino-app to GitHub Pages (workflow must live at repo root)
 name: Deploy to GitHub Pages
 
 on:
@@ -18,6 +18,9 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: big-arduino-app
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,11 +30,14 @@ jobs:
         with:
           node-version: 20
           cache: npm
+          cache-dependency-path: big-arduino-app/package-lock.json
 
       - name: Install dependencies
         run: npm ci
 
       - name: Build
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: npm run build
 
       - name: Setup Pages
@@ -40,7 +46,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./dist
+          path: big-arduino-app/dist
 
   deploy:
     environment:
