@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "2.1",
+  "id": "lm35",
+  "name": "LM35 Temperature Sensor",
+  "category": "sensors",
+  "libraryId": "book-expansion",
+  "modelId": "lm35",
+  "primaryProtocol": "analog",
+  "supportedProtocols": ["analog", "power"],
+  "aliases": ["lm35", "temperature sensor"],
+  "tags": ["sensor", "temperature"],
+  "image": "sensor-generic.svg",
+  "width": 140,
+  "height": 120,
+  "description": "Analog temperature sensor that outputs 10mV per degree Celsius.",
+  "previewPins": ["VCC", "OUT", "GND"],
+  "pins": [
+    { "id": "VCC", "label": "VCC", "description": "Power supply.", "type": "power", "x": 42, "y": 102, "hitRadius": 8, "functions": [{ "name": "VCC_IN", "type": "power" }], "electricalRole": "power-input", "required": true },
+    { "id": "OUT", "label": "OUT", "description": "Analog voltage output.", "type": "analog", "x": 70, "y": 102, "hitRadius": 8, "functions": [{ "name": "TEMP_OUT", "type": "analog" }], "electricalRole": "signal-output", "required": true },
+    { "id": "GND", "label": "GND", "description": "Ground.", "type": "ground", "x": 98, "y": 102, "hitRadius": 8, "functions": [{ "name": "GND", "type": "gnd" }], "electricalRole": "ground-return", "required": true }
+  ],
+  "knowledgeRefs": {
+    "component": "lm35",
+    "concepts": ["temperature-sensing", "analog-input"],
+    "recipes": ["lm35-temperature-monitor"]
+  },
+  "source": {
+    "origin": ["arduino-book"],
+    "confidence": "high"
+  },
+  "netStatus": "partial"
+}

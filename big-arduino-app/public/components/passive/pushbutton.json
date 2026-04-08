@@ -1,10 +1,19 @@
 {
+  "schemaVersion": "2.1",
   "id": "pushbutton",
   "name": "Tactile Pushbutton",
   "category": "passive",
+  "libraryId": "core-basic",
+  "modelId": "pushbutton_4pin",
+  "primaryProtocol": "digital",
+  "supportedProtocols": ["digital", "power"],
+  "aliases": ["push button", "button", "tactile switch"],
+  "tags": ["starter", "input", "switch"],
   "image": "pushbutton_OFF.png",
   "width": 54,
   "height": 68,
+  "description": "Momentary switch with two internally linked sides that connect when pressed.",
+  "previewPins": ["PIN1A", "PIN1B"],
   "internalConnections": {
     "always": [
       ["PIN1A", "PIN2A"],
@@ -23,7 +32,11 @@
       "type": "terminal",
       "x": 47,
       "y": 3,
-      "hitRadius": 8
+      "hitRadius": 8,
+      "functions": [{ "name": "SWITCH_A", "type": "digital" }],
+      "electricalRole": "switch-terminal",
+      "aliases": ["A1"],
+      "required": true
     },
     {
       "id": "PIN1B",
@@ -32,7 +45,11 @@
       "type": "terminal",
       "x": 7,
       "y": 3,
-      "hitRadius": 8
+      "hitRadius": 8,
+      "functions": [{ "name": "SWITCH_B", "type": "digital" }],
+      "electricalRole": "switch-terminal",
+      "aliases": ["B1"],
+      "required": true
     },
     {
       "id": "PIN2A",
@@ -41,7 +58,11 @@
       "type": "terminal",
       "x": 48,
       "y": 64,
-      "hitRadius": 8
+      "hitRadius": 8,
+      "functions": [{ "name": "SWITCH_A", "type": "digital" }],
+      "electricalRole": "switch-terminal",
+      "aliases": ["A2"],
+      "required": true
     },
     {
       "id": "PIN2B",
@@ -50,11 +71,24 @@
       "type": "terminal",
       "x": 7,
       "y": 63,
-      "hitRadius": 8
+      "hitRadius": 8,
+      "functions": [{ "name": "SWITCH_B", "type": "digital" }],
+      "electricalRole": "switch-terminal",
+      "aliases": ["B2"],
+      "required": true
     }
   ],
   "variants": {
     "off": { "image": "pushbutton_OFF.png" },
     "on": { "image": "pushbutton_ON.png" }
+  },
+  "knowledgeRefs": {
+    "component": "pushbutton",
+    "concepts": ["input-pullup"],
+    "recipes": ["button-controls-led"]
+  },
+  "source": {
+    "origin": ["big-arduino", "arduino-book", "101-book"],
+    "confidence": "high"
   }
 }

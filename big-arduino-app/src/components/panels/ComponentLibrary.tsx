@@ -1,44 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ChevronDown, ChevronRight, Search } from 'lucide-react';
 import { useHighlightedToolbarComponents } from '../../store/circuitStore';
 import { ComponentItem } from '../shared/ComponentItem';
+import { getComponentLibrarySections } from '../../services/componentService';
+import type { LibraryComponentSection } from '../../types/components';
 import './ComponentLibrary.css';
-
-// Component categories with images from public/components/
-// Note: 'folder' specifies the actual file location, UI grouping is separate
-const componentCategories = [
-  {
-    id: 'boards',
-    name: 'Boards',
-    components: [
-      { id: 'arduino-uno', name: 'Arduino Uno', image: 'arduino-uno.png', folder: 'microcontrollers' },
-      { id: 'breadboard', name: 'Half-Size Breadboard', image: 'breadboard.png', folder: 'boards' },
-    ]
-  },
-  {
-    id: 'input',
-    name: 'Input',
-    components: [
-      { id: 'pushbutton', name: 'Push Button', image: 'pushbutton_OFF.png', folder: 'passive' },
-    ]
-  },
-  {
-    id: 'output',
-    name: 'Output',
-    components: [
-      { id: 'led-5mm', name: 'LED (5mm)', image: 'LED_Red_OFF.png', folder: 'passive' },
-      { id: 'buzzer', name: 'Piezo Buzzer', image: 'Buzzer.svg', folder: 'Output' },
-      { id: 'vibration-motor', name: 'Vibration Motor', image: 'Vibration Motor.svg', folder: 'Output' },
-    ]
-  },
-  {
-    id: 'passive',
-    name: 'Passive',
-    components: [
-      { id: 'Registor_220Ω', name: 'Resistor', image: 'Registor_220Ω.png', folder: 'passive' },
-    ]
-  },
-];
 
 interface ComponentLibraryProps {
   onComponentDragStart?: (componentId: string) => void;
@@ -46,10 +12,33 @@ interface ComponentLibraryProps {
 
 export function ComponentLibrary({ onComponentDragStart }: ComponentLibraryProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [componentCategories, setComponentCategories] = useState<LibraryComponentSection[]>([]);
   const highlightedComponents = useHighlightedToolbarComponents();
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
-    new Set(['boards', 'input', 'output', 'passive'])
+    new Set(['boards', 'microcontrollers', 'input', 'output', 'passive', 'sensors', 'displays', 'modules', 'logic'])
   );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    getComponentLibrarySections()
+      .then(sections => {
+        if (!cancelled) {
+          setComponentCategories(sections);
+          setExpandedCategories(prev => {
+            if (prev.size > 0) return prev;
+            return new Set(sections.map(section => section.id));
+          });
+        }
+      })
+      .catch(error => {
+        console.error('[ComponentLibrary] Failed to load component library sections:', error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const toggleCategory = (categoryId: string) => {
     setExpandedCategories(prev => {

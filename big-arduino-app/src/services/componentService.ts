@@ -10,13 +10,19 @@ import type {
   Pin,
   VariantMapping,
   ComponentCategory,
+  ComponentCatalog,
+  ComponentCatalogEntry,
+  LibraryComponentSection,
 } from '../types/components';
+import { validateComponentDefinition, validateCatalog, safeValidateComponentDefinition } from './validation';
+import { LRUCache } from '../utils/cache';
 
 // Re-export Pin type for use in other modules
 export type { Pin };
 
-// Cache for loaded component definitions
-const definitionCache = new Map<string, ComponentDefinition>();
+// Cache for loaded component definitions - using LRU cache for better memory management
+const definitionCache = new LRUCache<ComponentDefinition>(100);
+let catalogCache: ComponentCatalog | null = null;
 
 // Variant mappings - maps specific component file IDs to base definitions
 // This allows LED_Red_OFF and LED_Red_ON to share the same pin positions
@@ -33,8 +39,8 @@ const variantMappings: Record<string, VariantMapping> = {
   'pushbutton_ON': { baseId: 'pushbutton', variant: 'on', defaultState: 'on' },
 };
 
-// Component categories and their members
-const componentCategories: ComponentCategory[] = [
+// Legacy fallback categories used if the catalog is unavailable
+const legacyComponentCategories: ComponentCategory[] = [
   {
     id: 'boards',
     name: 'Boards',
@@ -57,6 +63,64 @@ const componentCategories: ComponentCategory[] = [
   },
 ];
 
+function normalizeComponentId(componentId: string): string {
+  return componentId.toLowerCase().replace(/[_-]/g, '-');
+}
+
+export async function getComponentCatalog(): Promise<ComponentCatalog> {
+  if (catalogCache) {
+    return catalogCache;
+  }
+
+  try {
+    const response = await fetch(`${import.meta.env.BASE_URL}components/_catalog.json`);
+    if (!response.ok) {
+      throw new Error(`Failed to load component catalog: ${response.status}`);
+    }
+
+    const rawCatalog = await response.json();
+
+    // Validate catalog structure
+    catalogCache = validateCatalog(rawCatalog);
+    return catalogCache;
+  } catch (error) {
+    console.warn('[ComponentService] Falling back to legacy catalog:', error);
+    return {
+      version: 'legacy',
+      components: legacyComponentCategories.flatMap(category =>
+        category.components.map(id => ({
+          id,
+          name: id,
+          category: category.id,
+          componentPath: `${category.id}/${id}.json`,
+          renderReady: true,
+          simulationReady: true,
+          knowledgeReady: false,
+          visibleInLibrary: true,
+        }))
+      )
+    };
+  }
+}
+
+async function getCatalogEntry(componentId: string): Promise<ComponentCatalogEntry | null> {
+  const normalizedId = normalizeComponentId(componentId);
+  const catalog = await getComponentCatalog();
+
+  for (const entry of catalog.components) {
+    if (normalizeComponentId(entry.id) === normalizedId) {
+      return entry;
+    }
+  }
+
+  const mapping = variantMappings[componentId];
+  if (mapping) {
+    return getCatalogEntry(mapping.baseId);
+  }
+
+  return null;
+}
+
 /**
  * Load a component definition from JSON
  */
@@ -64,14 +128,15 @@ export async function loadComponentDefinition(
   componentId: string
 ): Promise<ComponentDefinition | null> {
   // Check cache first
-  if (definitionCache.has(componentId)) {
-    return definitionCache.get(componentId)!;
+  const cached = definitionCache.get(componentId);
+  if (cached) {
+    return cached;
   }
 
   // Check if this is a variant, load from the specific file
-  const category = getCategoryForComponent(componentId);
+  const category = await getCategoryForComponent(componentId);
   if (!category) {
-    console.warn(`Unknown component: ${componentId}`);
+    console.warn(`[ComponentService] Unknown component: ${componentId}`);
     return null;
   }
 
@@ -81,11 +146,20 @@ export async function loadComponentDefinition(
       throw new Error(`Failed to load component: ${response.status}`);
     }
 
-    const definition: ComponentDefinition = await response.json();
-    definitionCache.set(componentId, definition);
+    const rawDefinition = await response.json();
+
+    // Validate component definition
+    const validationResult = safeValidateComponentDefinition(rawDefinition);
+    if (!validationResult.success) {
+      console.error(`[ComponentService] Component ${componentId} validation failed:`, validationResult.error);
+      // Still use the data for backward compatibility, but log the issue
+    }
+
+    const definition = validationResult.success ? validationResult.data : rawDefinition as ComponentDefinition;
+    definitionCache.put(componentId, definition);
     return definition;
   } catch (error) {
-    console.error(`Error loading component ${componentId}:`, error);
+    console.error(`[ComponentService] Error loading component ${componentId}:`, error);
     return null;
   }
 }
@@ -100,16 +174,14 @@ export async function loadComponentByFileName(
 ): Promise<ComponentDefinition | null> {
   const cacheKey = `${category}/${fileName}`;
 
-  if (definitionCache.has(cacheKey)) {
-    console.log(`[ComponentService] Cache hit for: ${cacheKey}`);
-    return definitionCache.get(cacheKey)!;
+  const cached = definitionCache.get(cacheKey);
+  if (cached) {
+    return cached;
   }
 
   // Encode the filename for URL (handles special chars like Ω)
   const encodedFileName = encodeURIComponent(fileName);
   const url = `${import.meta.env.BASE_URL}components/${category}/${encodedFileName}.json`;
-
-  console.log(`[ComponentService] Fetching: ${url}`);
 
   try {
     const response = await fetch(url);
@@ -117,9 +189,16 @@ export async function loadComponentByFileName(
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
-    const definition: ComponentDefinition = await response.json();
-    console.log(`[ComponentService] Loaded definition:`, definition.id);
-    definitionCache.set(cacheKey, definition);
+    const rawDefinition = await response.json();
+
+    // Validate component definition
+    const validationResult = safeValidateComponentDefinition(rawDefinition);
+    if (!validationResult.success) {
+      console.error(`[ComponentService] Component ${fileName} validation failed:`, validationResult.error);
+    }
+
+    const definition = validationResult.success ? validationResult.data : rawDefinition as ComponentDefinition;
+    definitionCache.put(cacheKey, definition);
     return definition;
   } catch (error) {
     console.error(`[ComponentService] Error loading ${fileName}:`, error);
@@ -129,14 +208,13 @@ export async function loadComponentByFileName(
 
 /**
  * Get the category folder for a component ID
+ * Now exclusively uses the catalog as the single source of truth
  */
-function getCategoryForComponent(componentId: string): string | null {
-  const id = componentId.toLowerCase().replace(/[_-]/g, '-');
-
-  for (const category of componentCategories) {
-    if (category.components.some((c) => c.toLowerCase() === id)) {
-      return category.id;
-    }
+async function getCategoryForComponent(componentId: string): Promise<string | null> {
+  // First check catalog (primary source)
+  const catalogEntry = await getCatalogEntry(componentId);
+  if (catalogEntry?.componentPath) {
+    return catalogEntry.componentPath.split('/')[0] || null;
   }
 
   // Check variant mappings
@@ -145,30 +223,17 @@ function getCategoryForComponent(componentId: string): string | null {
     return getCategoryForComponent(mapping.baseId);
   }
 
-  // Default category detection based on ID
-  if (id.includes('arduino') || id.includes('esp') || id.includes('nano')) {
-    return 'microcontrollers';
-  }
-  if (id.includes('breadboard')) {
-    return 'boards';
-  }
-  if (
-    id.includes('led') ||
-    id.includes('resistor') ||
-    id.includes('button') ||
-    id.includes('capacitor')
-  ) {
-    return 'passive';
-  }
-  if (
-    id.includes('buzzer') ||
-    id.includes('motor') ||
-    id.includes('speaker') ||
-    id.includes('servo')
-  ) {
-    return 'Output';
+  // Fallback to legacy categories only if catalog lookup fails
+  // This is a safety net for backward compatibility during migration
+  const id = normalizeComponentId(componentId);
+  for (const category of legacyComponentCategories) {
+    if (category.components.some((c) => c.toLowerCase() === id)) {
+      console.warn(`[ComponentService] Component ${componentId} found in legacy categories but not in catalog. Please update _catalog.json`);
+      return category.id;
+    }
   }
 
+  console.error(`[ComponentService] Component ${componentId} not found in catalog or legacy categories`);
   return null;
 }
 
@@ -219,10 +284,47 @@ export function isStatefulComponent(componentId: string): boolean {
 }
 
 /**
- * Get all available component categories
+ * Get legacy categories for backward compatibility
  */
 export function getComponentCategories(): ComponentCategory[] {
-  return componentCategories;
+  return legacyComponentCategories;
+}
+
+/**
+ * Get component sections for the library UI from the catalog
+ */
+export async function getComponentLibrarySections(): Promise<LibraryComponentSection[]> {
+  const catalog = await getComponentCatalog();
+  const sections = new Map<string, LibraryComponentSection>();
+
+  for (const entry of catalog.components) {
+    if (!entry.visibleInLibrary) continue;
+
+    const folder = entry.componentPath.split('/')[0] || entry.category;
+    const image = entry.image || entry.variants?.[0]?.componentPath.split('/').pop()?.replace('.json', '.svg') || '';
+    const sectionId = entry.librarySection || entry.category;
+    const sectionName = entry.librarySectionName || titleCase(sectionId);
+
+    if (!sections.has(sectionId)) {
+      sections.set(sectionId, {
+        id: sectionId,
+        name: sectionName,
+        components: [],
+      });
+    }
+
+    sections.get(sectionId)!.components.push({
+      id: entry.id,
+      name: entry.name,
+      image,
+      folder,
+    });
+  }
+
+  return Array.from(sections.values()).map(section => ({
+    ...section,
+    components: section.components.sort((a, b) => a.name.localeCompare(b.name)),
+  }));
 }
 
 /**
@@ -231,10 +333,10 @@ export function getComponentCategories(): ComponentCategory[] {
 export async function scanCategoryComponents(
   category: string
 ): Promise<string[]> {
-  // In production, this would scan the folder
-  // For now, return known components
-  const cat = componentCategories.find((c) => c.id === category);
-  return cat?.components || [];
+  const catalog = await getComponentCatalog();
+  return catalog.components
+    .filter(entry => entry.category === category || entry.librarySection === category)
+    .map(entry => entry.id);
 }
 
 /**
@@ -291,4 +393,22 @@ export function pinToCanvasCoords(
  */
 export function clearDefinitionCache(): void {
   definitionCache.clear();
+  catalogCache = null;
+}
+
+/**
+ * Get cache statistics for monitoring
+ */
+export function getComponentCacheStats() {
+  return {
+    definitionCache: definitionCache.getStats(),
+  };
+}
+
+function titleCase(value: string): string {
+  return value
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }

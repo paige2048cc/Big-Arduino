@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "2.1",
+  "id": "microsd-module",
+  "name": "MicroSD Module",
+  "category": "modules",
+  "libraryId": "book-expansion",
+  "modelId": "microsd_spi",
+  "primaryProtocol": "spi",
+  "supportedProtocols": ["spi", "power"],
+  "aliases": ["sd module", "microsd", "sd card module"],
+  "tags": ["storage", "logging"],
+  "image": "module-generic.svg",
+  "width": 150,
+  "height": 120,
+  "description": "SPI-based microSD card breakout for data logging.",
+  "previewPins": ["CS", "MOSI", "MISO", "SCK"],
+  "pins": [
+    { "id": "CS", "label": "CS", "description": "Chip select.", "type": "spi", "x": 40, "y": 98, "hitRadius": 8, "functions": [{ "name": "SPI_CS", "type": "spi" }], "electricalRole": "chip-select", "required": true },
+    { "id": "MOSI", "label": "MOSI", "description": "SPI master out / slave in.", "type": "spi", "x": 58, "y": 98, "hitRadius": 8, "functions": [{ "name": "SPI_MOSI", "type": "spi" }], "electricalRole": "data-line", "required": true },
+    { "id": "MISO", "label": "MISO", "description": "SPI master in / slave out.", "type": "spi", "x": 76, "y": 98, "hitRadius": 8, "functions": [{ "name": "SPI_MISO", "type": "spi" }], "electricalRole": "data-line", "required": true },
+    { "id": "SCK", "label": "SCK", "description": "SPI clock.", "type": "spi", "x": 94, "y": 98, "hitRadius": 8, "functions": [{ "name": "SPI_SCK", "type": "spi" }], "electricalRole": "clock-line", "required": true },
+    { "id": "VCC", "label": "VCC", "description": "Power supply.", "type": "power", "x": 112, "y": 98, "hitRadius": 8, "functions": [{ "name": "VCC_IN", "type": "power" }], "electricalRole": "power-input", "required": true },
+    { "id": "GND", "label": "GND", "description": "Ground.", "type": "ground", "x": 130, "y": 98, "hitRadius": 8, "functions": [{ "name": "GND", "type": "gnd" }], "electricalRole": "ground-return", "required": true }
+  ],
+  "knowledgeRefs": {
+    "component": "microsd-module",
+    "concepts": ["data-logging"],
+    "recipes": ["sd-card-data-logger"]
+  },
+  "source": {
+    "origin": ["arduino-book", "101-book"],
+    "confidence": "high"
+  },
+  "netStatus": "partial"
+}

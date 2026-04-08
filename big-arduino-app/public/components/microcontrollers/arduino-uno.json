@@ -1,10 +1,19 @@
 {
+  "schemaVersion": "2.1",
   "id": "arduino-uno",
   "name": "Arduino UNO R3",
   "category": "microcontrollers",
+  "libraryId": "core-basic",
+  "modelId": "arduino_uno_r3",
+  "primaryProtocol": "digital",
+  "supportedProtocols": ["digital", "analog", "pwm", "i2c", "spi", "uart", "power"],
+  "aliases": ["arduino", "uno", "uno r3"],
+  "tags": ["starter", "microcontroller"],
   "image": "arduino-uno.png",
   "width": 600,
   "height": 420,
+  "description": "General-purpose Arduino development board based on the ATmega328P.",
+  "previewPins": ["D13", "5V", "GND1", "A0"],
   "pins": [
     {
       "id": "D0",
@@ -267,5 +276,15 @@
       "y": 20,
       "hitRadius": 8
     }
-  ]
+  ],
+  "knowledgeRefs": {
+    "component": "arduino-uno",
+    "concepts": ["digital-output", "input-pullup", "pwm-output", "serial-basics"],
+    "recipes": ["blink-led", "button-controls-led", "serial-control-led"]
+  },
+  "source": {
+    "origin": ["big-arduino", "arduino-book", "101-book"],
+    "confidence": "high"
+  },
+  "netStatus": "partial"
 }

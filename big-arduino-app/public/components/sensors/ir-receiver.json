@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "2.1",
+  "id": "ir-receiver",
+  "name": "IR Receiver",
+  "category": "sensors",
+  "libraryId": "book-expansion",
+  "modelId": "ir_receiver",
+  "primaryProtocol": "digital",
+  "supportedProtocols": ["digital", "power"],
+  "aliases": ["infrared receiver", "ir recv"],
+  "tags": ["sensor", "infrared"],
+  "image": "sensor-generic.svg",
+  "width": 140,
+  "height": 120,
+  "description": "Infrared receiver module for decoding remote control signals.",
+  "previewPins": ["OUT", "GND", "VCC"],
+  "pins": [
+    { "id": "OUT", "label": "OUT", "description": "Digital pulse output.", "type": "digital", "x": 42, "y": 102, "hitRadius": 8, "functions": [{ "name": "IR_OUT", "type": "digital" }], "electricalRole": "signal-output", "required": true },
+    { "id": "GND", "label": "GND", "description": "Ground.", "type": "ground", "x": 70, "y": 102, "hitRadius": 8, "functions": [{ "name": "GND", "type": "gnd" }], "electricalRole": "ground-return", "required": true },
+    { "id": "VCC", "label": "VCC", "description": "Power supply.", "type": "power", "x": 98, "y": 102, "hitRadius": 8, "functions": [{ "name": "VCC_IN", "type": "power" }], "electricalRole": "power-input", "required": true }
+  ],
+  "knowledgeRefs": {
+    "component": "ir-receiver",
+    "concepts": ["infrared-basics"],
+    "recipes": ["ir-receiver-read"]
+  },
+  "source": {
+    "origin": ["arduino-book"],
+    "confidence": "medium"
+  },
+  "netStatus": "partial"
+}

@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "2.1",
+  "id": "rgb-led-common-cathode",
+  "name": "RGB LED (Common Cathode)",
+  "category": "passive",
+  "libraryId": "book-expansion",
+  "modelId": "rgb_led_cc",
+  "primaryProtocol": "pwm",
+  "supportedProtocols": ["digital", "pwm", "power"],
+  "aliases": ["rgb led", "common cathode rgb led"],
+  "tags": ["output", "color", "polarized"],
+  "image": "passive-generic.svg",
+  "width": 120,
+  "height": 120,
+  "description": "Four-pin RGB LED with a shared cathode pin.",
+  "previewPins": ["R", "G", "B", "CATHODE"],
+  "pins": [
+    { "id": "R", "label": "Red", "description": "Red channel anode.", "type": "pwm", "x": 18, "y": 102, "hitRadius": 8, "functions": [{ "name": "RED_IN", "type": "pwm" }], "electricalRole": "channel-input", "polarity": "positive", "required": true },
+    { "id": "G", "label": "Green", "description": "Green channel anode.", "type": "pwm", "x": 42, "y": 102, "hitRadius": 8, "functions": [{ "name": "GREEN_IN", "type": "pwm" }], "electricalRole": "channel-input", "polarity": "positive", "required": true },
+    { "id": "B", "label": "Blue", "description": "Blue channel anode.", "type": "pwm", "x": 78, "y": 102, "hitRadius": 8, "functions": [{ "name": "BLUE_IN", "type": "pwm" }], "electricalRole": "channel-input", "polarity": "positive", "required": true },
+    { "id": "CATHODE", "label": "Common Cathode", "description": "Shared ground return.", "type": "ground", "x": 102, "y": 102, "hitRadius": 8, "functions": [{ "name": "GND", "type": "gnd" }], "electricalRole": "ground-return", "polarity": "negative", "required": true }
+  ],
+  "knowledgeRefs": {
+    "component": "rgb-led-common-cathode",
+    "concepts": ["pwm-output"],
+    "recipes": ["rgb-led-color-cycle"]
+  },
+  "source": {
+    "origin": ["arduino-book", "manual-curation"],
+    "confidence": "medium"
+  },
+  "netStatus": "partial"
+}

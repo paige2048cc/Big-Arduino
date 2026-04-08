@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "2.1",
+  "id": "rtc-ds1307",
+  "name": "DS1307 RTC Module",
+  "category": "modules",
+  "libraryId": "book-expansion",
+  "modelId": "ds1307_rtc",
+  "primaryProtocol": "i2c",
+  "supportedProtocols": ["i2c", "power"],
+  "aliases": ["rtc", "ds1307", "clock module"],
+  "tags": ["clock", "timekeeping"],
+  "image": "module-generic.svg",
+  "width": 150,
+  "height": 120,
+  "description": "Real-time clock module that keeps time over I2C.",
+  "previewPins": ["GND", "VCC", "SDA", "SCL"],
+  "pins": [
+    { "id": "GND", "label": "GND", "description": "Ground.", "type": "ground", "x": 40, "y": 98, "hitRadius": 8, "functions": [{ "name": "GND", "type": "gnd" }], "electricalRole": "ground-return", "required": true },
+    { "id": "VCC", "label": "VCC", "description": "Power supply.", "type": "power", "x": 58, "y": 98, "hitRadius": 8, "functions": [{ "name": "VCC_IN", "type": "power" }], "electricalRole": "power-input", "required": true },
+    { "id": "SDA", "label": "SDA", "description": "I2C data line.", "type": "i2c", "x": 76, "y": 98, "hitRadius": 8, "functions": [{ "name": "I2C_SDA", "type": "i2c" }], "electricalRole": "data-line", "required": true },
+    { "id": "SCL", "label": "SCL", "description": "I2C clock line.", "type": "i2c", "x": 94, "y": 98, "hitRadius": 8, "functions": [{ "name": "I2C_SCL", "type": "i2c" }], "electricalRole": "clock-line", "required": true }
+  ],
+  "knowledgeRefs": {
+    "component": "rtc-ds1307",
+    "concepts": ["i2c-basics"],
+    "recipes": ["rtc-digital-clock"]
+  },
+  "source": {
+    "origin": ["arduino-book", "101-book"],
+    "confidence": "high"
+  },
+  "netStatus": "partial"
+}

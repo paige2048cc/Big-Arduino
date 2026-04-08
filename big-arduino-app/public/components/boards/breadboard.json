@@ -1,10 +1,19 @@
 {
+  "schemaVersion": "2.1",
   "id": "breadboard",
   "name": "Half-Size Breadboard",
   "category": "boards",
+  "libraryId": "core-basic",
+  "modelId": "breadboard_half",
+  "primaryProtocol": "power",
+  "supportedProtocols": ["power", "digital", "analog"],
+  "aliases": ["breadboard", "protoboard"],
+  "tags": ["starter", "wiring"],
   "image": "breadboard.png",
   "width": 658,
   "height": 424,
+  "description": "Reusable solderless breadboard with power rails and connected rows.",
+  "previewPins": ["PWR_TOP_PLUS_1", "PWR_TOP_MINUS_1", "A1", "F1"],
   "pins": [
     {
       "id": "PWR_TOP_PLUS_1",
@@ -4206,5 +4215,15 @@
       "hitRadius": 8,
       "net": "row-1-bottom"
     }
-  ]
+  ],
+  "knowledgeRefs": {
+    "component": "breadboard",
+    "concepts": ["input-pullup"],
+    "recipes": ["blink-led", "button-controls-led"]
+  },
+  "source": {
+    "origin": ["big-arduino"],
+    "confidence": "high"
+  },
+  "netStatus": "complete"
 }

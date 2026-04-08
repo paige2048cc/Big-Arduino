@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "2.1",
+  "id": "pir-sensor",
+  "name": "PIR Motion Sensor",
+  "category": "sensors",
+  "libraryId": "book-expansion",
+  "modelId": "pir_sensor",
+  "primaryProtocol": "digital",
+  "supportedProtocols": ["digital", "power"],
+  "aliases": ["pir", "motion sensor"],
+  "tags": ["sensor", "motion"],
+  "image": "sensor-generic.svg",
+  "width": 140,
+  "height": 120,
+  "description": "Detects motion using passive infrared sensing.",
+  "previewPins": ["VCC", "OUT", "GND"],
+  "pins": [
+    { "id": "VCC", "label": "VCC", "description": "Power supply.", "type": "power", "x": 42, "y": 102, "hitRadius": 8, "functions": [{ "name": "VCC_IN", "type": "power" }], "electricalRole": "power-input", "required": true },
+    { "id": "OUT", "label": "OUT", "description": "Digital motion output.", "type": "digital", "x": 70, "y": 102, "hitRadius": 8, "functions": [{ "name": "MOTION_OUT", "type": "digital" }], "electricalRole": "signal-output", "required": true },
+    { "id": "GND", "label": "GND", "description": "Ground.", "type": "ground", "x": 98, "y": 102, "hitRadius": 8, "functions": [{ "name": "GND", "type": "gnd" }], "electricalRole": "ground-return", "required": true }
+  ],
+  "knowledgeRefs": {
+    "component": "pir-sensor",
+    "concepts": ["digital-output"],
+    "recipes": ["pir-motion-alarm"]
+  },
+  "source": {
+    "origin": ["arduino-book"],
+    "confidence": "medium"
+  },
+  "netStatus": "partial"
+}

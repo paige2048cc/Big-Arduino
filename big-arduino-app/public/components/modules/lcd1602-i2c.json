@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "2.1",
+  "id": "lcd1602-i2c",
+  "name": "LCD1602 I2C Module",
+  "category": "modules",
+  "libraryId": "book-expansion",
+  "modelId": "lcd1602_i2c",
+  "primaryProtocol": "i2c",
+  "supportedProtocols": ["i2c", "power"],
+  "aliases": ["lcd1602", "16x2 lcd", "lcd i2c"],
+  "tags": ["display", "text"],
+  "image": "display-generic.svg",
+  "width": 180,
+  "height": 120,
+  "description": "Text LCD module with an I2C backpack.",
+  "previewPins": ["GND", "VCC", "SDA", "SCL"],
+  "pins": [
+    { "id": "GND", "label": "GND", "description": "Ground.", "type": "ground", "x": 60, "y": 108, "hitRadius": 8, "functions": [{ "name": "GND", "type": "gnd" }], "electricalRole": "ground-return", "required": true },
+    { "id": "VCC", "label": "VCC", "description": "Power supply.", "type": "power", "x": 84, "y": 108, "hitRadius": 8, "functions": [{ "name": "VCC_IN", "type": "power" }], "electricalRole": "power-input", "required": true },
+    { "id": "SDA", "label": "SDA", "description": "I2C data line.", "type": "i2c", "x": 108, "y": 108, "hitRadius": 8, "functions": [{ "name": "I2C_SDA", "type": "i2c" }], "electricalRole": "data-line", "required": true },
+    { "id": "SCL", "label": "SCL", "description": "I2C clock line.", "type": "i2c", "x": 132, "y": 108, "hitRadius": 8, "functions": [{ "name": "I2C_SCL", "type": "i2c" }], "electricalRole": "clock-line", "required": true }
+  ],
+  "knowledgeRefs": {
+    "component": "lcd1602-i2c",
+    "concepts": ["i2c-basics", "display-output"],
+    "recipes": ["lcd1602-hello-world"]
+  },
+  "source": {
+    "origin": ["arduino-book", "manual-curation"],
+    "confidence": "medium"
+  },
+  "netStatus": "partial"
+}

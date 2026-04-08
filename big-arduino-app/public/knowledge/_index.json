@@ -2,61 +2,1163 @@
   "version": "1.0",
   "components": [
     {
-      "id": "led-5mm",
-      "name": "LED (5mm)",
-      "category": "passive",
-      "path": "passive/led-5mm.md",
-      "aliases": ["light emitting diode", "indicator LED", "5mm LED"],
-      "summary": "A semiconductor device that emits light when current flows through it. Requires current-limiting resistor."
-    },
-    {
-      "id": "pushbutton",
-      "name": "Pushbutton",
-      "category": "passive",
-      "path": "passive/pushbutton.md",
-      "aliases": ["push button", "tactile switch", "momentary switch", "button"],
-      "summary": "A mechanical switch that connects two contacts when pressed. Has 4 pins with internal connections."
-    },
-    {
-      "id": "resistor-220",
-      "name": "Resistor (220 ohm)",
-      "category": "passive",
-      "path": "passive/resistor-220.md",
-      "aliases": ["resistor", "220 ohm resistor", "current limiting resistor"],
-      "summary": "A passive component that limits current flow. Non-polarized. Commonly used with LEDs."
+      "id": "shift-register-74hc595",
+      "name": "74HC595 Shift Register",
+      "category": "modules",
+      "path": "modules/shift-register-74hc595.md",
+      "aliases": [
+        "74hc595",
+        "shift register"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno"
+      ],
+      "related_components": [
+        "arduino-uno",
+        "led-5mm"
+      ],
+      "source_book": "Arduino-book-master"
     },
     {
       "id": "arduino-uno",
       "name": "Arduino UNO R3",
       "category": "microcontrollers",
       "path": "microcontrollers/arduino-uno.md",
-      "aliases": ["Arduino", "UNO", "Arduino board", "microcontroller"],
-      "summary": "Popular microcontroller board with 14 digital I/O pins, 6 analog inputs, and USB connection."
+      "aliases": [
+        "Arduino",
+        "UNO",
+        "Arduino board",
+        "microcontroller"
+      ],
+      "summary": ""
     },
     {
       "id": "breadboard",
       "name": "Breadboard (Half-Size)",
       "category": "boards",
       "path": "boards/breadboard.md",
-      "aliases": ["breadboard", "solderless breadboard", "protoboard"],
-      "summary": "Reusable platform for building circuits without soldering. Has power rails and terminal strips with internal connections."
+      "aliases": [
+        "breadboard",
+        "solderless breadboard",
+        "protoboard"
+      ],
+      "summary": ""
     },
     {
-      "id": "vibration-motor",
-      "name": "Vibration Motor",
+      "id": "dht11",
+      "name": "DHT11 Temperature & Humidity Sensor",
+      "category": "sensors",
+      "path": "sensors/dht11.md",
+      "aliases": [
+        "dht11",
+        "humidity sensor"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno"
+      ],
+      "related_components": [
+        "arduino-uno"
+      ],
+      "source_book": "Arduino-book-master"
+    },
+    {
+      "id": "rtc-ds1307",
+      "name": "DS1307 RTC Module",
+      "category": "modules",
+      "path": "modules/rtc-ds1307.md",
+      "aliases": [
+        "rtc",
+        "ds1307",
+        "clock module"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno",
+        "arduino-101"
+      ],
+      "related_components": [
+        "arduino-uno"
+      ],
+      "source_book": "Arduino-book-master, 101-book-master"
+    },
+    {
+      "id": "ultrasonic-sr04",
+      "name": "HC-SR04 Ultrasonic Sensor",
+      "category": "sensors",
+      "path": "sensors/ultrasonic-sr04.md",
+      "aliases": [
+        "sr04",
+        "hc-sr04",
+        "ultrasonic sensor"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno",
+        "arduino-101"
+      ],
+      "related_components": [
+        "arduino-uno"
+      ],
+      "source_book": "Arduino-book-master, 101-book-master"
+    },
+    {
+      "id": "ir-led",
+      "name": "IR LED Emitter",
       "category": "output",
-      "path": "output/vibration-motor.md",
-      "aliases": ["coin motor", "ERM motor", "haptic motor", "pancake motor", "vibrator motor"],
-      "summary": "A small DC motor with eccentric mass that creates vibration. Used for haptic feedback. Requires transistor driver circuit."
+      "path": "output/ir-led.md",
+      "aliases": [
+        "infrared led",
+        "ir emitter"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno"
+      ],
+      "related_components": [
+        "arduino-uno",
+        "ir-receiver"
+      ],
+      "source_book": "Arduino-book-master"
+    },
+    {
+      "id": "ir-receiver",
+      "name": "IR Receiver",
+      "category": "sensors",
+      "path": "sensors/ir-receiver.md",
+      "aliases": [
+        "infrared receiver",
+        "ir recv"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno"
+      ],
+      "related_components": [
+        "arduino-uno",
+        "ir-led"
+      ],
+      "source_book": "Arduino-book-master"
+    },
+    {
+      "id": "lcd1602-i2c",
+      "name": "LCD1602 I2C Module",
+      "category": "modules",
+      "path": "modules/lcd1602-i2c.md",
+      "aliases": [
+        "lcd1602",
+        "16x2 lcd",
+        "lcd i2c"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno"
+      ],
+      "related_components": [
+        "arduino-uno"
+      ],
+      "source_book": "Arduino-book-master"
+    },
+    {
+      "id": "led-5mm",
+      "name": "LED (5mm)",
+      "category": "passive",
+      "path": "passive/led-5mm.md",
+      "aliases": [
+        "light emitting diode",
+        "indicator LED",
+        "5mm LED"
+      ],
+      "summary": ""
+    },
+    {
+      "id": "lm35",
+      "name": "LM35 Temperature Sensor",
+      "category": "sensors",
+      "path": "sensors/lm35.md",
+      "aliases": [
+        "lm35",
+        "temperature sensor"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno"
+      ],
+      "related_components": [
+        "arduino-uno"
+      ],
+      "source_book": "Arduino-book-master"
+    },
+    {
+      "id": "microsd-module",
+      "name": "MicroSD Module",
+      "category": "modules",
+      "path": "modules/microsd-module.md",
+      "aliases": [
+        "sd module",
+        "microsd",
+        "sd card module"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno",
+        "arduino-101"
+      ],
+      "related_components": [
+        "arduino-uno"
+      ],
+      "source_book": "Arduino-book-master, 101-book-master"
+    },
+    {
+      "id": "oled-ssd1306",
+      "name": "OLED SSD1306 Module",
+      "category": "modules",
+      "path": "modules/oled-ssd1306.md",
+      "aliases": [
+        "oled",
+        "ssd1306",
+        "oled display"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno",
+        "arduino-101"
+      ],
+      "related_components": [
+        "arduino-uno"
+      ],
+      "source_book": "Arduino-book-master, 101-book-master"
+    },
+    {
+      "id": "photoresistor",
+      "name": "Photoresistor",
+      "category": "sensors",
+      "path": "sensors/photoresistor.md",
+      "aliases": [
+        "ldr",
+        "light sensor"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno",
+        "arduino-101"
+      ],
+      "related_components": [
+        "arduino-uno"
+      ],
+      "source_book": "Arduino-book-master"
     },
     {
       "id": "buzzer",
       "name": "Piezo Buzzer",
       "category": "output",
       "path": "output/buzzer.md",
-      "aliases": ["piezo buzzer", "beeper", "speaker", "passive buzzer", "active buzzer"],
-      "summary": "An electronic component that produces sound using piezoelectric effect. Active type has fixed tone, passive type supports variable frequencies with tone()."
+      "aliases": [
+        "piezo buzzer",
+        "beeper",
+        "speaker",
+        "passive buzzer",
+        "active buzzer"
+      ],
+      "summary": ""
+    },
+    {
+      "id": "pir-sensor",
+      "name": "PIR Motion Sensor",
+      "category": "sensors",
+      "path": "sensors/pir-sensor.md",
+      "aliases": [
+        "pir",
+        "motion sensor"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno"
+      ],
+      "related_components": [
+        "arduino-uno"
+      ],
+      "source_book": "Arduino-book-master"
+    },
+    {
+      "id": "potentiometer",
+      "name": "Potentiometer",
+      "category": "passive",
+      "path": "passive/potentiometer.md",
+      "aliases": [
+        "pot",
+        "variable resistor"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno",
+        "arduino-101"
+      ],
+      "related_components": [
+        "arduino-uno"
+      ],
+      "source_book": "Arduino-book-master, 101-book-master"
+    },
+    {
+      "id": "pushbutton",
+      "name": "Pushbutton",
+      "category": "passive",
+      "path": "passive/pushbutton.md",
+      "aliases": [
+        "push button",
+        "tactile switch",
+        "momentary switch",
+        "button"
+      ],
+      "summary": ""
+    },
+    {
+      "id": "resistor-220",
+      "name": "Resistor (220 ohm)",
+      "category": "passive",
+      "path": "passive/resistor-220.md",
+      "aliases": [
+        "resistor",
+        "220 ohm resistor",
+        "current limiting resistor"
+      ],
+      "summary": ""
+    },
+    {
+      "id": "rgb-led-common-cathode",
+      "name": "RGB LED (Common Cathode)",
+      "category": "passive",
+      "path": "passive/rgb-led-common-cathode.md",
+      "aliases": [
+        "rgb led",
+        "common cathode rgb led"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno"
+      ],
+      "related_components": [
+        "arduino-uno"
+      ],
+      "source_book": "Arduino-book-master"
+    },
+    {
+      "id": "vibration-motor",
+      "name": "Vibration Motor",
+      "category": "output",
+      "path": "output/vibration-motor.md",
+      "aliases": [
+        "coin motor",
+        "ERM motor",
+        "haptic motor",
+        "pancake motor",
+        "vibrator motor"
+      ],
+      "summary": ""
     }
   ],
-  "concepts": []
+  "concepts": [
+    {
+      "id": "analog-input",
+      "name": "Analog Input",
+      "category": "programming",
+      "path": "concepts/analog-input.md",
+      "aliases": [
+        "analog read",
+        "adc",
+        "variable voltage input"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno",
+        "arduino-101"
+      ],
+      "related_components": [
+        "arduino-uno",
+        "potentiometer",
+        "photoresistor",
+        "lm35"
+      ],
+      "source_book": "Arduino-book-master, 101-book-master"
+    },
+    {
+      "id": "data-logging",
+      "name": "Data Logging",
+      "category": "storage",
+      "path": "concepts/data-logging.md",
+      "aliases": [
+        "sd write",
+        "file write",
+        "save sensor data"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno",
+        "arduino-101"
+      ],
+      "related_components": [
+        "microsd-module"
+      ],
+      "source_book": "Arduino-book-master, 101-book-master"
+    },
+    {
+      "id": "input-pullup",
+      "name": "Digital Input with INPUT_PULLUP",
+      "category": "programming",
+      "path": "concepts/input-pullup.md",
+      "aliases": [
+        "button input",
+        "pullup resistor",
+        "internal pullup",
+        "digital input"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno",
+        "arduino-101"
+      ],
+      "related_components": [
+        "arduino-uno",
+        "pushbutton"
+      ],
+      "concepts": [
+        "pinmode",
+        "digitalread",
+        "input_pullup"
+      ],
+      "source_book": "Arduino-book-master, 101-book-master"
+    },
+    {
+      "id": "digital-output",
+      "name": "Digital Output",
+      "category": "programming",
+      "path": "concepts/digital-output.md",
+      "aliases": [
+        "digital write",
+        "pin output",
+        "output mode",
+        "led output"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno",
+        "arduino-101"
+      ],
+      "related_components": [
+        "arduino-uno",
+        "led-5mm",
+        "buzzer"
+      ],
+      "concepts": [
+        "pinmode",
+        "digitalwrite"
+      ],
+      "source_book": "Arduino-book-master, 101-book-master"
+    },
+    {
+      "id": "display-output",
+      "name": "Display Output",
+      "category": "output",
+      "path": "concepts/display-output.md",
+      "aliases": [
+        "lcd display",
+        "oled display",
+        "text output"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno",
+        "arduino-101"
+      ],
+      "related_components": [
+        "lcd1602-i2c",
+        "oled-ssd1306"
+      ],
+      "source_book": "Arduino-book-master, 101-book-master"
+    },
+    {
+      "id": "i2c-basics",
+      "name": "I2C Basics",
+      "category": "communication",
+      "path": "concepts/i2c-basics.md",
+      "aliases": [
+        "i2c",
+        "sda scl",
+        "wire library"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno",
+        "arduino-101"
+      ],
+      "related_components": [
+        "arduino-uno",
+        "lcd1602-i2c",
+        "oled-ssd1306",
+        "rtc-ds1307"
+      ],
+      "source_book": "Arduino-book-master, 101-book-master"
+    },
+    {
+      "id": "infrared-basics",
+      "name": "Infrared Basics",
+      "category": "communication",
+      "path": "concepts/infrared-basics.md",
+      "aliases": [
+        "ir",
+        "infrared remote",
+        "remote control"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno"
+      ],
+      "related_components": [
+        "ir-receiver",
+        "ir-led"
+      ],
+      "source_book": "Arduino-book-master"
+    },
+    {
+      "id": "pwm-output",
+      "name": "PWM Output",
+      "category": "programming",
+      "path": "concepts/pwm-output.md",
+      "aliases": [
+        "analog write",
+        "pwm",
+        "pulse width modulation",
+        "fade led"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno",
+        "arduino-101"
+      ],
+      "related_components": [
+        "arduino-uno",
+        "led-5mm",
+        "buzzer"
+      ],
+      "concepts": [
+        "analogwrite",
+        "pwm"
+      ],
+      "source_book": "Arduino-book-master, 101-book-master"
+    },
+    {
+      "id": "serial-basics",
+      "name": "Serial Basics",
+      "category": "communication",
+      "path": "concepts/serial-basics.md",
+      "aliases": [
+        "serial monitor",
+        "serial print",
+        "serial read",
+        "uart basics"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno",
+        "arduino-101"
+      ],
+      "related_components": [
+        "arduino-uno"
+      ],
+      "concepts": [
+        "serial",
+        "serialprint",
+        "serialread"
+      ],
+      "source_book": "Arduino-book-master, 101-book-master"
+    },
+    {
+      "id": "shift-registers",
+      "name": "Shift Registers",
+      "category": "logic",
+      "path": "concepts/shift-registers.md",
+      "aliases": [
+        "74hc595",
+        "serial to parallel",
+        "io expansion"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno"
+      ],
+      "related_components": [
+        "shift-register-74hc595"
+      ],
+      "source_book": "Arduino-book-master"
+    },
+    {
+      "id": "temperature-sensing",
+      "name": "Temperature Sensing",
+      "category": "sensing",
+      "path": "concepts/temperature-sensing.md",
+      "aliases": [
+        "temperature sensor",
+        "lm35",
+        "dht11 temperature"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno",
+        "arduino-101"
+      ],
+      "related_components": [
+        "lm35",
+        "dht11"
+      ],
+      "source_book": "Arduino-book-master"
+    },
+    {
+      "id": "distance-sensing",
+      "name": "Ultrasonic Distance Sensing",
+      "category": "sensing",
+      "path": "concepts/distance-sensing.md",
+      "aliases": [
+        "distance sensor",
+        "ultrasonic sensor",
+        "sr04"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno",
+        "arduino-101"
+      ],
+      "related_components": [
+        "ultrasonic-sr04"
+      ],
+      "source_book": "Arduino-book-master, 101-book-master"
+    }
+  ],
+  "recipes": [
+    {
+      "id": "blink-led",
+      "name": "Blink an LED",
+      "category": "starter-project",
+      "path": "recipes/blink-led.md",
+      "aliases": [
+        "blink",
+        "led blink",
+        "flashing led",
+        "blinking light"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno",
+        "arduino-101"
+      ],
+      "related_components": [
+        "arduino-uno",
+        "led-5mm",
+        "resistor-220"
+      ],
+      "concepts": [
+        "digital-output"
+      ],
+      "difficulty": "easy",
+      "intent": "beginner output example and first code block",
+      "source_book": "Arduino-book-master, 101-book-master"
+    },
+    {
+      "id": "button-controls-led",
+      "name": "Button Controls LED",
+      "category": "starter-project",
+      "path": "recipes/button-controls-led.md",
+      "aliases": [
+        "button led",
+        "press button led",
+        "button switch led",
+        "input output example"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno",
+        "arduino-101"
+      ],
+      "related_components": [
+        "arduino-uno",
+        "pushbutton",
+        "led-5mm",
+        "resistor-220"
+      ],
+      "concepts": [
+        "input-pullup",
+        "digital-output"
+      ],
+      "difficulty": "easy",
+      "intent": "generate code for button input controlling an LED",
+      "source_book": "Arduino-book-master, 101-book-master"
+    },
+    {
+      "id": "buzzer-alert",
+      "name": "Buzzer Alert",
+      "category": "starter-project",
+      "path": "recipes/buzzer-alert.md",
+      "aliases": [
+        "buzzer tone",
+        "beeper alert"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno"
+      ],
+      "related_components": [
+        "arduino-uno",
+        "buzzer"
+      ],
+      "concepts": [
+        "digital-output",
+        "pwm-output"
+      ],
+      "difficulty": "easy",
+      "intent": "play a simple tone or alert using a buzzer",
+      "source_book": "Arduino-book-master"
+    },
+    {
+      "id": "dht11-climate-monitor",
+      "name": "DHT11 Climate Monitor",
+      "category": "sensor-project",
+      "path": "recipes/dht11-climate-monitor.md",
+      "aliases": [
+        "dht11 monitor",
+        "humidity monitor"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno"
+      ],
+      "related_components": [
+        "arduino-uno",
+        "dht11"
+      ],
+      "concepts": [
+        "temperature-sensing",
+        "serial-basics"
+      ],
+      "difficulty": "medium",
+      "intent": "generate code for DHT11 temperature and humidity output",
+      "source_book": "Arduino-book-master"
+    },
+    {
+      "id": "fade-led-pwm",
+      "name": "Fade LED with PWM",
+      "category": "starter-project",
+      "path": "recipes/fade-led-pwm.md",
+      "aliases": [
+        "fade led",
+        "breathing led",
+        "pwm led",
+        "analogwrite led"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno",
+        "arduino-101"
+      ],
+      "related_components": [
+        "arduino-uno",
+        "led-5mm",
+        "resistor-220"
+      ],
+      "concepts": [
+        "pwm-output"
+      ],
+      "difficulty": "easy",
+      "intent": "generate analogWrite example for LED brightness control",
+      "source_book": "Arduino-book-master, 101-book-master"
+    },
+    {
+      "id": "ir-receiver-read",
+      "name": "IR Receiver Read",
+      "category": "communication-project",
+      "path": "recipes/ir-receiver-read.md",
+      "aliases": [
+        "ir receive",
+        "remote read"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno"
+      ],
+      "related_components": [
+        "arduino-uno",
+        "ir-receiver"
+      ],
+      "concepts": [
+        "infrared-basics",
+        "serial-basics"
+      ],
+      "difficulty": "medium",
+      "intent": "decode values from an IR receiver",
+      "source_book": "Arduino-book-master"
+    },
+    {
+      "id": "ir-remote-transmit",
+      "name": "IR Remote Transmit",
+      "category": "communication-project",
+      "path": "recipes/ir-remote-transmit.md",
+      "aliases": [
+        "ir send",
+        "infrared transmit"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno"
+      ],
+      "related_components": [
+        "arduino-uno",
+        "ir-led"
+      ],
+      "concepts": [
+        "infrared-basics"
+      ],
+      "difficulty": "medium",
+      "intent": "transmit IR codes using an IR LED",
+      "source_book": "Arduino-book-master"
+    },
+    {
+      "id": "lcd1602-hello-world",
+      "name": "LCD1602 Hello World",
+      "category": "display-project",
+      "path": "recipes/lcd1602-hello-world.md",
+      "aliases": [
+        "lcd hello world",
+        "lcd text"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno"
+      ],
+      "related_components": [
+        "arduino-uno",
+        "lcd1602-i2c"
+      ],
+      "concepts": [
+        "i2c-basics",
+        "display-output"
+      ],
+      "difficulty": "easy",
+      "intent": "display a simple message on an LCD1602 module",
+      "source_book": "Arduino-book-master"
+    },
+    {
+      "id": "lm35-temperature-monitor",
+      "name": "LM35 Temperature Monitor",
+      "category": "sensor-project",
+      "path": "recipes/lm35-temperature-monitor.md",
+      "aliases": [
+        "lm35 serial",
+        "temperature monitor"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno"
+      ],
+      "related_components": [
+        "arduino-uno",
+        "lm35"
+      ],
+      "concepts": [
+        "analog-input",
+        "temperature-sensing",
+        "serial-basics"
+      ],
+      "difficulty": "easy",
+      "intent": "read LM35 temperature and print it to serial",
+      "source_book": "Arduino-book-master"
+    },
+    {
+      "id": "oled-status-display",
+      "name": "OLED Status Display",
+      "category": "display-project",
+      "path": "recipes/oled-status-display.md",
+      "aliases": [
+        "oled text",
+        "ssd1306 display"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno",
+        "arduino-101"
+      ],
+      "related_components": [
+        "arduino-uno",
+        "oled-ssd1306"
+      ],
+      "concepts": [
+        "i2c-basics",
+        "display-output"
+      ],
+      "difficulty": "medium",
+      "intent": "draw text on an OLED display",
+      "source_book": "Arduino-book-master, 101-book-master"
+    },
+    {
+      "id": "photoresistor-night-light",
+      "name": "Photoresistor Night Light",
+      "category": "starter-project",
+      "path": "recipes/photoresistor-night-light.md",
+      "aliases": [
+        "light sensor led",
+        "ldr led"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno",
+        "arduino-101"
+      ],
+      "related_components": [
+        "arduino-uno",
+        "photoresistor",
+        "led-5mm",
+        "Registor_220Ω"
+      ],
+      "concepts": [
+        "analog-input"
+      ],
+      "difficulty": "easy",
+      "intent": "generate code for a light-reactive LED",
+      "source_book": "Arduino-book-master"
+    },
+    {
+      "id": "pir-motion-alarm",
+      "name": "PIR Motion Alarm",
+      "category": "sensor-project",
+      "path": "recipes/pir-motion-alarm.md",
+      "aliases": [
+        "pir buzzer",
+        "motion detector"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno"
+      ],
+      "related_components": [
+        "arduino-uno",
+        "pir-sensor",
+        "buzzer"
+      ],
+      "concepts": [
+        "digital-output"
+      ],
+      "difficulty": "easy",
+      "intent": "generate code for a motion-triggered alert",
+      "source_book": "Arduino-book-master"
+    },
+    {
+      "id": "potentiometer-controls-led",
+      "name": "Potentiometer Controls LED Brightness",
+      "category": "starter-project",
+      "path": "recipes/potentiometer-controls-led.md",
+      "aliases": [
+        "pot led",
+        "analog input led",
+        "dimmer"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno",
+        "arduino-101"
+      ],
+      "related_components": [
+        "arduino-uno",
+        "potentiometer",
+        "led-5mm",
+        "Registor_220Ω"
+      ],
+      "concepts": [
+        "analog-input",
+        "pwm-output"
+      ],
+      "difficulty": "easy",
+      "intent": "generate code that reads a potentiometer and controls LED brightness",
+      "source_book": "Arduino-book-master, 101-book-master"
+    },
+    {
+      "id": "rgb-led-color-cycle",
+      "name": "RGB LED Color Cycle",
+      "category": "starter-project",
+      "path": "recipes/rgb-led-color-cycle.md",
+      "aliases": [
+        "rgb led fade",
+        "color cycle"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno"
+      ],
+      "related_components": [
+        "arduino-uno",
+        "rgb-led-common-cathode",
+        "Registor_220Ω"
+      ],
+      "concepts": [
+        "pwm-output"
+      ],
+      "difficulty": "medium",
+      "intent": "generate PWM code for an RGB LED",
+      "source_book": "Arduino-book-master"
+    },
+    {
+      "id": "rtc-digital-clock",
+      "name": "RTC Digital Clock",
+      "category": "module-project",
+      "path": "recipes/rtc-digital-clock.md",
+      "aliases": [
+        "rtc clock",
+        "ds1307 clock"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno",
+        "arduino-101"
+      ],
+      "related_components": [
+        "arduino-uno",
+        "rtc-ds1307"
+      ],
+      "concepts": [
+        "i2c-basics"
+      ],
+      "difficulty": "medium",
+      "intent": "read date and time from a DS1307 RTC",
+      "source_book": "Arduino-book-master, 101-book-master"
+    },
+    {
+      "id": "sd-card-data-logger",
+      "name": "SD Card Data Logger",
+      "category": "module-project",
+      "path": "recipes/sd-card-data-logger.md",
+      "aliases": [
+        "sd logger",
+        "microsd log",
+        "file write"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno",
+        "arduino-101"
+      ],
+      "related_components": [
+        "arduino-uno",
+        "microsd-module"
+      ],
+      "concepts": [
+        "data-logging"
+      ],
+      "difficulty": "medium",
+      "intent": "write text data to a microSD card",
+      "source_book": "Arduino-book-master, 101-book-master"
+    },
+    {
+      "id": "serial-control-led",
+      "name": "Serial Control LED",
+      "category": "starter-project",
+      "path": "recipes/serial-control-led.md",
+      "aliases": [
+        "serial led",
+        "led over serial",
+        "serial command led",
+        "monitor control"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno",
+        "arduino-101"
+      ],
+      "related_components": [
+        "arduino-uno",
+        "led-5mm",
+        "resistor-220"
+      ],
+      "concepts": [
+        "serial-basics",
+        "digital-output"
+      ],
+      "difficulty": "medium",
+      "intent": "generate code that uses Serial Monitor commands to control an LED",
+      "source_book": "Arduino-book-master, 101-book-master"
+    },
+    {
+      "id": "shift-register-led-chaser",
+      "name": "Shift Register LED Chaser",
+      "category": "logic-project",
+      "path": "recipes/shift-register-led-chaser.md",
+      "aliases": [
+        "74hc595 leds",
+        "shift register leds"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno"
+      ],
+      "related_components": [
+        "arduino-uno",
+        "shift-register-74hc595",
+        "led-5mm",
+        "Registor_220Ω"
+      ],
+      "concepts": [
+        "shift-registers"
+      ],
+      "difficulty": "medium",
+      "intent": "control multiple LEDs through a 74HC595",
+      "source_book": "Arduino-book-master"
+    },
+    {
+      "id": "ultrasonic-distance-monitor",
+      "name": "Ultrasonic Distance Monitor",
+      "category": "sensor-project",
+      "path": "recipes/ultrasonic-distance-monitor.md",
+      "aliases": [
+        "sr04 distance",
+        "ultrasonic monitor"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno",
+        "arduino-101"
+      ],
+      "related_components": [
+        "arduino-uno",
+        "ultrasonic-sr04"
+      ],
+      "concepts": [
+        "distance-sensing",
+        "serial-basics"
+      ],
+      "difficulty": "medium",
+      "intent": "generate code for HC-SR04 distance measurement",
+      "source_book": "Arduino-book-master, 101-book-master"
+    },
+    {
+      "id": "vibration-motor-pulse",
+      "name": "Vibration Motor Pulse",
+      "category": "starter-project",
+      "path": "recipes/vibration-motor-pulse.md",
+      "aliases": [
+        "vibration pulse",
+        "haptic pulse"
+      ],
+      "summary": "",
+      "boards": [
+        "arduino-uno"
+      ],
+      "related_components": [
+        "arduino-uno",
+        "vibration-motor"
+      ],
+      "concepts": [
+        "digital-output",
+        "pwm-output"
+      ],
+      "difficulty": "easy",
+      "intent": "pulse a vibration motor for simple haptic feedback",
+      "source_book": "Arduino-book-master"
+    }
+  ]
 }

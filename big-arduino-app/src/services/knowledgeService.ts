@@ -5,6 +5,10 @@
  * Knowledge files are Markdown with YAML frontmatter, stored in /public/knowledge/
  */
 
+import matter from 'gray-matter';
+import { validateKnowledgeFrontmatter } from './validation';
+import { LRUCache, createCacheKey } from '../utils/cache';
+
 // Types for knowledge file structure
 export interface KnowledgePin {
   name: string;
@@ -17,10 +21,18 @@ export interface KnowledgeFrontmatter {
   name: string;
   aliases: string[];
   category: string;
-  pins: KnowledgePin[];
-  common_issues: string[];
-  safety: string[];
-  sources: string[];
+  pins?: KnowledgePin[];
+  common_issues?: string[];
+  safety?: string[];
+  sources?: string[];
+  boards?: string[];
+  related_components?: string[];
+  concepts?: string[];
+  libraries?: string[];
+  difficulty?: string;
+  intent?: string;
+  source_book?: string;
+  source_files?: string[];
 }
 
 export interface KnowledgeFile {
@@ -35,142 +47,121 @@ export interface KnowledgeIndexEntry {
   path: string;
   aliases: string[];
   summary: string;
+  boards?: string[];
+  related_components?: string[];
+  concepts?: string[];
+  difficulty?: string;
+  intent?: string;
+  source_book?: string;
 }
 
 export interface KnowledgeIndex {
   version: string;
   components: KnowledgeIndexEntry[];
   concepts: KnowledgeIndexEntry[];
+  recipes: KnowledgeIndexEntry[];
 }
 
-// Cache for loaded knowledge files
-const knowledgeCache = new Map<string, KnowledgeFile>();
+export type KnowledgeKind = keyof Pick<KnowledgeIndex, 'components' | 'concepts' | 'recipes'>;
+
+export interface KnowledgeSearchOptions {
+  kinds?: KnowledgeKind[];
+  board?: string;
+  relatedComponentIds?: string[];
+  limit?: number;
+}
+
+// Cache for loaded knowledge files - using LRU cache for better performance
+const knowledgeCache = new LRUCache<KnowledgeFile>(100); // Store up to 100 knowledge files
 let indexCache: KnowledgeIndex | null = null;
 
+// Cache for search results - short TTL since circuit state changes frequently
+const searchCache = new LRUCache<Array<KnowledgeIndexEntry & { kind: KnowledgeKind }>>(50);
+
+function getCacheKey(kind: KnowledgeKind, id: string): string {
+  return `${kind}:${id}`;
+}
+
+function scoreKnowledgeEntry(
+  entry: KnowledgeIndexEntry,
+  kind: KnowledgeKind,
+  query: string,
+  options: KnowledgeSearchOptions
+): number {
+  const lowerQuery = query.toLowerCase().trim();
+  const queryTerms = lowerQuery.split(/\s+/).filter(Boolean);
+  let score = 0;
+
+  if (!lowerQuery && kind === 'recipes') {
+    score += 1;
+  }
+
+  const haystacks = [
+    entry.id.toLowerCase(),
+    entry.name.toLowerCase(),
+    entry.summary.toLowerCase(),
+    ...entry.aliases.map(alias => alias.toLowerCase()),
+    ...(entry.concepts || []).map(concept => concept.toLowerCase()),
+    ...(entry.related_components || []).map(component => component.toLowerCase()),
+  ];
+
+  if (lowerQuery) {
+    if (entry.id.toLowerCase() === lowerQuery) score += 10;
+    if (entry.name.toLowerCase() === lowerQuery) score += 10;
+
+    for (const term of queryTerms) {
+      for (const haystack of haystacks) {
+        if (haystack === term) {
+          score += 6;
+        } else if (haystack.includes(term)) {
+          score += 3;
+        }
+      }
+    }
+  }
+
+  if (options.board && entry.boards?.includes(options.board)) {
+    score += 4;
+  }
+
+  if (options.relatedComponentIds && options.relatedComponentIds.length > 0) {
+    const relatedSet = new Set(options.relatedComponentIds);
+    const relatedMatches = (entry.related_components || []).filter(componentId => relatedSet.has(componentId)).length;
+    score += relatedMatches * 4;
+  }
+
+  if (kind === 'recipes' && /code|sketch|program|example|代码|程序|示例|案例/.test(lowerQuery)) {
+    score += 4;
+  }
+
+  if (kind === 'concepts' && /what|why|how|概念|原理|区别|什么意思|是什么/.test(lowerQuery)) {
+    score += 2;
+  }
+
+  return score;
+}
+
 /**
- * Parse YAML frontmatter from markdown content
+ * Parse YAML frontmatter from markdown content using gray-matter
+ * This replaces the hand-written parser with a robust library
  */
 function parseFrontmatter(content: string): { frontmatter: Record<string, unknown>; body: string } {
-  const frontmatterRegex = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/;
-  const match = content.match(frontmatterRegex);
+  try {
+    const { data, content: body } = matter(content);
 
-  if (!match) {
+    // Validate frontmatter structure
+    try {
+      const validated = validateKnowledgeFrontmatter(data);
+      return { frontmatter: validated as unknown as Record<string, unknown>, body };
+    } catch (validationError) {
+      // Log validation error but still return data for backward compatibility
+      console.warn('[KnowledgeService] Frontmatter validation failed:', validationError);
+      return { frontmatter: data, body };
+    }
+  } catch (error) {
+    console.error('[KnowledgeService] Failed to parse frontmatter:', error);
     return { frontmatter: {}, body: content };
   }
-
-  const yamlContent = match[1];
-  const body = match[2];
-
-  // Simple YAML parser for our specific format
-  const frontmatter: Record<string, unknown> = {};
-  const lines = yamlContent.split('\n');
-  let currentKey = '';
-  let currentArray: unknown[] = [];
-  let inArray = false;
-  let inNestedObject = false;
-  let nestedObjects: Record<string, string>[] = [];
-  let currentNestedObject: Record<string, string> = {};
-
-  for (const line of lines) {
-    // Skip empty lines
-    if (!line.trim()) continue;
-
-    // Check for array item with nested object (pins)
-    if (line.match(/^\s{2}-\s+name:/)) {
-      if (inNestedObject && Object.keys(currentNestedObject).length > 0) {
-        nestedObjects.push(currentNestedObject);
-      }
-      currentNestedObject = {};
-      const value = line.match(/name:\s*(.+)/)?.[1]?.trim() || '';
-      currentNestedObject['name'] = value;
-      inNestedObject = true;
-      continue;
-    }
-
-    // Check for nested object property
-    if (inNestedObject && line.match(/^\s{4}\w+:/)) {
-      const nestedMatch = line.match(/^\s{4}(\w+):\s*(.+)/);
-      if (nestedMatch) {
-        currentNestedObject[nestedMatch[1]] = nestedMatch[2].trim();
-      }
-      continue;
-    }
-
-    // Check for simple array item
-    if (line.match(/^\s{2}-\s+/)) {
-      const value = line.replace(/^\s{2}-\s+/, '').trim();
-      currentArray.push(value);
-      continue;
-    }
-
-    // Check for key with inline array [item1, item2]
-    const inlineArrayMatch = line.match(/^(\w+):\s*\[(.+)\]/);
-    if (inlineArrayMatch) {
-      // Save previous array if exists
-      if (inArray && currentKey) {
-        if (inNestedObject) {
-          frontmatter[currentKey] = nestedObjects;
-          nestedObjects = [];
-          inNestedObject = false;
-        } else {
-          frontmatter[currentKey] = currentArray;
-        }
-        currentArray = [];
-        inArray = false;
-      }
-
-      const key = inlineArrayMatch[1];
-      const values = inlineArrayMatch[2].split(',').map(v => v.trim());
-      frontmatter[key] = values;
-      continue;
-    }
-
-    // Check for key-value pair
-    const keyValueMatch = line.match(/^(\w+):\s*(.*)$/);
-    if (keyValueMatch) {
-      // Save previous array if exists
-      if (inArray && currentKey) {
-        if (inNestedObject) {
-          if (Object.keys(currentNestedObject).length > 0) {
-            nestedObjects.push(currentNestedObject);
-          }
-          frontmatter[currentKey] = nestedObjects;
-          nestedObjects = [];
-          currentNestedObject = {};
-          inNestedObject = false;
-        } else {
-          frontmatter[currentKey] = currentArray;
-        }
-        currentArray = [];
-        inArray = false;
-      }
-
-      currentKey = keyValueMatch[1];
-      const value = keyValueMatch[2].trim();
-
-      if (value === '' || value === undefined) {
-        // Start of array
-        inArray = true;
-        currentArray = [];
-      } else {
-        frontmatter[currentKey] = value;
-      }
-    }
-  }
-
-  // Save final array if exists
-  if (inArray && currentKey) {
-    if (inNestedObject) {
-      if (Object.keys(currentNestedObject).length > 0) {
-        nestedObjects.push(currentNestedObject);
-      }
-      frontmatter[currentKey] = nestedObjects;
-    } else {
-      frontmatter[currentKey] = currentArray;
-    }
-  }
-
-  return { frontmatter, body };
 }
 
 /**
@@ -191,30 +182,30 @@ export async function getKnowledgeIndex(): Promise<KnowledgeIndex> {
   } catch (error) {
     console.error('Error loading knowledge index:', error);
     // Return empty index on error
-    return { version: '1.0', components: [], concepts: [] };
+    return { version: '1.0', components: [], concepts: [], recipes: [] };
   }
 }
 
 /**
- * Load a knowledge file by component ID
+ * Load a knowledge file by kind and entry ID
  */
-export async function loadKnowledge(componentId: string): Promise<KnowledgeFile | null> {
-  // Check cache first
-  if (knowledgeCache.has(componentId)) {
-    return knowledgeCache.get(componentId)!;
+export async function loadKnowledgeEntry(kind: KnowledgeKind, entryId: string): Promise<KnowledgeFile | null> {
+  const cacheKey = getCacheKey(kind, entryId);
+
+  const cached = knowledgeCache.get(cacheKey);
+  if (cached) {
+    return cached;
   }
 
   try {
-    // Get index to find the file path
     const index = await getKnowledgeIndex();
-    const entry = index.components.find(c => c.id === componentId);
+    const entry = index[kind].find(item => item.id === entryId);
 
     if (!entry) {
-      console.warn(`Knowledge file not found for component: ${componentId}`);
+      console.warn(`Knowledge file not found for ${kind}:${entryId}`);
       return null;
     }
 
-    // Load the markdown file
     const response = await fetch(`/knowledge/${entry.path}`);
     if (!response.ok) {
       throw new Error(`Failed to load knowledge file: ${response.status}`);
@@ -228,51 +219,87 @@ export async function loadKnowledge(componentId: string): Promise<KnowledgeFile 
       content: body
     };
 
-    // Cache the result
-    knowledgeCache.set(componentId, knowledgeFile);
+    knowledgeCache.put(cacheKey, knowledgeFile);
 
     return knowledgeFile;
   } catch (error) {
-    console.error(`Error loading knowledge for ${componentId}:`, error);
+    console.error(`Error loading knowledge for ${kind}:${entryId}:`, error);
     return null;
   }
+}
+
+/**
+ * Backwards-compatible helper for component knowledge
+ */
+export async function loadKnowledge(componentId: string): Promise<KnowledgeFile | null> {
+  return loadKnowledgeEntry('components', componentId);
 }
 
 /**
  * Search knowledge files by query string
  * Returns matching entries from the index
  */
-export async function searchKnowledge(query: string): Promise<KnowledgeIndexEntry[]> {
+export async function searchKnowledge(
+  query: string,
+  options: KnowledgeSearchOptions = {}
+): Promise<Array<KnowledgeIndexEntry & { kind: KnowledgeKind }>> {
+  // Create cache key from search parameters
+  const cacheKey = createCacheKey(
+    query,
+    options.kinds?.join(','),
+    options.board,
+    options.relatedComponentIds?.join(','),
+    options.limit
+  );
+
+  // Check cache first
+  const cached = searchCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   const index = await getKnowledgeIndex();
-  const lowerQuery = query.toLowerCase();
+  const kinds = options.kinds && options.kinds.length > 0
+    ? options.kinds
+    : (['components', 'concepts', 'recipes'] as KnowledgeKind[]);
+  const results: Array<KnowledgeIndexEntry & { kind: KnowledgeKind; score: number }> = [];
 
-  const results: KnowledgeIndexEntry[] = [];
+  for (const kind of kinds) {
+    for (const entry of index[kind]) {
+      if (options.board && entry.boards && !entry.boards.includes(options.board)) {
+        continue;
+      }
 
-  // Search components
-  for (const entry of index.components) {
-    const matchesName = entry.name.toLowerCase().includes(lowerQuery);
-    const matchesId = entry.id.toLowerCase().includes(lowerQuery);
-    const matchesAlias = entry.aliases.some(a => a.toLowerCase().includes(lowerQuery));
-    const matchesSummary = entry.summary.toLowerCase().includes(lowerQuery);
-
-    if (matchesName || matchesId || matchesAlias || matchesSummary) {
-      results.push(entry);
+      const score = scoreKnowledgeEntry(entry, kind, query, options);
+      if (score > 0) {
+        results.push({ ...entry, kind, score });
+      }
     }
   }
 
-  // Search concepts
-  for (const entry of index.concepts) {
-    const matchesName = entry.name.toLowerCase().includes(lowerQuery);
-    const matchesId = entry.id.toLowerCase().includes(lowerQuery);
-    const matchesAlias = entry.aliases.some(a => a.toLowerCase().includes(lowerQuery));
-    const matchesSummary = entry.summary.toLowerCase().includes(lowerQuery);
+  const searchResults = results
+    .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+    .slice(0, options.limit ?? 8)
+    .map(result => ({
+      id: result.id,
+      name: result.name,
+      category: result.category,
+      path: result.path,
+      aliases: result.aliases,
+      summary: result.summary,
+      boards: result.boards,
+      related_components: result.related_components,
+      concepts: result.concepts,
+      difficulty: result.difficulty,
+      intent: result.intent,
+      source_book: result.source_book,
+      kind: result.kind,
+    }));
 
-    if (matchesName || matchesId || matchesAlias || matchesSummary) {
-      results.push(entry);
-    }
-  }
+  // Cache the results
+  searchCache.put(cacheKey, searchResults);
 
-  return results;
+  return searchResults;
 }
 
 /**
@@ -292,6 +319,21 @@ export async function loadMultipleKnowledge(componentIds: string[]): Promise<Map
   );
 
   return results;
+}
+
+export async function getKnowledgeEntries(
+  query: string,
+  options: KnowledgeSearchOptions = {}
+): Promise<Array<{ entry: KnowledgeIndexEntry & { kind: KnowledgeKind }; file: KnowledgeFile }>> {
+  const entries = await searchKnowledge(query, options);
+  const files = await Promise.all(
+    entries.map(async entry => {
+      const file = await loadKnowledgeEntry(entry.kind, entry.id);
+      return file ? { entry, file } : null;
+    })
+  );
+
+  return files.filter((item): item is { entry: KnowledgeIndexEntry & { kind: KnowledgeKind }; file: KnowledgeFile } => item !== null);
 }
 
 /**
@@ -342,5 +384,16 @@ export async function getKnowledgeSummary(componentId: string): Promise<string |
  */
 export function clearKnowledgeCache(): void {
   knowledgeCache.clear();
+  searchCache.clear();
   indexCache = null;
+}
+
+/**
+ * Get cache statistics for monitoring
+ */
+export function getKnowledgeCacheStats() {
+  return {
+    knowledgeCache: knowledgeCache.getStats(),
+    searchCache: searchCache.getStats(),
+  };
 }

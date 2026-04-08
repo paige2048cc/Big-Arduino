@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "2.1",
+  "id": "ir-led",
+  "name": "IR LED Emitter",
+  "category": "Output",
+  "libraryId": "book-expansion",
+  "modelId": "ir_led",
+  "primaryProtocol": "digital",
+  "supportedProtocols": ["digital", "pwm", "power"],
+  "aliases": ["infrared led", "ir emitter"],
+  "tags": ["output", "infrared", "polarized"],
+  "image": "ir-led.svg",
+  "width": 110,
+  "height": 120,
+  "description": "Infrared LED used to transmit modulated IR signals.",
+  "previewPins": ["ANODE", "CATHODE"],
+  "pins": [
+    { "id": "ANODE", "label": "Anode", "description": "Positive terminal driven through a resistor.", "type": "pwm", "x": 42, "y": 108, "hitRadius": 8, "functions": [{ "name": "IR_IN", "type": "pwm" }], "electricalRole": "signal-input", "polarity": "positive", "required": true },
+    { "id": "CATHODE", "label": "Cathode", "description": "Ground return.", "type": "ground", "x": 68, "y": 108, "hitRadius": 8, "functions": [{ "name": "GND", "type": "gnd" }], "electricalRole": "ground-return", "polarity": "negative", "required": true }
+  ],
+  "knowledgeRefs": {
+    "component": "ir-led",
+    "concepts": ["infrared-basics"],
+    "recipes": ["ir-remote-transmit"]
+  },
+  "source": {
+    "origin": ["arduino-book"],
+    "confidence": "medium"
+  },
+  "netStatus": "partial"
+}

@@ -17,6 +17,16 @@ export const SYSTEM_PROMPT = `You are a creative collaborator helping Arduino be
 ## Core Philosophy: Adaptive Teaching
 Adjust your teaching style based on the user's current state and needs.
 
+## Knowledge-Grounded Responses
+When the context includes "Retrieved Knowledge", treat it as the preferred source for Arduino facts, patterns, and example code.
+
+- Prefer retrieved recipes and concepts over generic memory
+- Only use examples that match the active board and placed components
+- If the user asks for code, generate one clean Arduino sketch in a single \`\`\`cpp block whenever possible
+- Adapt the sketch to the user's actual wiring and pin choices from the circuit context
+- Do not suggest Arduino 101 or board-specific APIs unless the retrieved knowledge or current board matches them
+- If important wiring details are missing, say what assumption you are making before giving code
+
 ## PRIORITY #1: CIRCUIT DEBUGGING (Check in strict order!)
 
 When debugging or analyzing a circuit, follow this **strict priority order**. Check each level in sequence and **report only the FIRST problem found** — do not list multiple issues at once.
@@ -253,7 +263,7 @@ When analyzing, express findings conversationally:
 ## Component References
 For components the user should ADD to their circuit:
 [[add:COMPONENT_ID]]
-Available: arduino-uno, led-5mm, Registor_220Ω, breadboard, pushbutton
+Available examples: arduino-uno, breadboard, led-5mm, Registor_220Ω, pushbutton, buzzer, potentiometer, photoresistor, lm35, pir-sensor, ultrasonic-sr04, dht11, lcd1602-i2c, oled-ssd1306, rtc-ds1307, microsd-module, shift-register-74hc595
 
 For components that ALREADY EXIST on the canvas:
 [[ref:INSTANCE_ID]]
@@ -292,6 +302,9 @@ export const CONTEXT_TEMPLATE = `
 ### Simulation Status
 {SIMULATION_STATUS}
 
+### Retrieved Knowledge
+{KNOWLEDGE_CONTEXT}
+
 ### User Question
 {USER_MESSAGE}
 `;
@@ -320,7 +333,7 @@ export const WIRE_CONTEXT_TEMPLATE = `
  * Template for knowledge context
  */
 export const KNOWLEDGE_CONTEXT_TEMPLATE = `
-### Component Knowledge: {NAME}
+### {KIND}: {NAME}
 
 {KNOWLEDGE_CONTENT}
 
@@ -345,12 +358,14 @@ export function buildContextPrompt(
   componentContext: string,
   wireContext: string,
   simulationStatus: string,
+  knowledgeContext: string,
   userMessage: string
 ): string {
   return CONTEXT_TEMPLATE
     .replace('{COMPONENT_CONTEXT}', componentContext || 'No components referenced.')
     .replace('{WIRE_CONTEXT}', wireContext || 'No wires in circuit.')
     .replace('{SIMULATION_STATUS}', simulationStatus || 'Simulation not active.')
+    .replace('{KNOWLEDGE_CONTEXT}', knowledgeContext || 'No additional knowledge retrieved.')
     .replace('{USER_MESSAGE}', userMessage || '(No message provided)');
 }
 
@@ -398,12 +413,14 @@ export function formatWireContext(
  * Format knowledge context
  */
 export function formatKnowledgeContext(
+  kind: string,
   name: string,
   knowledgeContent: string,
   commonIssues: string[],
   safetyNotes: string[]
 ): string {
   return KNOWLEDGE_CONTEXT_TEMPLATE
+    .replace('{KIND}', kind)
     .replace('{NAME}', name)
     .replace('{KNOWLEDGE_CONTENT}', knowledgeContent)
     .replace('{COMMON_ISSUES}', commonIssues.map(i => `- ${i}`).join('\n'))

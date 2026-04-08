@@ -10,6 +10,21 @@ All notable changes to Big Arduino App will be documented in this file.
 
 ---
 
+## [8.9.0] - 2026-03-30
+
+### Added
+- **Component data model v2 spec**: Added `docs/component-data-model-v2.md`, defining a three-layer architecture for future component work:
+  - **Component Definition Layer** for rendering, pin hit detection, simulation, variants, and additive semantic pin metadata
+  - **Catalog Layer** for discoverability, variants, completion state, and components not yet exposed in the visible library
+  - **Knowledge Layer** for AI-facing explanations, safety, examples, source attribution, and educational retrieval
+- **Migration rules for schema evolution**: Documented how to absorb `aily` pinmap semantics without removing existing `Big Arduino` runtime fields such as `internalConnections`, `net`, `variants`, and pin coordinates.
+- **Future net-enrichment strategy**: Standardized `netStatus` and generator-facing extension points so components can be render-ready and knowledge-ready before later enrichment by the pin generator.
+
+### Changed
+- **Component architecture direction**: Established the project-wide recommendation to separate runtime component JSON, component discovery metadata, and AI knowledge content instead of continuing to grow a single overloaded component format.
+
+---
+
 ## [8.8.0] - 2026-03-05
 
 ### Fixed
