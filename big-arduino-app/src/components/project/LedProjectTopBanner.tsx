@@ -1,4 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  addLedBannerSvgRootClass,
+  type LedMascotAnimationMode,
+  wrapLedBannerMascot,
+} from './ledBannerSvgYellow';
 
 const MIN_SCALE = 0.25;
 const MAX_SCALE = 4;
@@ -28,6 +33,8 @@ export type LedBannerHotspot = {
 type Props = {
   src: string;
   className?: string;
+  /** Disable mascot bounce while crosshair/place mode is active. */
+  suppressBounce?: boolean;
   /** viewBox / width from SVG (default: first frame 602×227) */
   intrinsicWidth?: number;
   intrinsicHeight?: number;
@@ -35,9 +42,18 @@ type Props = {
   hotspots?: LedBannerHotspot[];
 };
 
+function parseLedFrameOrder(src: string): number | null {
+  const m = src.match(/led-button-frame-(\d+|simulation)\.svg$/i);
+  if (!m) return null;
+  if (m[1].toLowerCase() === 'simulation') return 19;
+  const n = Number.parseInt(m[1], 10);
+  return Number.isFinite(n) ? n : null;
+}
+
 export function LedProjectTopBanner({
   src,
   className,
+  suppressBounce = false,
   intrinsicWidth = DEFAULT_INTRINSIC_WIDTH,
   intrinsicHeight = DEFAULT_INTRINSIC_HEIGHT,
   hotspots,
@@ -78,6 +94,61 @@ export function LedProjectTopBanner({
     setScale(1);
     setOffset({ x: 0, y: 0 });
   }, [src, intrinsicWidth, intrinsicHeight]);
+
+  const [inlineSvgHtml, setInlineSvgHtml] = useState<string | null>(null);
+  const [inlineSvgFailed, setInlineSvgFailed] = useState(false);
+  const prevSrcRef = useRef<string | undefined>(undefined);
+  const prevFrameOrderRef = useRef<number | null>(null);
+  const suppressBounceUntilRef = useRef(0);
+
+  useEffect(() => {
+    if (!suppressBounce) return;
+    // click-to-place may toggle off right when a frame changes;
+    // keep bounce suppressed briefly to avoid crosshair-triggered jumps.
+    suppressBounceUntilRef.current = Date.now() + 900;
+  }, [suppressBounce]);
+
+  useEffect(() => {
+    const prev = prevSrcRef.current;
+    const switchedFrame = prev !== undefined && prev !== src;
+    const nextOrder = parseLedFrameOrder(src);
+    const prevOrder = prevFrameOrderRef.current;
+    const effectiveSuppressBounce =
+      suppressBounce || Date.now() < suppressBounceUntilRef.current;
+    const shouldBounce =
+      !effectiveSuppressBounce &&
+      switchedFrame &&
+      (nextOrder === null || prevOrder === null || nextOrder > prevOrder) &&
+      false;
+    const mascotAnimationMode: LedMascotAnimationMode = shouldBounce ? 'bounce' : 'none';
+    prevSrcRef.current = src;
+    prevFrameOrderRef.current = nextOrder;
+
+    if (!src.toLowerCase().endsWith('.svg')) {
+      // Keep prior content to avoid flicker while changing frames.
+      setInlineSvgFailed(true);
+      return;
+    }
+    const ac = new AbortController();
+    setInlineSvgFailed(false);
+
+    fetch(src, { signal: ac.signal })
+      .then((r) => {
+        if (!r.ok) throw new Error('svg fetch');
+        return r.text();
+      })
+      .then((text) => {
+        const wrapped = wrapLedBannerMascot(text, mascotAnimationMode);
+        setInlineSvgHtml(addLedBannerSvgRootClass(wrapped));
+      })
+      .catch(() => {
+        if (!ac.signal.aborted) {
+          setInlineSvgFailed(true);
+        }
+      });
+
+    return () => ac.abort();
+  }, [src, suppressBounce]);
 
   useEffect(() => {
     const el = interactiveRef.current;
@@ -134,6 +205,9 @@ export function LedProjectTopBanner({
 
   const imgWidthPx = fitWidth * scale;
 
+  const useImgFallback = inlineSvgFailed || !inlineSvgHtml;
+  const imgWrapClassName = 'project-led-top-banner__img-wrap';
+
   return (
     <div ref={bannerRef} className={className} aria-hidden="true">
       <div
@@ -144,18 +218,29 @@ export function LedProjectTopBanner({
         }}
         onMouseDown={onMouseDown}
       >
-        <div className="project-led-top-banner__img-wrap">
-          <img
-            key={src}
-            src={src}
-            alt=""
-            width={intrinsicWidth}
-            height={intrinsicHeight}
-            decoding="async"
-            draggable={false}
-            className="project-led-top-banner__img"
-            style={{ width: `${imgWidthPx}px`, height: 'auto' }}
-          />
+        <div className={imgWrapClassName}>
+          {!useImgFallback ? (
+            <div
+              className="project-led-top-banner__svg-host"
+              // Trusted same-origin SVG from /public
+              dangerouslySetInnerHTML={{ __html: inlineSvgHtml }}
+              style={{
+                width: `${imgWidthPx}px`,
+                lineHeight: 0,
+              }}
+            />
+          ) : (
+            <img
+              src={src}
+              alt=""
+              width={intrinsicWidth}
+              height={intrinsicHeight}
+              decoding="async"
+              draggable={false}
+              className="project-led-top-banner__img"
+              style={{ width: `${imgWidthPx}px`, height: 'auto' }}
+            />
+          )}
           {hotspots?.map((h, i) => (
             <button
               key={`${h.ariaLabel}-${i}`}

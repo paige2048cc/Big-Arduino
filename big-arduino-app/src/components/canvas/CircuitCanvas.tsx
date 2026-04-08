@@ -406,6 +406,8 @@ interface CircuitCanvasProps {
    * Frame 17: blue highlight on bottom (−) rail + vertical black guide H12 ↔ PWR_BOTTOM_MINUS_12 (40% opacity, 4px).
    */
   ledButtonFrame17BottomMinusHighlight?: boolean;
+  /** When false, hide canvas AI character / speech bubble (global AI off). */
+  aiUiEnabled?: boolean;
 }
 
 // Extended FabricObject to include our custom data
@@ -438,6 +440,7 @@ export function CircuitCanvas({
   ledButtonFrame15RestoreWorkspaceOpacity = false,
   ledButtonFrame15BottomRailHighlight = false,
   ledButtonFrame17BottomMinusHighlight = false,
+  aiUiEnabled = true,
 }: CircuitCanvasProps) {
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -5287,7 +5290,7 @@ export function CircuitCanvas({
         )}
 
         {/* AI Character overlay - fixed position, does not scale with canvas zoom */}
-        {aiCharacter.visible && (() => {
+        {aiUiEnabled && aiCharacter.visible && (() => {
           // Calculate canvas center area bounds (exclude sidebars)
           // Character stays at fixed screen position within the canvas area
           const canvasEl = canvasContainerRef.current;

@@ -6,7 +6,8 @@ import './ThreePanelLayout.css';
 interface ThreePanelLayoutProps {
   leftPanel: ReactNode;
   centerPanel: ReactNode;
-  rightPanel: ReactNode;
+  /** Omit or pass null with hideRightPanel to use full-width center workspace. */
+  rightPanel?: ReactNode | null;
   initialLeftWidth?: number;
   initialRightWidth?: number;
   minLeftWidth?: number;
@@ -16,6 +17,8 @@ interface ThreePanelLayoutProps {
   minCenterWidth?: number;
   /** Increment to slide the left panel closed (e.g. after starter components are placed). */
   collapseLeftSignal?: number;
+  /** When true, no right column or resizer — center gray area spans the full row. */
+  hideRightPanel?: boolean;
 }
 
 export function ThreePanelLayout({
@@ -30,6 +33,7 @@ export function ThreePanelLayout({
   maxRightWidth = 960,  // Increased to allow horizontal panel layout (2 × 20vw + divider)
   minCenterWidth = 400,
   collapseLeftSignal = 0,
+  hideRightPanel = false,
 }: ThreePanelLayoutProps) {
   const [leftWidth, setLeftWidth] = useState(initialLeftWidth);
   const [rightWidth, setRightWidth] = useState(initialRightWidth);
@@ -57,18 +61,19 @@ export function ThreePanelLayout({
 
       if (isDraggingLeft) {
         const newLeftWidth = e.clientX - containerRect.left;
-        const maxAllowedLeft = containerWidth - rightWidth - minCenterWidth;
+        const reservedRight = hideRightPanel ? 0 : rightWidth;
+        const maxAllowedLeft = containerWidth - reservedRight - minCenterWidth;
         setLeftWidth(Math.max(minLeftWidth, Math.min(maxLeftWidth, Math.min(newLeftWidth, maxAllowedLeft))));
       }
 
-      if (isDraggingRight) {
+      if (isDraggingRight && !hideRightPanel) {
         const newRightWidth = containerRect.right - e.clientX;
         // Left panel is floating (overlay) so it should not reduce available width.
         const maxAllowedRight = containerWidth - minCenterWidth;
         setRightWidth(Math.max(minRightWidth, Math.min(maxRightWidth, Math.min(newRightWidth, maxAllowedRight))));
       }
     },
-    [isDraggingLeft, isDraggingRight, rightWidth, minLeftWidth, maxLeftWidth, minRightWidth, maxRightWidth, minCenterWidth]
+    [isDraggingLeft, isDraggingRight, hideRightPanel, rightWidth, minLeftWidth, maxLeftWidth, minRightWidth, maxRightWidth, minCenterWidth],
   );
 
   const handleMouseUp = useCallback(() => {
@@ -86,21 +91,27 @@ export function ThreePanelLayout({
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
     >
-      {/* Center Panel */}
-      <div className="panel center-panel">
+      {/* Center Panel — full width when hideRightPanel */}
+      <div
+        className={`panel center-panel ${hideRightPanel ? 'center-panel--full-bleed' : ''}`}
+      >
         {centerPanel}
       </div>
 
-      {/* Right Resizer */}
-      <div
-        className={`panel-resizer right-resizer ${isDraggingRight ? 'active' : ''}`}
-        onMouseDown={() => setIsDraggingRight(true)}
-      />
+      {!hideRightPanel && (
+        <>
+          {/* Right Resizer */}
+          <div
+            className={`panel-resizer right-resizer ${isDraggingRight ? 'active' : ''}`}
+            onMouseDown={() => setIsDraggingRight(true)}
+          />
 
-      {/* Right Panel */}
-      <div className="panel right-panel" style={{ width: rightWidth }}>
-        {rightPanel}
-      </div>
+          {/* Right Panel */}
+          <div className="panel right-panel" style={{ width: rightWidth }}>
+            {rightPanel}
+          </div>
+        </>
+      )}
 
       {/* Floating Left Panel (overlays workspace; does not shift center) */}
       <div

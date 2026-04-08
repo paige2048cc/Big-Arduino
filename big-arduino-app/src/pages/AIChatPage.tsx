@@ -299,20 +299,9 @@ export function AIChatPage() {
   })();
 
   const handleStartProject = () => {
-    const chatHistory = messages
-      .filter(m => m.content)
-      .map(m => ({
-        role: m.role as 'user' | 'assistant',
-        content: m.content!,
-      }));
-
-    navigate('/project/ai-session', {
-      state: {
-        fromAIChat: true,
-        initialChatMessages: chatHistory,
-        projectTitle: getPageTitle(),
-      },
-    });
+    // Product rule: Button-Powered LED has no in-project AI chat pane.
+    // Start Project should enter the LED workspace directly.
+    navigate('/project/led-button');
   };
 
   const handleProjectClick = (projectId: string) => {

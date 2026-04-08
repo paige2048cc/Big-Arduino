@@ -49,7 +49,18 @@ interface DevActions {
   allEnabled: () => boolean;
 }
 
-interface DevStore extends DevFlags, DevActions {}
+/** User-facing: project page AI dock + chat. Separate from debug FeatureKey flags. */
+interface AiAssistantUiPrefs {
+  aiAssistantEnabled: boolean;
+  toggleAiAssistantEnabled: () => void;
+}
+
+interface DevStore extends DevFlags, DevActions, AiAssistantUiPrefs {}
+
+/** Right dock + chat only when explicitly true (guards bad JSON / undefined). */
+export function selectAiDockEnabled(s: DevStore): boolean {
+  return s.aiAssistantEnabled === true;
+}
 
 export const useDevStore = create<DevStore>()(
   persist(
@@ -62,6 +73,11 @@ export const useDevStore = create<DevStore>()(
       simulationErrorPrompts: true,
       pathHighlight: false,
       currentFlowBall: true,
+
+      aiAssistantEnabled: false,
+
+      toggleAiAssistantEnabled: () =>
+        set((s) => ({ aiAssistantEnabled: !s.aiAssistantEnabled })),
 
       toggleFeature: (key) => set((s) => ({ [key]: !s[key] })),
 
@@ -78,6 +94,25 @@ export const useDevStore = create<DevStore>()(
     }),
     {
       name: STORAGE_KEY,
+      version: 2,
+      migrate: (persistedState, version) => {
+        const base =
+          persistedState && typeof persistedState === 'object'
+            ? { ...(persistedState as Record<string, unknown>) }
+            : {};
+        // v0→v1: unversioned blob
+        if (version < 1) {
+          base.aiAssistantEnabled = false;
+        }
+        // v1→v2: one-time reset so “default off / no right chat” matches product; user can re-enable via toggle
+        if (version < 2) {
+          base.aiAssistantEnabled = false;
+        }
+        if (typeof base.aiAssistantEnabled !== 'boolean') {
+          base.aiAssistantEnabled = false;
+        }
+        return base as unknown as DevStore;
+      },
       partialize: (state) => ({
         globalOnboarding: state.globalOnboarding,
         componentOnboarding: state.componentOnboarding,
@@ -87,6 +122,7 @@ export const useDevStore = create<DevStore>()(
         simulationErrorPrompts: state.simulationErrorPrompts,
         pathHighlight: state.pathHighlight,
         currentFlowBall: state.currentFlowBall,
+        aiAssistantEnabled: state.aiAssistantEnabled,
       }),
     }
   )

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Send, Camera, ChevronRight } from 'lucide-react';
-import { presetProjects } from '../data/projects';
+import { getHomeFeaturedProjects } from '../data/projects';
 import { Sidebar } from '../components/layout/Sidebar';
 import { ComponentScanner } from '../components/scanner/ComponentScanner';
 import type { DetectedComponent } from '../utils/componentMatcher';
@@ -33,6 +33,7 @@ export function HomePage() {
   const [ideaInput, setIdeaInput] = useState('');
   const [scannerOpen, setScannerOpen] = useState(false);
   const navigate = useNavigate();
+  const homeFeaturedProjects = getHomeFeaturedProjects();
 
   const blueEye1SocketRef = useRef<HTMLDivElement>(null);
   const blueEye1PupilRef = useRef<HTMLDivElement>(null);
@@ -48,7 +49,6 @@ export function HomePage() {
     const text = ideaInput.trim();
     if (!text) return;
 
-    // Navigate to ai-chat page with the initial message
     navigate('/ai-chat', { state: { initialMessage: text } });
   };
 
@@ -228,7 +228,6 @@ export function HomePage() {
                 <p className="home-hero-subtitle">
                   Describe your idea and our AI will help you plan the circuit, write the code, and simulate it instantly.
                 </p>
-
                 <div className="home-idea-input">
                   <input
                     type="text"
@@ -264,13 +263,15 @@ export function HomePage() {
             <section className="home-featured" aria-label="Featured projects">
               <div className="home-featured-header">
                 <h2>Featured Projects</h2>
-                <button className="home-featured-viewall" type="button">
-                  View All <ChevronRight size={16} />
-                </button>
+                {homeFeaturedProjects.length > 1 ? (
+                  <button className="home-featured-viewall" type="button">
+                    View All <ChevronRight size={16} />
+                  </button>
+                ) : null}
               </div>
 
               <div className="home-featured-grid">
-                {presetProjects.slice(0, 3).map((project) => {
+                {homeFeaturedProjects.map((project) => {
                   const isComingSoon = project.steps.length === 0;
                   const difficultyLabel = project.difficulty.toUpperCase();
                   const previewAssets = getProjectPreviewAssets(project.id);

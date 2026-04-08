@@ -2,7 +2,10 @@ import type { Project } from '../../types';
 import { ledButtonProject } from './ledButton';
 import { buzzerButtonProject } from './buzzerButton';
 
-// All preset projects
+/** Shown on the home page “Featured Projects” row. Scope: Button-Powered LED only. */
+export const homeFeaturedProjectIds: readonly string[] = ['led-button'];
+
+// All preset projects (other IDs remain for deep links / future use)
 export const presetProjects: Project[] = [
   ledButtonProject,
   buzzerButtonProject,
@@ -26,5 +29,11 @@ export const presetProjects: Project[] = [
     arduinoCode: '// Coming soon',
   },
 ];
+
+export function getHomeFeaturedProjects(): Project[] {
+  return homeFeaturedProjectIds
+    .map((id) => presetProjects.find((p) => p.id === id))
+    .filter((p): p is Project => p != null);
+}
 
 export { ledButtonProject, buzzerButtonProject };

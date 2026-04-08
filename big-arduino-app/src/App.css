@@ -663,6 +663,19 @@ body {
   color: #314158;
 }
 
+.home-ai-off-hint {
+  margin: 16px auto 0;
+  max-width: 560px;
+  font-size: 14px;
+  line-height: 22px;
+  color: #64748b;
+}
+
+.home-idea-input.is-disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
 .home-idea-input {
   margin: 24px auto 0;
   width: min(576px, 100%);
@@ -1194,6 +1207,25 @@ body {
   background: var(--bg-primary);
 }
 
+/* Instructions when right dock is removed (non–LED-button projects, AI off) */
+.project-floating-instructions {
+  position: fixed;
+  bottom: 80px;
+  left: 20px;
+  z-index: 40;
+  width: min(360px, calc(100vw - 40px));
+  max-height: min(42vh, 380px);
+  overflow: auto;
+  background: var(--bg-primary, #fff);
+  border-radius: 12px;
+  border: 1px solid var(--border-color, #dadce0);
+  box-shadow: 0 8px 28px rgba(60, 64, 67, 0.18);
+}
+
+.project-floating-instructions .instructions-panel {
+  padding: 16px;
+}
+
 .project-header {
   display: flex;
   align-items: center;
@@ -1255,6 +1287,32 @@ body {
   background: #1a2bc3;
   border: 1px solid #1a2bc3;
   color: #ffffff;
+}
+
+.simulate-button.simulate-button--led-highlight {
+  position: relative;
+  isolation: isolate;
+}
+
+.simulate-button.simulate-button--led-highlight::after {
+  content: '';
+  position: absolute;
+  inset: -10px;
+  border-radius: inherit;
+  background: transparent;
+  box-shadow:
+    0 0 0 4px rgba(255, 196, 37, 0.24),
+    0 0 16px 8px rgba(255, 196, 37, 0.5);
+  z-index: -1;
+  pointer-events: none;
+}
+
+.simulate-button.simulate-button--led-highlight:active {
+  transform: none;
+}
+
+.simulate-button.simulate-button--led-highlight > * {
+  transform: none;
 }
 
 .connection-status button {
@@ -1349,18 +1407,53 @@ body {
   vertical-align: top;
 }
 
-@keyframes project-led-banner-img-fade-in {
-  from {
-    opacity: 0;
+.project-led-top-banner__svg-host {
+  display: inline-block;
+  vertical-align: top;
+}
+
+.project-led-top-banner__svg-host .project-led-top-banner__svg-root {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: none;
+  max-width: none;
+  pointer-events: none;
+}
+
+/* Entire mascot block (yellow body + eyes + mouth + blush) */
+@keyframes project-led-banner-yellow-bounce {
+  0% {
+    transform: translateY(0);
   }
-  to {
-    opacity: 1;
+  22% {
+    transform: translateY(-12px);
+  }
+  48% {
+    transform: translateY(4px);
+  }
+  70% {
+    transform: translateY(-5px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+.project-led-mascot--bounce {
+  animation: project-led-banner-yellow-bounce 0.55s cubic-bezier(0.34, 1.35, 0.64, 1);
+  transform-box: fill-box;
+  transform-origin: 50% 85%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .project-led-mascot--bounce {
+    animation: none;
   }
 }
 
 .project-led-top-banner__img {
   display: block;
-  animation: project-led-banner-img-fade-in 0.4s ease;
   /* Let absolutely positioned hotspot buttons receive clicks (image sits above in hit-testing in some cases) */
   pointer-events: none;
 }
@@ -1379,8 +1472,47 @@ body {
 }
 
 .project-led-top-banner__hotspot:focus-visible {
-  outline: 2px solid var(--accent-primary, #3b82f6);
-  outline-offset: 2px;
+  outline: none;
+}
+
+.project-led-sim-congrats {
+  position: absolute;
+  left: 50%;
+  top: 14%;
+  transform: translateX(-50%);
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  pointer-events: none;
+}
+
+.project-led-sim-congrats__mascot {
+  width: 81px;
+  height: auto;
+  transform-origin: 50% 50%;
+  animation: project-led-sim-congrats-rotate 1200ms ease-out both;
+}
+
+.project-led-sim-congrats__text {
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #1a2bc3;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+@keyframes project-led-sim-congrats-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(720deg);
+  }
 }
 
 /* Frame 8 → 9: standalone Next — above full-bleed canvas (toolbar uses z-index 50) */

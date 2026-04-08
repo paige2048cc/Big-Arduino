@@ -13,9 +13,15 @@ import type {
   OnboardingPhase,
   OnboardingStep,
 } from '../types/onboarding';
-import { getNextStep, STEP_ORDER } from '../components/onboarding/stepConfigs';
+import { getNextStepRespectingAi, STEP_ORDER } from '../components/onboarding/stepConfigs';
 
 const STORAGE_KEY = 'big-arduino-onboarding';
+
+/** Button-Powered LED project has no AI UI — skip ai-chat onboarding like when AI is off. */
+function isLedButtonProjectRoute(): boolean {
+  if (typeof window === 'undefined') return false;
+  return /\/project\/led-button(?:\/|$|\?|#)/.test(window.location.pathname);
+}
 const TRANSITION_DURATION = 400; // ms
 
 interface OnboardingStore extends OnboardingState, OnboardingActions {}
@@ -75,7 +81,7 @@ export const useOnboardingStore = create<OnboardingStore>()(
         const { currentStep } = get();
         if (!currentStep) return;
 
-        const nextStep = getNextStep(currentStep);
+        const nextStep = getNextStepRespectingAi(currentStep, true, isLedButtonProjectRoute());
         if (nextStep) {
           // Start transition - keep current phase to preserve card content
           set({ isTransitioning: true });

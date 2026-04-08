@@ -97,3 +97,20 @@ export function getNextStep(currentStep: OnboardingStep): OnboardingStep | null 
   }
   return STEP_ORDER[currentIndex + 1];
 }
+
+/** Skip `ai-chat` when AI Assistant is disabled app-wide or on routes without AI (e.g. Button-Powered LED). */
+export function getNextStepRespectingAi(
+  currentStep: OnboardingStep,
+  aiAssistantEnabled: boolean,
+  forceSkipAiChat = false
+): OnboardingStep | null {
+  const skipAiChat = !aiAssistantEnabled || forceSkipAiChat;
+  const currentIndex = STEP_ORDER.indexOf(currentStep);
+  if (currentIndex === -1) return null;
+  for (let i = currentIndex + 1; i < STEP_ORDER.length; i++) {
+    const step = STEP_ORDER[i];
+    if (skipAiChat && step === 'ai-chat') continue;
+    return step;
+  }
+  return null;
+}

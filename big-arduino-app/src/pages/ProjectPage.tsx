@@ -7,7 +7,7 @@ import { ThreePanelLayout } from '../components/layout';
 import { LeftPanel, RightPanel, ComponentPropertiesPanel, DockContainer, InstructionsPanel } from '../components/panels';
 import { isLedButtonWorkspaceStarterComplete } from '../components/panels/InstructionsPanel';
 import { CircuitCanvas } from '../components/canvas';
-import { useCircuitStore, useWires, useSimulationErrors } from '../store/circuitStore';
+import { useButtonStates, useClickToPlace, useCircuitStore, useWires, useSimulationErrors } from '../store/circuitStore';
 import { DockingProvider, type PanelConfig } from '../contexts/DockingContext';
 import type { ChatReference } from '../types/chat';
 import { sendMessage, isAIServiceConfigured, getFallbackResponse, parseAIResponse, type CircuitState, type ProjectContext, type ConversationMessage } from '../services/aiService';
@@ -39,6 +39,7 @@ const AI_CHAT_PANELS: PanelConfig[] = [
 
 /** Button-Powered LED: hide Instructions in the dock only; step + toolbar highlights run via headless panel. */
 const LED_BUTTON_PROJECT_ID = 'led-button';
+const AI_SESSION_PROJECT_ID = 'ai-session';
 
 /** Frame 2 SVG (656×162): blue “Next” pill — path bounds in viewBox space */
 const LED_BANNER_FRAME2_NEXT_RECT = {
@@ -246,6 +247,8 @@ export function ProjectPage() {
   }, [projectId, clearCircuit, clearHistory]);
   const wires = useWires();
   const simulationErrors = useSimulationErrors();
+  const buttonStates = useButtonStates();
+  const clickToPlace = useClickToPlace();
 
   const [collapseLeftSignal, setCollapseLeftSignal] = useState(0);
   const [ledBannerToFrame3, setLedBannerToFrame3] = useState(false);
@@ -277,6 +280,8 @@ export function ProjectPage() {
   const [ledBannerToFrame18, setLedBannerToFrame18] = useState(false);
   /** Frame 18 blue “Next” → Simulation art (`Project one Pictures/Frame Simulation.svg`) */
   const [ledBannerToSimulation, setLedBannerToSimulation] = useState(false);
+  /** Simulation success celebration after Start Simulation + button press lights LED. */
+  const [showLedSimulationCongrats, setShowLedSimulationCongrats] = useState(false);
   const autoCollapseLeftDoneRef = useRef(false);
   const frame6InstructionalLedRef = useRef<string | null>(null);
   const frame9InstructionalResistorRef = useRef<string | null>(null);
@@ -407,7 +412,9 @@ export function ProjectPage() {
   useEffect(() => {
     if (projectId !== LED_BUTTON_PROJECT_ID) return;
     if (!ledBannerToFrame10 || ledBannerToFrame11) return;
-    const id = window.setTimeout(() => setLedBannerToFrame11(true), 3000);
+    const id = window.setTimeout(() => {
+      setLedBannerToFrame11(true);
+    }, 3000);
     return () => clearTimeout(id);
   }, [projectId, ledBannerToFrame10, ledBannerToFrame11]);
 
@@ -471,7 +478,9 @@ export function ProjectPage() {
       return;
     }
     if (ledBannerToFrame5) return;
-    const id = window.setTimeout(() => setLedBannerToFrame5(true), 4000);
+    const id = window.setTimeout(() => {
+      setLedBannerToFrame5(true);
+    }, 4000);
     return () => clearTimeout(id);
   }, [projectId, ledBannerToFrame4, ledBannerToFrame5]);
 
@@ -544,16 +553,11 @@ export function ProjectPage() {
     }
 
     const btn = placedComponents.find(isUserPushbuttonPlacedComponent);
-    if (!btn) return;
-    if (frame12PushbuttonGuideInstanceRef.current === btn.instanceId) return;
-    frame12PushbuttonGuideInstanceRef.current = btn.instanceId;
-
-    const openGuide = () => {
-      useCircuitStore.getState().triggerOnboardingForComponent(btn.instanceId);
-    };
-    requestAnimationFrame(() => {
-      requestAnimationFrame(openGuide);
-    });
+    if (btn) {
+      // Product tweak: keep the translucent breadboard hint, but suppress the solid guide.
+      useCircuitStore.getState().hideOnboarding(btn.instanceId);
+    }
+    frame12PushbuttonGuideInstanceRef.current = null;
   }, [projectId, ledBannerToFrame12, placedComponents]);
 
   /**
@@ -741,7 +745,9 @@ export function ProjectPage() {
         {
           rect: LED_BANNER_FRAME11_NEXT_RECT,
           ariaLabel: 'Next',
-          onClick: () => setLedBannerToFrame12(true),
+          onClick: () => {
+            setLedBannerToFrame12(true);
+          },
         },
       ];
     }
@@ -750,7 +756,9 @@ export function ProjectPage() {
         {
           rect: LED_BANNER_FRAME18_NEXT_RECT,
           ariaLabel: 'Next',
-          onClick: () => setLedBannerToSimulation(true),
+          onClick: () => {
+            setLedBannerToSimulation(true);
+          },
         },
       ];
     }
@@ -759,7 +767,9 @@ export function ProjectPage() {
         {
           rect: LED_BANNER_FRAME16_NEXT_RECT,
           ariaLabel: 'Next',
-          onClick: () => setLedBannerToFrame17(true),
+          onClick: () => {
+            setLedBannerToFrame17(true);
+          },
         },
       ];
     }
@@ -780,7 +790,9 @@ export function ProjectPage() {
         {
           rect: LED_BANNER_FRAME5_NEXT_RECT,
           ariaLabel: 'Next',
-          onClick: () => setLedBannerToFrame6(true),
+          onClick: () => {
+            setLedBannerToFrame6(true);
+          },
         },
       ];
     }
@@ -805,7 +817,9 @@ export function ProjectPage() {
       {
         rect: LED_BANNER_FRAME2_NEXT_RECT,
         ariaLabel: 'Next',
-        onClick: () => setLedBannerToFrame3(true),
+        onClick: () => {
+          setLedBannerToFrame3(true);
+        },
       },
     ];
   }, [
@@ -856,6 +870,11 @@ export function ProjectPage() {
   // Dev feature flags
   const devGlobalOnboarding = useDevStore((s) => s.globalOnboarding);
   const devYellowCharacter = useDevStore((s) => s.yellowCharacter);
+  /** Button-Powered LED + legacy ai-session route: no AI dock, chat, or canvas AI UI. */
+  const isLedButtonProject = projectId === LED_BUTTON_PROJECT_ID;
+  const isAiSessionProject = projectId === AI_SESSION_PROJECT_ID;
+  const projectAiUiEnabled = !(isLedButtonProject || isAiSessionProject);
+  const effectiveAIChatMode = isAIChatMode && projectAiUiEnabled;
 
   // Onboarding
   const initOnboarding = useOnboardingStore((state) => state.initOnboarding);
@@ -866,6 +885,28 @@ export function ProjectPage() {
   useEffect(() => {
     if (devGlobalOnboarding) initOnboarding();
   }, [initOnboarding, devGlobalOnboarding]);
+
+  // Drop AI-chat navigation state only on projects without AI UI (LED)
+  useEffect(() => {
+    if (!isAIChatMode || !projectId) return;
+    if (projectId !== LED_BUTTON_PROJECT_ID) return;
+    navigate(`/project/${projectId}`, { replace: true, state: null });
+  }, [isAIChatMode, projectId, navigate]);
+
+  // Legacy AI session route should not render chat for Button-Powered LED flow.
+  useEffect(() => {
+    if (projectId !== AI_SESSION_PROJECT_ID) return;
+    navigate(`/project/${LED_BUTTON_PROJECT_ID}`, { replace: true, state: null });
+  }, [projectId, navigate]);
+
+  // Skip onboarding step that targets the hidden AI panel
+  useEffect(() => {
+    if (projectId !== LED_BUTTON_PROJECT_ID) return;
+    const st = useOnboardingStore.getState();
+    if (st.isActive && st.currentStep === 'ai-chat') {
+      st.goToNextStep();
+    }
+  }, [projectId]);
 
   // Track all target rects for onboarding overlay positioning
   useEffect(() => {
@@ -882,10 +923,12 @@ export function ProjectPage() {
         updateTargetRect('[data-panel-id="instructions"]', instructionsPanel.getBoundingClientRect());
       }
 
-      // AI Chat panel (Step 3)
-      const aiPanel = document.querySelector('[data-panel-id="ai-assistant"]');
-      if (aiPanel) {
-        updateTargetRect('[data-panel-id="ai-assistant"]', aiPanel.getBoundingClientRect());
+      // AI Chat panel (Step 3) — only when the panel exists
+      if (projectAiUiEnabled) {
+        const aiPanel = document.querySelector('[data-panel-id="ai-assistant"]');
+        if (aiPanel) {
+          updateTargetRect('[data-panel-id="ai-assistant"]', aiPanel.getBoundingClientRect());
+        }
       }
 
       // Bottom toolbar (Step 4)
@@ -932,11 +975,13 @@ export function ProjectPage() {
       observers.forEach(obs => obs.disconnect());
       mutationObserver.disconnect();
     };
-  }, [updateToolbarRect, updateTargetRect]);
+  }, [updateToolbarRect, updateTargetRect, projectAiUiEnabled]);
 
   const step = project?.steps[currentStep];
 
   const handleChatSubmit = useCallback(async (message: string, references?: ChatReference[]) => {
+    if (!projectAiUiEnabled) return;
+
     // Add user message with references stored separately
     setChatMessages(prev => [...prev, {
       role: 'user',
@@ -1050,10 +1095,10 @@ export function ProjectPage() {
     } finally {
       setIsAILoading(false);
     }
-  }, [placedComponents, wires, isSimulating, simulationErrors, breadboardPins, setHighlights, project, currentStep, step, chatMessages]);
+  }, [placedComponents, wires, isSimulating, simulationErrors, breadboardPins, setHighlights, project, currentStep, step, chatMessages, projectAiUiEnabled]);
 
   // If project not found and not in AI chat mode
-  if (!project && !isAIChatMode) {
+  if (!project && !effectiveAIChatMode) {
     return (
       <div className="project-not-found">
         <h2>Project not found</h2>
@@ -1063,7 +1108,7 @@ export function ProjectPage() {
   }
 
   // Display title: use AI chat title if in AI chat mode, otherwise use project title
-  const displayTitle = isAIChatMode
+  const displayTitle = effectiveAIChatMode
     ? (locationState?.projectTitle || 'AI Project')
     : (project?.title || '');
 
@@ -1091,19 +1136,80 @@ export function ProjectPage() {
     />
   ), [chatMessages, handleChatSubmit, isAILoading]);
 
-  const hideInstructionsDock =
-    !isAIChatMode && projectId === LED_BUTTON_PROJECT_ID;
-  const activePanels = isAIChatMode || hideInstructionsDock ? AI_CHAT_PANELS : DEFAULT_PANELS;
-  const activePanelOrder =
-    isAIChatMode || hideInstructionsDock ? ['ai-assistant'] : ['instructions', 'ai-assistant'];
+  /** LED: always headless instructions (no AI dock). */
+  const hideInstructionsDock = projectId === LED_BUTTON_PROJECT_ID;
 
-  return (
-    <DockingProvider
-      key={projectId ?? 'project'}
-      defaultPanels={activePanels}
-      initialPanelOrder={activePanelOrder}
-    >
-      <div className="project-page">
+  const { dockPanels, dockPanelOrder } = useMemo(() => {
+    if (isAIChatMode) {
+      return {
+        dockPanels: AI_CHAT_PANELS,
+        dockPanelOrder: ['ai-assistant'] as string[],
+      };
+    }
+    if (hideInstructionsDock && projectAiUiEnabled) {
+      return {
+        dockPanels: AI_CHAT_PANELS,
+        dockPanelOrder: ['ai-assistant'],
+      };
+    }
+    return {
+      dockPanels: DEFAULT_PANELS,
+      dockPanelOrder: ['instructions', 'ai-assistant'],
+    };
+  }, [isAIChatMode, projectAiUiEnabled, hideInstructionsDock]);
+
+  const showFloatingInstructions =
+    !projectAiUiEnabled &&
+    !!project &&
+    project.steps.length > 0 &&
+    projectId !== LED_BUTTON_PROJECT_ID;
+  const showLedSimulationStartHighlight =
+    projectId === LED_BUTTON_PROJECT_ID &&
+    ledBannerToSimulation &&
+    !isSimulating;
+  const yellowCharactorUrl = useMemo(() => {
+    const base = import.meta.env.BASE_URL ?? '/';
+    const normalized = base.endsWith('/') ? base : `${base}/`;
+    return `${normalized}projects/yellow-charactor.svg`;
+  }, []);
+
+  const isAnyUserPushbuttonPressed = useMemo(() => {
+    if (projectId !== LED_BUTTON_PROJECT_ID) return false;
+    const userPushbuttonIds = placedComponents
+      .filter(isUserPushbuttonPlacedComponent)
+      .map((c) => c.instanceId);
+    if (userPushbuttonIds.length === 0) return false;
+    return userPushbuttonIds.some((id) => buttonStates.get(id) === true);
+  }, [projectId, placedComponents, buttonStates]);
+
+  const isAnyUserLedOn = useMemo(() => {
+    if (projectId !== LED_BUTTON_PROJECT_ID) return false;
+    return placedComponents.some(
+      (c) =>
+        c.definitionId === 'led-5mm' &&
+        !c.decorativeOnly &&
+        c.state === 'on'
+    );
+  }, [projectId, placedComponents]);
+
+  useEffect(() => {
+    if (projectId !== LED_BUTTON_PROJECT_ID || !ledBannerToSimulation || !isSimulating) {
+      setShowLedSimulationCongrats(false);
+      return;
+    }
+    if (isAnyUserPushbuttonPressed && isAnyUserLedOn) {
+      setShowLedSimulationCongrats(true);
+    }
+  }, [
+    projectId,
+    ledBannerToSimulation,
+    isSimulating,
+    isAnyUserPushbuttonPressed,
+    isAnyUserLedOn,
+  ]);
+
+  const projectPageInner = (
+    <>
         {/* Top Bar */}
         <header className="project-header">
           <button className="back-button" onClick={() => navigate('/')}>
@@ -1114,7 +1220,7 @@ export function ProjectPage() {
           <div className="header-actions">
             {/* Simulate Button */}
             <button
-              className={`simulate-button ${isSimulating ? 'simulating' : ''}`}
+              className={`simulate-button ${isSimulating ? 'simulating' : ''} ${showLedSimulationStartHighlight ? 'simulate-button--led-highlight' : ''}`}
               onClick={toggleSimulation}
             >
               {isSimulating ? <Square size={18} /> : <Play size={18} />}
@@ -1143,6 +1249,7 @@ export function ProjectPage() {
             initialLeftWidth={320}
             initialRightWidth={320}
             collapseLeftSignal={collapseLeftSignal}
+            hideRightPanel={!projectAiUiEnabled}
             leftPanel={
               <LeftPanel
                 code={currentCode}
@@ -1152,18 +1259,38 @@ export function ProjectPage() {
             centerPanel={
               <div className="project-center-wrap">
                 {projectId === LED_BUTTON_PROJECT_ID && (
-                  <LedProjectTopBanner
-                    key={projectId}
-                    className="project-led-top-banner"
-                    src={ledButtonBannerSrc}
-                    intrinsicWidth={ledButtonBannerIntrinsic.w}
-                    intrinsicHeight={ledButtonBannerIntrinsic.h}
-                    hotspots={ledButtonBannerHotspots}
-                  />
+                  !(
+                    ledBannerToSimulation &&
+                    showLedSimulationCongrats
+                  ) && (
+                    <LedProjectTopBanner
+                      key={projectId}
+                      className="project-led-top-banner"
+                      src={ledButtonBannerSrc}
+                      suppressBounce={clickToPlace.isActive}
+                      intrinsicWidth={ledButtonBannerIntrinsic.w}
+                      intrinsicHeight={ledButtonBannerIntrinsic.h}
+                      hotspots={ledButtonBannerHotspots}
+                    />
+                  )
                 )}
+                {projectId === LED_BUTTON_PROJECT_ID &&
+                  ledBannerToSimulation &&
+                  showLedSimulationCongrats && (
+                    <div className="project-led-sim-congrats" aria-live="polite">
+                      <img
+                        src={yellowCharactorUrl}
+                        alt=""
+                        draggable={false}
+                        className="project-led-sim-congrats__mascot"
+                      />
+                      <p className="project-led-sim-congrats__text">Congratulations!</p>
+                    </div>
+                  )}
                 <CircuitCanvas
                   onComponentDrop={handleComponentDrop}
                   onComponentSelect={handleComponentSelect}
+                  aiUiEnabled={projectAiUiEnabled}
                   ledButtonFrame3PowerDemo={
                     projectId === LED_BUTTON_PROJECT_ID &&
                     ledBannerToFrame3 &&
@@ -1233,7 +1360,9 @@ export function ProjectPage() {
               </div>
             }
             rightPanel={
-              <DockContainer renderAIChat={renderAIChat} />
+              projectAiUiEnabled ? (
+                <DockContainer renderAIChat={renderAIChat} />
+              ) : null
             }
           />
         </main>
@@ -1242,30 +1371,38 @@ export function ProjectPage() {
           <InstructionsPanel headless key={`instruction-sync-${projectId}`} />
         )}
 
+        {showFloatingInstructions && (
+          <div className="project-floating-instructions">
+            <InstructionsPanel key={`instruction-float-${projectId}`} />
+          </div>
+        )}
+
         {/* Onboarding overlay */}
         {devGlobalOnboarding && <OnboardingOverlay />}
 
-        {/* AI Debugging Overlay */}
-        <AIDebuggingOverlay
-          placedComponents={placedComponents}
-          wires={wires}
-          breadboardPins={breadboardPins}
-          isSimulating={isSimulating}
-          simulationErrors={simulationErrors.map((e) => ({
-            componentId: e.componentId,
-            wireId: e.wireId,
-            message: e.message,
-            severity: 'error' as const,
-          }))}
-          project={project ? {
-            title: project.title,
-            description: project.description ?? '',
-            goal: project.goal,
-            learningObjectives: project.learningObjectives,
-          } : undefined}
-          onAddChatMessage={handleAddChatMessage}
-          onSetHighlights={setHighlights}
-        />
+        {/* AI Debugging Overlay — hidden when AI Assistant is off */}
+        {projectAiUiEnabled && (
+          <AIDebuggingOverlay
+            placedComponents={placedComponents}
+            wires={wires}
+            breadboardPins={breadboardPins}
+            isSimulating={isSimulating}
+            simulationErrors={simulationErrors.map((e) => ({
+              componentId: e.componentId,
+              wireId: e.wireId,
+              message: e.message,
+              severity: 'error' as const,
+            }))}
+            project={project ? {
+              title: project.title,
+              description: project.description ?? '',
+              goal: project.goal,
+              learningObjectives: project.learningObjectives,
+            } : undefined}
+            onAddChatMessage={handleAddChatMessage}
+            onSetHighlights={setHighlights}
+          />
+        )}
 
         {/* Overcrowded breadboard pin warning */}
         {devYellowCharacter && (
@@ -1282,7 +1419,18 @@ export function ProjectPage() {
             isSimulating={isSimulating}
           />
         )}
-      </div>
+    </>
+  );
+
+  return projectAiUiEnabled ? (
+    <DockingProvider
+      key={`${projectId ?? 'project'}-${effectiveAIChatMode}`}
+      defaultPanels={dockPanels}
+      initialPanelOrder={dockPanelOrder}
+    >
+      <div className="project-page">{projectPageInner}</div>
     </DockingProvider>
+  ) : (
+    <div className="project-page">{projectPageInner}</div>
   );
 }
