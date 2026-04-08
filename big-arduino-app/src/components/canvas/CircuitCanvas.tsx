@@ -31,6 +31,15 @@ function distance(p1: { x: number; y: number }, p2: { x: number; y: number }): n
 
 /** Pixels of pointer movement before a mousedown on breadboard/Uno pin is treated as a drag (no wire start). */
 const BASE_PIN_WIRE_DRAG_THRESHOLD_PX = 6;
+const MIN_CANVAS_ZOOM = 0.5;
+const MAX_CANVAS_ZOOM = 3;
+
+function isLikelyTrackpadPan(event: WheelEvent): boolean {
+  if (event.ctrlKey) return false;
+  if (Math.abs(event.deltaX) > 0) return true;
+  if (event.deltaMode !== WheelEvent.DOM_DELTA_PIXEL) return false;
+  return Math.abs(event.deltaY) < 50 || !Number.isInteger(event.deltaY);
+}
 
 // Calculate distance from a point to a line segment
 function distanceToLineSegment(
@@ -707,6 +716,33 @@ export function CircuitCanvas({
   const handleObjectMovingRef = useRef<(obj: ComponentFabricObject) => void>(null!);
   const handleObjectModifiedRef = useRef<(obj: ComponentFabricObject) => void>(null!);
 
+  const syncCanvasViewportState = useCallback((canvas: fabric.Canvas) => {
+    const viewportTransform = (canvas.viewportTransform as number[] | undefined) ?? [1, 0, 0, 1, 0, 0];
+    const nextViewportTransform = [...viewportTransform] as fabric.TMat2D;
+    viewportTransformRef.current = nextViewportTransform;
+    setCanvasViewportTransform(nextViewportTransform);
+    setZoom(canvas.getZoom());
+    setViewportVersion(v => v + 1);
+  }, [setCanvasViewportTransform]);
+
+  const panCanvasBy = useCallback((canvas: fabric.Canvas, deltaX: number, deltaY: number) => {
+    const viewportTransform = canvas.viewportTransform;
+    if (!viewportTransform) return;
+
+    const nextViewportTransform = [...viewportTransform] as fabric.TMat2D;
+    nextViewportTransform[4] += deltaX;
+    nextViewportTransform[5] += deltaY;
+    canvas.setViewportTransform(nextViewportTransform);
+    syncCanvasViewportState(canvas);
+  }, [syncCanvasViewportState]);
+
+  const zoomCanvasAtPoint = useCallback((canvas: fabric.Canvas, point: fabric.Point, nextZoom: number) => {
+    const clampedZoom = Math.min(Math.max(nextZoom, MIN_CANVAS_ZOOM), MAX_CANVAS_ZOOM);
+    canvas.zoomToPoint(point, clampedZoom);
+    syncCanvasViewportState(canvas);
+    return clampedZoom;
+  }, [syncCanvasViewportState]);
+
   // Map instanceId → ComponentDefinition, rebuilt whenever components change.
   // Used by the path tracer (which runs in pure JS without Fabric access).
   const definitionsMap = useMemo(() => {
@@ -1157,24 +1193,17 @@ export function CircuitCanvas({
       }
     });
 
-    // Mouse wheel for zooming
+    // Mouse wheel supports both classic wheel zoom and trackpad pan/pinch.
     fabricCanvas.on('mouse:wheel', (opt) => {
       const e = opt.e as WheelEvent;
-      const delta = e.deltaY;
-      let newZoom = fabricCanvas.getZoom() * (delta > 0 ? 0.9 : 1.1);
-
-      // Clamp zoom between 0.5 and 3
-      newZoom = Math.min(Math.max(newZoom, 0.5), 3);
-
-      // Zoom toward mouse position
-      const pointer = fabricCanvas.getScenePoint(e);
-      fabricCanvas.zoomToPoint(pointer, newZoom);
-      // zoomToPoint may create a new transform array – keep ref in sync
-      viewportTransformRef.current = fabricCanvas.viewportTransform as number[];
-      setCanvasViewportTransform(fabricCanvas.viewportTransform as number[]);
-
-      setZoom(newZoom);
-      setViewportVersion(v => v + 1);
+      if (isLikelyTrackpadPan(e)) {
+        panCanvasBy(fabricCanvas, -e.deltaX, -e.deltaY);
+      } else {
+        const delta = e.deltaY;
+        const pointer = fabricCanvas.getScenePoint(e);
+        const newZoom = fabricCanvas.getZoom() * (delta > 0 ? 0.9 : 1.1);
+        zoomCanvasAtPoint(fabricCanvas, pointer, newZoom);
+      }
       e.preventDefault();
       e.stopPropagation();
     });
@@ -1368,19 +1397,19 @@ export function CircuitCanvas({
     mouseEvent: MouseEvent,
     scenePoint: fabric.Point
   ) => {
+    if (isDraggingRef.current) {
+      setHoveredPin(null);
+      return;
+    }
+
     // Handle middle mouse button panning
     if (isMiddleMousePanningRef.current && lastPanPointRef.current) {
-      const vpt = canvas.viewportTransform;
-      if (vpt) {
-        vpt[4] += mouseEvent.clientX - lastPanPointRef.current.x;
-        vpt[5] += mouseEvent.clientY - lastPanPointRef.current.y;
-        canvas.setViewportTransform(vpt);
-        viewportTransformRef.current = canvas.viewportTransform as number[];
-        lastPanPointRef.current = { x: mouseEvent.clientX, y: mouseEvent.clientY };
-        setCanvasViewportTransform([...vpt]);
-        // Trigger re-render for onboarding overlay
-        setViewportVersion(v => v + 1);
-      }
+      panCanvasBy(
+        canvas,
+        mouseEvent.clientX - lastPanPointRef.current.x,
+        mouseEvent.clientY - lastPanPointRef.current.y
+      );
+      lastPanPointRef.current = { x: mouseEvent.clientX, y: mouseEvent.clientY };
       return;
     }
 
@@ -1592,6 +1621,7 @@ export function CircuitCanvas({
     // Handle middle mouse button for panning
     if (mouseEvent.button === 1) {
       isMiddleMousePanningRef.current = true;
+      setIsPanning(true);
       lastPanPointRef.current = { x: mouseEvent.clientX, y: mouseEvent.clientY };
       canvas.selection = false;
       canvas.defaultCursor = 'grabbing';
@@ -1799,6 +1829,7 @@ export function CircuitCanvas({
     // Stop middle mouse button panning
     if (mouseEvent?.button === 1 || isMiddleMousePanningRef.current) {
       isMiddleMousePanningRef.current = false;
+      setIsPanning(false);
       lastPanPointRef.current = null;
       if (canvas) {
         canvas.selection = true;
@@ -1965,6 +1996,13 @@ export function CircuitCanvas({
     if (!canvas) return;
 
     if (obj?.data?.type === 'component' && obj?.data?.instanceId) {
+      pendingWireFromBasePinRef.current = null;
+      setHoveredPin(null);
+
+      if (useCircuitStore.getState().wireDrawing.isDrawing) {
+        useCircuitStore.getState().cancelWireDrawing();
+      }
+
       const movingDef = getComponentDefinition(obj.data.instanceId);
       draggingUnoOrBreadboardRef.current =
         movingDef?.id === 'breadboard' || movingDef?.id === 'arduino-uno';
@@ -2103,7 +2141,7 @@ export function CircuitCanvas({
     });
 
     canvas.renderAll();
-  }, [getPinCanvasPosition, selectedWireId, getComponentDefinition, placedComponents]);
+  }, [getPinCanvasPosition, selectedWireId, getComponentDefinition, placedComponents, setHoveredPin]);
 
   // Keep handler refs updated to avoid stale closures
   useEffect(() => {
@@ -4285,12 +4323,9 @@ export function CircuitCanvas({
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
 
-    const newZoom = Math.min(zoom + 0.25, 3);
-    canvas.setZoom(newZoom);
-    viewportTransformRef.current = canvas.viewportTransform as number[];
-    setCanvasViewportTransform(canvas.viewportTransform as number[]);
-    setZoom(newZoom);
-    setViewportVersion(v => v + 1);
+    const center = canvas.getCenterPoint();
+    const newZoom = zoom + 0.25;
+    zoomCanvasAtPoint(canvas, center, newZoom);
     canvas.renderAll();
   };
 
@@ -4298,12 +4333,9 @@ export function CircuitCanvas({
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
 
-    const newZoom = Math.max(zoom - 0.25, 0.5);
-    canvas.setZoom(newZoom);
-    viewportTransformRef.current = canvas.viewportTransform as number[];
-    setCanvasViewportTransform(canvas.viewportTransform as number[]);
-    setZoom(newZoom);
-    setViewportVersion(v => v + 1);
+    const center = canvas.getCenterPoint();
+    const newZoom = zoom - 0.25;
+    zoomCanvasAtPoint(canvas, center, newZoom);
     canvas.renderAll();
   };
 
@@ -4840,6 +4872,7 @@ export function CircuitCanvas({
       // Stop middle mouse panning
       if (e.button === 1 || isMiddleMousePanningRef.current) {
         isMiddleMousePanningRef.current = false;
+        setIsPanning(false);
         lastPanPointRef.current = null;
         const canvas = fabricCanvasRef.current;
         if (canvas) {
