@@ -890,7 +890,10 @@ body {
 
 .home-project-visual--buzzer-button {
   background-color: #ffffff;
-  background-image: none;
+  background-image: url('/images/featured-card-buzzer-fill.png');
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
 .home-project-visual--plant-monitor {

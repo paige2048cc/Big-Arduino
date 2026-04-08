@@ -440,6 +440,8 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
         }
         // Remove from definitions cache
         state.componentDefinitions.delete(instanceId);
+        // Remove any onboarding tied to the deleted component
+        state.activeOnboardings.delete(instanceId);
       });
 
       // Re-run simulation when circuit changes
@@ -447,12 +449,36 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
     },
 
     updateComponentPosition: (instanceId, x, y) => {
-      get().pushToHistory();
       set((state) => {
         const component = state.placedComponents.find(
           (c) => c.instanceId === instanceId
         );
         if (!component) return;
+
+        if (component.x === x && component.y === y) {
+          return;
+        }
+
+        const definition = state.componentDefinitions.get(instanceId);
+        const childPositionUpdates =
+          definition?.id === 'breadboard'
+            ? state.placedComponents
+                .filter((child) => child.parentBreadboardId === instanceId)
+                .map((child) => ({
+                  instanceId: child.instanceId,
+                  x: child.x,
+                  y: child.y,
+                }))
+            : [];
+
+        state.history.past.push({
+          placedComponents: JSON.parse(JSON.stringify(state.placedComponents)),
+          wires: JSON.parse(JSON.stringify(state.wires)),
+          componentDefinitions: Array.from(state.componentDefinitions.entries()),
+        });
+        if (state.history.past.length > state.history.maxHistoryLength) {
+          state.history.past.shift();
+        }
 
         // Calculate delta for moving children
         const deltaX = x - component.x;
@@ -463,12 +489,12 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
         component.y = y;
 
         // If this is a breadboard, move all inserted children with it
-        const definition = state.componentDefinitions.get(instanceId);
         if (definition?.id === 'breadboard') {
-          state.placedComponents.forEach(child => {
-            if (child.parentBreadboardId === instanceId) {
-              child.x += deltaX;
-              child.y += deltaY;
+          childPositionUpdates.forEach(({ instanceId: childId, x: childX, y: childY }) => {
+            const child = state.placedComponents.find((c) => c.instanceId === childId);
+            if (child) {
+              child.x = childX + deltaX;
+              child.y = childY + deltaY;
             }
           });
         }
@@ -1070,6 +1096,11 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
         state.placedComponents = snapshot.placedComponents;
         state.wires = snapshot.wires;
         state.componentDefinitions = new Map(snapshot.componentDefinitions);
+        state.activeOnboardings = new Map(
+          Array.from(state.activeOnboardings.entries()).filter(([instanceId]) =>
+            snapshot.placedComponents.some((component) => component.instanceId === instanceId)
+          )
+        );
 
         // Clear selections (they may reference deleted items)
         state.selectedComponentId = null;

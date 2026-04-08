@@ -305,6 +305,7 @@ export interface LibraryComponentItem {
   name: string;
   image: string;
   folder: string;
+  searchText?: string;
 }
 
 export interface LibraryComponentSection {

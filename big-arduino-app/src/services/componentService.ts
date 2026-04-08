@@ -67,6 +67,84 @@ function normalizeComponentId(componentId: string): string {
   return componentId.toLowerCase().replace(/[_-]/g, '-');
 }
 
+const FRIENDLY_LIBRARY_SECTIONS: Array<{ id: string; name: string }> = [
+  { id: 'basics', name: 'Basics' },
+  { id: 'buttons-inputs', name: 'Buttons & Inputs' },
+  { id: 'outputs', name: 'Outputs' },
+  { id: 'modules-ics', name: 'Modules & ICs' },
+];
+
+function getFriendlyLibrarySection(
+  entry: ComponentCatalogEntry
+): { id: string; name: string } {
+  const rawSection = (entry.librarySection || entry.category || '').toLowerCase();
+
+  if (
+    rawSection === 'boards' ||
+    rawSection === 'microcontrollers' ||
+    rawSection === 'passive'
+  ) {
+    return { id: 'basics', name: 'Basics' };
+  }
+
+  if (rawSection === 'input' || rawSection === 'sensors') {
+    return { id: 'buttons-inputs', name: 'Buttons & Inputs' };
+  }
+
+  if (rawSection === 'output' || rawSection === 'displays') {
+    return { id: 'outputs', name: 'Outputs' };
+  }
+
+  if (rawSection === 'modules' || rawSection === 'logic') {
+    return { id: 'modules-ics', name: 'Modules & ICs' };
+  }
+
+  return {
+    id: entry.librarySection || entry.category,
+    name: entry.librarySectionName || titleCase(entry.librarySection || entry.category),
+  };
+}
+
+const FRIENDLY_LIBRARY_COMPONENT_NAMES: Record<string, string> = {
+  'arduino-uno': 'Arduino Uno',
+  'breadboard': 'Breadboard',
+  'led-5mm': 'LED',
+  'pushbutton': 'Push Button',
+  'registor-220ω': '220 Ohm Resistor',
+  'buzzer': 'Buzzer',
+  'vibration-motor': 'Vibration Motor',
+  'potentiometer': 'Potentiometer',
+  'rgb-led-common-cathode': 'RGB LED',
+  'photoresistor': 'Light Sensor',
+  'lm35': 'Temperature Sensor',
+  'pir-sensor': 'Motion Sensor',
+  'ultrasonic-sr04': 'Ultrasonic Sensor',
+  'dht11': 'Temp & Humidity Sensor',
+  'ir-receiver': 'IR Receiver',
+  'ir-led': 'IR LED',
+  'lcd1602-i2c': 'LCD Display',
+  'oled-ssd1306': 'OLED Display',
+  'rtc-ds1307': 'RTC Module',
+  'microsd-module': 'MicroSD Module',
+  'shift-register-74hc595': 'Shift Register',
+};
+
+function getFriendlyLibraryComponentName(entry: ComponentCatalogEntry): string {
+  return FRIENDLY_LIBRARY_COMPONENT_NAMES[normalizeComponentId(entry.id)] || entry.name;
+}
+
+function getLibrarySearchText(entry: ComponentCatalogEntry, displayName: string): string {
+  return [
+    displayName,
+    entry.name,
+    entry.id,
+    ...(entry.aliases || []),
+    ...(entry.tags || []),
+  ]
+    .join(' ')
+    .toLowerCase();
+}
+
 export async function getComponentCatalog(): Promise<ComponentCatalog> {
   if (catalogCache) {
     return catalogCache;
@@ -302,8 +380,10 @@ export async function getComponentLibrarySections(): Promise<LibraryComponentSec
 
     const folder = entry.componentPath.split('/')[0] || entry.category;
     const image = entry.image || entry.variants?.[0]?.componentPath.split('/').pop()?.replace('.json', '.svg') || '';
-    const sectionId = entry.librarySection || entry.category;
-    const sectionName = entry.librarySectionName || titleCase(sectionId);
+    const friendlySection = getFriendlyLibrarySection(entry);
+    const sectionId = friendlySection.id;
+    const sectionName = friendlySection.name;
+    const displayName = getFriendlyLibraryComponentName(entry);
 
     if (!sections.has(sectionId)) {
       sections.set(sectionId, {
@@ -315,16 +395,28 @@ export async function getComponentLibrarySections(): Promise<LibraryComponentSec
 
     sections.get(sectionId)!.components.push({
       id: entry.id,
-      name: entry.name,
+      name: displayName,
       image,
       folder,
+      searchText: getLibrarySearchText(entry, displayName),
     });
   }
 
-  return Array.from(sections.values()).map(section => ({
-    ...section,
-    components: section.components.sort((a, b) => a.name.localeCompare(b.name)),
-  }));
+  const sectionOrder = new Map(
+    FRIENDLY_LIBRARY_SECTIONS.map((section, index) => [section.id, index])
+  );
+
+  return Array.from(sections.values())
+    .map(section => ({
+      ...section,
+      components: section.components.sort((a, b) => a.name.localeCompare(b.name)),
+    }))
+    .sort((a, b) => {
+      const aIndex = sectionOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+      const bIndex = sectionOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+      if (aIndex !== bIndex) return aIndex - bIndex;
+      return a.name.localeCompare(b.name);
+    });
 }
 
 /**

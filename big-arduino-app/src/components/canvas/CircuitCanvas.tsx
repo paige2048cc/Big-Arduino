@@ -2239,6 +2239,15 @@ export function CircuitCanvas({
             return;
           }
 
+          // The store may have changed while the image was loading (delete / undo).
+          // Bail out so we don't resurrect stale Fabric objects as invisible ghosts.
+          const stillExists = useCircuitStore
+            .getState()
+            .placedComponents.some((c) => c.instanceId === component.instanceId);
+          if (!stillExists) {
+            return;
+          }
+
           const propOpacity = component.properties?.opacity;
           const imageOpacity =
             typeof propOpacity === 'number' ? propOpacity : 1;
@@ -2309,6 +2318,7 @@ export function CircuitCanvas({
               flipY: component.flipY || false,
               opacity: imageOpacity,
             });
+            fabricObj.setCoords();
           }
         }
       }
