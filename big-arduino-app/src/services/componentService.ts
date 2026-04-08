@@ -14,7 +14,7 @@ import type {
   ComponentCatalogEntry,
   LibraryComponentSection,
 } from '../types/components';
-import { validateComponentDefinition, validateCatalog, safeValidateComponentDefinition } from './validation';
+import { validateCatalog, safeValidateComponentDefinition } from './validation';
 import { LRUCache } from '../utils/cache';
 
 // Re-export Pin type for use in other modules

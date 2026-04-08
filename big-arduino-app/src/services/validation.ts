@@ -6,6 +6,10 @@
  */
 
 import { z } from 'zod';
+import type {
+  ComponentCatalog,
+  ComponentDefinition,
+} from '../types/components';
 
 // Pin Types
 export const PinTypeSchema = z.enum([
@@ -122,7 +126,7 @@ export const PropertyDefinitionSchema = z.object({
 });
 
 // Component Definition Schema
-export const ComponentDefinitionSchema = z.object({
+export const ComponentDefinitionSchema: z.ZodType<ComponentDefinition> = z.object({
   schemaVersion: z.string().optional(),
   id: z.string(),
   name: z.string(),
@@ -142,12 +146,12 @@ export const ComponentDefinitionSchema = z.object({
   pins: z.array(PinSchema),
   description: z.string().optional(),
   internalConnections: InternalConnectionsSchema.optional(),
-  variants: z.record(ComponentVariantSchema).optional(),
-  properties: z.record(PropertyDefinitionSchema).optional(),
+  variants: z.record(z.string(), ComponentVariantSchema).optional(),
+  properties: z.record(z.string(), PropertyDefinitionSchema).optional(),
   knowledgeRefs: KnowledgeRefsSchema.optional(),
   source: ComponentSourceInfoSchema.optional(),
   netStatus: z.enum(['none', 'partial', 'complete']).optional(),
-  generatorHints: z.record(z.union([z.boolean(), z.string(), z.number()])).optional(),
+  generatorHints: z.record(z.string(), z.union([z.boolean(), z.string(), z.number()])).optional(),
   compatibility: ComponentCompatibilitySchema.optional(),
 });
 
@@ -173,7 +177,7 @@ export const ComponentCatalogEntrySchema = z.object({
 });
 
 // Catalog Schema
-export const ComponentCatalogSchema = z.object({
+export const ComponentCatalogSchema: z.ZodType<ComponentCatalog> = z.object({
   version: z.string(),
   components: z.array(ComponentCatalogEntrySchema),
 });
@@ -207,6 +211,12 @@ export type ValidatedComponentDefinition = z.infer<typeof ComponentDefinitionSch
 export type ValidatedComponentCatalog = z.infer<typeof ComponentCatalogSchema>;
 export type ValidatedKnowledgeFrontmatter = z.infer<typeof KnowledgeFrontmatterSchema>;
 
+function formatZodIssues(error: z.ZodError): string {
+  return error.issues
+    .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+    .join(', ');
+}
+
 /**
  * Validate component definition with detailed error reporting
  */
@@ -215,10 +225,8 @@ export function validateComponentDefinition(data: unknown): ValidatedComponentDe
     return ComponentDefinitionSchema.parse(data);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.error('[Validation] Component definition validation failed:', error.errors);
-      throw new Error(
-        `Invalid component definition: ${error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
-      );
+      console.error('[Validation] Component definition validation failed:', error.issues);
+      throw new Error(`Invalid component definition: ${formatZodIssues(error)}`);
     }
     throw error;
   }
@@ -232,10 +240,8 @@ export function validateCatalog(data: unknown): ValidatedComponentCatalog {
     return ComponentCatalogSchema.parse(data);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.error('[Validation] Catalog validation failed:', error.errors);
-      throw new Error(
-        `Invalid catalog: ${error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
-      );
+      console.error('[Validation] Catalog validation failed:', error.issues);
+      throw new Error(`Invalid catalog: ${formatZodIssues(error)}`);
     }
     throw error;
   }
@@ -249,10 +255,8 @@ export function validateKnowledgeFrontmatter(data: unknown): ValidatedKnowledgeF
     return KnowledgeFrontmatterSchema.parse(data);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.error('[Validation] Knowledge frontmatter validation failed:', error.errors);
-      throw new Error(
-        `Invalid knowledge frontmatter: ${error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
-      );
+      console.error('[Validation] Knowledge frontmatter validation failed:', error.issues);
+      throw new Error(`Invalid knowledge frontmatter: ${formatZodIssues(error)}`);
     }
     throw error;
   }
@@ -271,7 +275,7 @@ export function safeValidateComponentDefinition(data: unknown):
     if (error instanceof z.ZodError) {
       return {
         success: false,
-        error: error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')
+        error: formatZodIssues(error)
       };
     }
     return { success: false, error: String(error) };
