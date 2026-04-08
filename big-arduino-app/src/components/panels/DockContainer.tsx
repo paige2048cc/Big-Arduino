@@ -22,14 +22,11 @@ import './DockContainer.css';
 
 /** Small sub-component so it can use hooks for hover → store */
 function AIAssistantIcon() {
-  const setAICharacterHovered = useCircuitStore((s) => s.setAICharacterHovered);
   const aiCharacterOut = useCircuitStore((s) => s.aiCharacterOut);
   return (
     <div
       data-debugging-anchor="true"
-      style={{ display: 'flex', cursor: 'pointer' }}
-      onMouseEnter={() => setAICharacterHovered(true)}
-      onMouseLeave={() => setAICharacterHovered(false)}
+      style={{ display: 'flex' }}
     >
       <img
         src={characterIcon}

@@ -2,16 +2,14 @@
  * AIDebuggingOverlay
  *
  * Portal-rendered overlay that animates the AI character out of its panel
- * to proactively offer debugging help in four scenarios:
- *   1. User hovers over the character icon (manual hover trigger)
- *   2. User reaches the last instruction step (last-step trigger) — positive message
- *   3. Simulation starts with errors (simulation-error trigger)
- *   4. User appears stuck: inactive 2 min OR went back 3+ steps (stuck trigger)
+ * to proactively offer debugging help in two scenarios:
+ *   1. Simulation starts with errors (simulation-error trigger)
+ *   2. User appears stuck: inactive 2 min OR went back 3+ steps (stuck trigger)
  *
  * Animation state machine:
  *   idle → jumping  (trigger fires)
  *   jumping → hovering  (animationend)
- *   hovering → idle  (mouse leaves safe zone [trigger 1], or 8 s timer [triggers 2/4])
+ *   hovering → idle  (8 s timer)
  *   hovering → spinning  (button click OR sim-error auto-trigger)
  *   spinning → thinking  (animationend after 360° spin)
  *   thinking → retracting  (API response received)
@@ -91,13 +89,11 @@ export function AIDebuggingOverlay({
   void _placedComponents;
   void _wires;
   // ── Store reads ──────────────────────────────────────────────────────────
-  const aiCharacterHovered = useCircuitStore((s) => s.aiCharacterHovered);
   const currentInstructionStep = useCircuitStore((s) => s.currentInstructionStep);
   const totalInstructionSteps = useCircuitStore((s) => s.totalInstructionSteps);
   const setAICharacterOut = useCircuitStore((s) => s.setAICharacterOut);
 
   // Dev feature flags
-  const devAIHover = useDevStore((s) => s.aiAssistantHover);
   const devAutoDebug = useDevStore((s) => s.autoDebugging);
 
   // ── Local state ──────────────────────────────────────────────────────────
@@ -107,12 +103,9 @@ export function AIDebuggingOverlay({
 
   // ── Refs ─────────────────────────────────────────────────────────────────
   const retractTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hasShownLastStepRef = useRef(false);
   const prevIsSimulatingRef = useRef(false);
-  // Tracks whether current animation was started by manual hover (trigger 1)
-  const hoverTriggeredRef = useRef(false);
 
-  // Refs for trigger 4 (stuck detection) — avoid stale closures in async callbacks
+  // Refs for stuck detection — avoid stale closures in async callbacks
   const animStateRef = useRef<AnimState>('idle');
   const currentStepRef = useRef(0);
   const hasShownStuckRef = useRef(false);
@@ -160,62 +153,12 @@ export function AIDebuggingOverlay({
   }, [clearRetractTimer]);
 
   // ── Jump out helper ───────────────────────────────────────────────────────
-  // autoRetract=false for hover trigger (mouse-based retract instead of timer)
   const jumpOut = useCallback((bubble: string | null = null, autoRetract = true) => {
     setAnchorRect(getAnchorRect());
     setSpeechBubbleText(bubble);
     setAnimState('jumping');
     if (autoRetract) startRetractTimer();
   }, [startRetractTimer]);
-
-  // ── Trigger 1: Hover ──────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!devAIHover) return;
-    if (!aiCharacterHovered) return;
-    if (animState !== 'idle') return;
-    hoverTriggeredRef.current = true;
-    jumpOut(null, false);
-  }, [aiCharacterHovered, animState, jumpOut, devAIHover]);
-
-  // ── Mouse-based retract (trigger 1 only) ──────────────────────────────────
-  useEffect(() => {
-    if (animState !== 'hovering') return;
-    if (!hoverTriggeredRef.current) return;
-
-    const checkSafeZone = (x: number, y: number): boolean => {
-      const anchorEl = document.querySelector('[data-debugging-anchor]');
-      const overlayEls = document.querySelectorAll('[data-debug-overlay]');
-      const inEl = (el: Element) => {
-        const r = el.getBoundingClientRect();
-        return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
-      };
-      if (anchorEl && inEl(anchorEl)) return true;
-      return Array.from(overlayEls).some((el) => inEl(el));
-    };
-
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!checkSafeZone(e.clientX, e.clientY)) {
-        setAnimState('retracting');
-        setSpeechBubbleText(null);
-      }
-    };
-
-    document.addEventListener('mousemove', handleMouseMove, { passive: true });
-    return () => document.removeEventListener('mousemove', handleMouseMove);
-  }, [animState]);
-
-  // ── Trigger 2: Last step ──────────────────────────────────────────────────
-  useEffect(() => {
-    if (!devAutoDebug) return;
-    if (hasShownLastStepRef.current) return;
-    if (totalInstructionSteps === 0) return;
-    if (currentInstructionStep !== totalInstructionSteps - 1) return;
-    if (animState !== 'idle') return;
-
-    hasShownLastStepRef.current = true;
-    hoverTriggeredRef.current = false;
-    jumpOut("Almost there! 🎉 Want me to check your circuit or give you a hint?", true);
-  }, [currentInstructionStep, totalInstructionSteps, animState, jumpOut, devAutoDebug]);
 
   // ── Trigger 4: Stuck (inactivity OR repeated step-back) ───────────────────
   const fireStuckTrigger = useCallback(() => {
@@ -225,7 +168,6 @@ export function AIDebuggingOverlay({
     if (currentStepRef.current === 0) return;
     if (totalInstructionSteps === 0) return;
     hasShownStuckRef.current = true;
-    hoverTriggeredRef.current = false;
     jumpOut("Stuck? I can help you debug or give you a hint!", true);
   }, [jumpOut, totalInstructionSteps, devAutoDebug]);
 
@@ -501,7 +443,6 @@ export function AIDebuggingOverlay({
     } else if (name === 'debug-retract') {
       setAnimState('idle');
       setSpeechBubbleText(null);
-      hoverTriggeredRef.current = false;
     }
   }, [runDebuggingAnalysis]);
 

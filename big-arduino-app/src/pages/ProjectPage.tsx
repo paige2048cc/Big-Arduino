@@ -40,6 +40,7 @@ const AI_CHAT_PANELS: PanelConfig[] = [
 /** Button-Powered LED: hide Instructions in the dock only; step + toolbar highlights run via headless panel. */
 const LED_BUTTON_PROJECT_ID = 'led-button';
 const AI_SESSION_PROJECT_ID = 'ai-session';
+let lastOpenedProjectId: string | undefined;
 
 /** Frame 2 SVG (656×162): blue “Next” pill — path bounds in viewBox space */
 const LED_BANNER_FRAME2_NEXT_RECT = {
@@ -236,14 +237,19 @@ export function ProjectPage() {
     clearHistory,
   } = useCircuitStore();
 
-  // Clear circuit when switching to a different project
-  const prevProjectIdRef = useRef<string | undefined>(undefined);
+  // Keep each project's workspace isolated even when returning through Home.
   useEffect(() => {
-    if (prevProjectIdRef.current !== undefined && prevProjectIdRef.current !== projectId) {
+    if (
+      projectId &&
+      lastOpenedProjectId !== undefined &&
+      lastOpenedProjectId !== projectId
+    ) {
       clearCircuit();
       clearHistory();
     }
-    prevProjectIdRef.current = projectId;
+    if (projectId) {
+      lastOpenedProjectId = projectId;
+    }
   }, [projectId, clearCircuit, clearHistory]);
   const wires = useWires();
   const simulationErrors = useSimulationErrors();
