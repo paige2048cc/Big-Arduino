@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "2.1",
+  "id": "photoresistor",
+  "name": "Photoresistor",
+  "category": "sensors",
+  "libraryId": "book-expansion",
+  "modelId": "photoresistor_ldr",
+  "primaryProtocol": "analog",
+  "supportedProtocols": ["analog", "power"],
+  "aliases": ["ldr", "light sensor"],
+  "tags": ["sensor", "light"],
+  "image": "sensor-generic.svg",
+  "width": 140,
+  "height": 120,
+  "description": "Light-dependent resistor whose resistance changes with light.",
+  "previewPins": ["TERM1", "TERM2"],
+  "pins": [
+    { "id": "TERM1", "label": "Terminal 1", "description": "First terminal.", "type": "terminal", "x": 42, "y": 102, "hitRadius": 8, "functions": [{ "name": "PASSIVE_1", "type": "analog" }], "electricalRole": "passive-terminal", "required": true },
+    { "id": "TERM2", "label": "Terminal 2", "description": "Second terminal.", "type": "terminal", "x": 98, "y": 102, "hitRadius": 8, "functions": [{ "name": "PASSIVE_2", "type": "analog" }], "electricalRole": "passive-terminal", "required": true }
+  ],
+  "knowledgeRefs": {
+    "component": "photoresistor",
+    "concepts": ["analog-input"],
+    "recipes": ["photoresistor-night-light"]
+  },
+  "source": {
+    "origin": ["arduino-book", "manual-curation"],
+    "confidence": "medium"
+  },
+  "netStatus": "none"
+}

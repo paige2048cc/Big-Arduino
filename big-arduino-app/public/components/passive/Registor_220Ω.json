@@ -1,10 +1,19 @@
 {
+  "schemaVersion": "2.1",
   "id": "registor_220ω",
   "name": "Resistor",
   "category": "passive",
+  "libraryId": "core-basic",
+  "modelId": "resistor_axial",
+  "primaryProtocol": "power",
+  "supportedProtocols": ["power", "digital", "analog"],
+  "aliases": ["resistor", "220 ohm resistor", "resistor-220"],
+  "tags": ["starter", "passive", "current-limiting"],
   "image": "Registor_220Ω.png",
   "width": 21,
   "height": 85,
+  "description": "Generic resistor used to limit current and divide voltage.",
+  "previewPins": ["TERM1", "TERM2"],
   "internalConnections": {
     "always": [
       ["TERM1", "TERM2"]
@@ -19,7 +28,10 @@
       "type": "terminal",
       "x": 11,
       "y": 83,
-      "hitRadius": 8
+      "hitRadius": 8,
+      "functions": [{ "name": "PASSIVE_1", "type": "power" }],
+      "electricalRole": "passive-terminal",
+      "required": true
     },
     {
       "id": "TERM2",
@@ -28,7 +40,10 @@
       "type": "terminal",
       "x": 11,
       "y": 1,
-      "hitRadius": 8
+      "hitRadius": 8,
+      "functions": [{ "name": "PASSIVE_2", "type": "power" }],
+      "electricalRole": "passive-terminal",
+      "required": true
     }
   ],
   "variants": {
@@ -45,5 +60,15 @@
       "options": ["100Ω", "220Ω", "1KΩ", "10KΩ", "1MΩ", "10MΩ"],
       "default": "220Ω"
     }
-  }
+  },
+  "knowledgeRefs": {
+    "component": "resistor-220",
+    "concepts": ["digital-output"],
+    "recipes": ["blink-led", "button-controls-led"]
+  },
+  "source": {
+    "origin": ["big-arduino", "arduino-book", "101-book"],
+    "confidence": "high"
+  },
+  "netStatus": "complete"
 }

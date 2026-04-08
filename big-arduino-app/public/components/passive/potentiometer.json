@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "2.1",
+  "id": "potentiometer",
+  "name": "Potentiometer",
+  "category": "passive",
+  "libraryId": "book-expansion",
+  "modelId": "potentiometer_rotary",
+  "primaryProtocol": "analog",
+  "supportedProtocols": ["analog", "power"],
+  "aliases": ["pot", "variable resistor"],
+  "tags": ["input", "analog"],
+  "image": "passive-generic.svg",
+  "width": 120,
+  "height": 120,
+  "description": "Three-pin variable resistor used as an analog input source.",
+  "previewPins": ["VCC", "SIG", "GND"],
+  "pins": [
+    { "id": "VCC", "label": "VCC", "description": "Power input.", "type": "power", "x": 26, "y": 102, "hitRadius": 8, "functions": [{ "name": "VCC_IN", "type": "power" }], "electricalRole": "power-input", "required": true },
+    { "id": "SIG", "label": "Signal", "description": "Variable analog output from the wiper.", "type": "analog", "x": 60, "y": 102, "hitRadius": 8, "functions": [{ "name": "ADC_OUT", "type": "analog" }], "electricalRole": "signal-output", "required": true },
+    { "id": "GND", "label": "GND", "description": "Ground reference.", "type": "ground", "x": 94, "y": 102, "hitRadius": 8, "functions": [{ "name": "GND", "type": "gnd" }], "electricalRole": "ground-return", "required": true }
+  ],
+  "knowledgeRefs": {
+    "component": "potentiometer",
+    "concepts": ["analog-input"],
+    "recipes": ["potentiometer-controls-led"]
+  },
+  "source": {
+    "origin": ["arduino-book", "manual-curation"],
+    "confidence": "medium"
+  },
+  "netStatus": "partial"
+}

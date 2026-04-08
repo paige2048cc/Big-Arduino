@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "2.1",
+  "id": "shift-register-74hc595",
+  "name": "74HC595 Shift Register",
+  "category": "modules",
+  "libraryId": "book-expansion",
+  "modelId": "74hc595",
+  "primaryProtocol": "spi",
+  "supportedProtocols": ["spi", "digital", "power"],
+  "aliases": ["74hc595", "shift register"],
+  "tags": ["logic", "expansion"],
+  "image": "module-generic.svg",
+  "width": 150,
+  "height": 120,
+  "description": "Serial-in, parallel-out shift register for expanding digital outputs.",
+  "previewPins": ["DS", "SH_CP", "ST_CP", "Q0"],
+  "pins": [
+    { "id": "DS", "label": "DS", "description": "Serial data input.", "type": "spi", "x": 40, "y": 98, "hitRadius": 8, "functions": [{ "name": "SERIAL_DATA_IN", "type": "spi" }], "electricalRole": "data-line", "required": true },
+    { "id": "SH_CP", "label": "SH_CP", "description": "Shift register clock.", "type": "spi", "x": 58, "y": 98, "hitRadius": 8, "functions": [{ "name": "SHIFT_CLOCK", "type": "clock" }], "electricalRole": "clock-line", "required": true },
+    { "id": "ST_CP", "label": "ST_CP", "description": "Storage register latch clock.", "type": "digital", "x": 76, "y": 98, "hitRadius": 8, "functions": [{ "name": "LATCH_CLOCK", "type": "digital" }], "electricalRole": "control-line", "required": true },
+    { "id": "Q0", "label": "Q0", "description": "Parallel output channel 0.", "type": "digital", "x": 94, "y": 98, "hitRadius": 8, "functions": [{ "name": "OUTPUT_0", "type": "digital" }], "electricalRole": "signal-output", "required": true },
+    { "id": "VCC", "label": "VCC", "description": "Power supply.", "type": "power", "x": 112, "y": 98, "hitRadius": 8, "functions": [{ "name": "VCC_IN", "type": "power" }], "electricalRole": "power-input", "required": true },
+    { "id": "GND", "label": "GND", "description": "Ground.", "type": "ground", "x": 130, "y": 98, "hitRadius": 8, "functions": [{ "name": "GND", "type": "gnd" }], "electricalRole": "ground-return", "required": true }
+  ],
+  "knowledgeRefs": {
+    "component": "shift-register-74hc595",
+    "concepts": ["shift-registers"],
+    "recipes": ["shift-register-led-chaser"]
+  },
+  "source": {
+    "origin": ["arduino-book"],
+    "confidence": "high"
+  },
+  "netStatus": "none"
+}

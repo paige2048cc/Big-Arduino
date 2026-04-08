@@ -6,7 +6,8 @@
  */
 
 import type { ChatReference, WireReference, HighlightItem, HighlightSeverity } from '../types/chat';
-import { loadKnowledge } from './knowledgeService';
+import { getKnowledgeEntries, loadKnowledge, type KnowledgeKind } from './knowledgeService';
+import { loadComponentDefinition } from './componentService';
 import {
   getSystemPrompt,
   buildContextPrompt,
@@ -156,11 +157,7 @@ function analyzeBreadboardConnectivity(circuitState: CircuitState): Map<string, 
 
   // 2. Add wire endpoints connected to breadboard rows
   // When a wire connects to a breadboard row, the OTHER end of the wire is effectively in that net
-  console.log('[Wire-BB Debug] === VERSION 2 === Checking wires. Count:', circuitState.wires.length);
-  console.log('[Wire-BB Debug] Breadboard instance IDs:', Array.from(breadboardInstanceIds));
-
   for (const wire of circuitState.wires) {
-    console.log('[Wire-BB Debug] Wire:', wire.startComponentId, '.', wire.startPinId, ' -> ', wire.endComponentId, '.', wire.endPinId);
 
     let breadboardEndId: string | null = null;
     let breadboardPinId: string | null = null;
@@ -173,7 +170,6 @@ function analyzeBreadboardConnectivity(circuitState: CircuitState): Map<string, 
       breadboardPinId = wire.startPinId;
       otherComponentId = wire.endComponentId;
       otherPinId = wire.endPinId;
-      console.log('[Wire-BB Debug] Wire START is breadboard');
     }
     // Check if end is a breadboard
     else if (breadboardInstanceIds.has(wire.endComponentId)) {
@@ -181,24 +177,17 @@ function analyzeBreadboardConnectivity(circuitState: CircuitState): Map<string, 
       breadboardPinId = wire.endPinId;
       otherComponentId = wire.startComponentId;
       otherPinId = wire.startPinId;
-      console.log('[Wire-BB Debug] Wire END is breadboard');
-    } else {
-      console.log('[Wire-BB Debug] Wire does NOT connect to breadboard');
     }
 
     if (breadboardEndId && breadboardPinId && otherComponentId && otherPinId) {
       // Handle breadboard-to-breadboard wires (jump wires connecting rows to power rails)
       if (breadboardInstanceIds.has(otherComponentId)) {
-        console.log('[Wire-BB Debug] *** JUMP WIRE DETECTED *** (V2) - NOT skipping!');
-
         // Both ends are on a breadboard - this is a jump wire connecting two nets
         const startPins = circuitState.breadboardPins[wire.startComponentId] || [];
         const endPins = circuitState.breadboardPins[wire.endComponentId] || [];
 
         const startPinInfo = startPins.find(p => p.pinId === wire.startPinId);
         const endPinInfo = endPins.find(p => p.pinId === wire.endPinId);
-
-        console.log('[Wire-BB Debug] Jump wire connects:', startPinInfo?.net, '↔', endPinInfo?.net);
 
         if (startPinInfo?.net && endPinInfo?.net && startPinInfo.net !== endPinInfo.net) {
           // Add to both nets so the connectivity shows up
@@ -240,15 +229,10 @@ function analyzeBreadboardConnectivity(circuitState: CircuitState): Map<string, 
       const breadboardPins = circuitState.breadboardPins[breadboardEndId] || [];
       const pinInfo = breadboardPins.find(p => p.pinId === breadboardPinId);
 
-      console.log('[Wire-BB Debug] Looking for pin', breadboardPinId, 'in breadboard', breadboardEndId);
-      console.log('[Wire-BB Debug] Found pinInfo:', pinInfo);
-
       if (pinInfo && pinInfo.net) {
         // Get the component type for the other end
         const otherComponent = circuitState.placedComponents.find(c => c.instanceId === otherComponentId);
         const otherComponentType = otherComponent?.definitionId || otherComponentId;
-
-        console.log('[Wire-BB Debug] Adding', otherComponentType, '.', otherPinId, 'to net', pinInfo.net);
 
         if (!netGroups.has(pinInfo.net)) {
           netGroups.set(pinInfo.net, []);
@@ -267,13 +251,10 @@ function analyzeBreadboardConnectivity(circuitState: CircuitState): Map<string, 
             pinId: otherPinId
           });
         }
-      } else {
-        console.log('[Wire-BB Debug] No net found for breadboard pin', breadboardPinId);
       }
     }
   }
 
-  console.log('[Wire-BB Debug] Final netGroups:', Object.fromEntries(netGroups));
   return netGroups;
 }
 
@@ -365,7 +346,6 @@ function detectShortCircuits(circuitState: CircuitState): Array<{
   }> = [];
 
   if (!circuitState.breadboardPins) {
-    console.log('[Short Circuit Debug] No breadboardPins in circuitState');
     return shortCircuits;
   }
 
@@ -376,25 +356,16 @@ function detectShortCircuits(circuitState: CircuitState): Array<{
     }
 
     if (!component.parentBreadboardId || !component.insertedPins) {
-      console.log(`[Short Circuit Debug] Component ${component.definitionId} - no parentBreadboardId or insertedPins`, {
-        parentBreadboardId: component.parentBreadboardId,
-        insertedPins: component.insertedPins
-      });
       continue;
     }
 
     const breadboardPins = circuitState.breadboardPins[component.parentBreadboardId] || [];
-    console.log(`[Short Circuit Debug] Component ${component.definitionId} inserted into breadboard ${component.parentBreadboardId}`, {
-      insertedPins: component.insertedPins,
-      breadboardPinsCount: breadboardPins.length
-    });
 
     // Group this component's pins by their net
     const pinsByNet = new Map<string, string[]>();
 
     for (const [componentPinId, breadboardPinId] of Object.entries(component.insertedPins)) {
       const pinInfo = breadboardPins.find(p => p.pinId === breadboardPinId);
-      console.log(`[Short Circuit Debug] Pin ${componentPinId} -> ${breadboardPinId}, net: ${pinInfo?.net || 'NOT FOUND'}`);
       if (pinInfo && pinInfo.net) {
         if (!pinsByNet.has(pinInfo.net)) {
           pinsByNet.set(pinInfo.net, []);
@@ -408,7 +379,6 @@ function detectShortCircuits(circuitState: CircuitState): Array<{
       if (pins.length > 1) {
         // This is a potential short circuit
         const componentName = component.definitionId.replace(/-/g, ' ');
-        console.log(`[Short Circuit Debug] SHORT CIRCUIT DETECTED: ${componentName} pins ${pins.join(', ')} in ${net}`);
         shortCircuits.push({
           componentId: component.instanceId,
           componentType: component.definitionId,
@@ -420,7 +390,6 @@ function detectShortCircuits(circuitState: CircuitState): Array<{
     }
   }
 
-  console.log(`[Short Circuit Debug] Total short circuits found: ${shortCircuits.length}`);
   return shortCircuits;
 }
 
@@ -449,7 +418,6 @@ function detectButtonIssues(
 
     // Get the always-connected pin groups
     const alwaysConnected = component.internalConnections.always || [];
-    console.log(`[Button Debug] Checking button ${component.instanceId}, always connected groups:`, alwaysConnected);
 
     // For each always-connected group, check if multiple external connections come to the same group
     for (const group of alwaysConnected) {
@@ -465,8 +433,6 @@ function detectButtonIssues(
           }
         }
       }
-
-      console.log(`[Button Debug] Pin group ${group.join(',')} is in nets:`, groupNets);
 
       // Check if any of these nets have other components connected
       let externalConnectionCount = 0;
@@ -485,8 +451,6 @@ function detectButtonIssues(
         }
       }
 
-      console.log(`[Button Debug] Group ${group.join(',')} has ${externalConnectionCount} external connections:`, connectedComponents);
-
       // If more than one external component connects to the same always-connected group,
       // the button might be bypassed
       if (externalConnectionCount >= 2) {
@@ -498,7 +462,6 @@ function detectButtonIssues(
     }
   }
 
-  console.log(`[Button Debug] Total button issues found: ${issues.length}`);
   return issues;
 }
 
@@ -691,10 +654,12 @@ async function buildReferencedComponentContext(
         c => c.instanceId === ref.instanceId
       );
       if (component) {
-        // Load knowledge for this component
-        const knowledge = await loadKnowledge(ref.definitionId);
+        const definition = await loadComponentDefinition(ref.definitionId);
+        const knowledgeComponentId = definition?.knowledgeRefs?.component || ref.definitionId;
+        const knowledge = await loadKnowledge(knowledgeComponentId);
         if (knowledge) {
           contextParts.push(formatKnowledgeContext(
+            'Component',
             knowledge.frontmatter.name,
             knowledge.content.substring(0, 500), // Truncate for context
             knowledge.frontmatter.common_issues || [],
@@ -706,6 +671,98 @@ async function buildReferencedComponentContext(
   }
 
   return contextParts.join('\n\n');
+}
+
+function getActiveBoardId(circuitState: CircuitState): string | undefined {
+  const board = circuitState.placedComponents.find(component =>
+    component.definitionId.includes('arduino')
+  );
+
+  return board?.definitionId;
+}
+
+function getRelevantComponentIds(references: ChatReference[], circuitState: CircuitState): string[] {
+  const ids = new Set<string>();
+
+  for (const component of circuitState.placedComponents) {
+    ids.add(component.definitionId);
+  }
+
+  for (const reference of references) {
+    if (reference.type === 'single') {
+      ids.add(reference.definitionId);
+    }
+
+    if (reference.type === 'multi') {
+      for (const component of reference.components) {
+        ids.add(component.definitionId);
+      }
+    }
+  }
+
+  return Array.from(ids);
+}
+
+function getKnowledgeKindsForQuery(content: string): KnowledgeKind[] {
+  const query = content.toLowerCase();
+
+  if (/code|sketch|program|example|write.*arduino|代码|程序|示例|例子/.test(query)) {
+    return ['recipes', 'concepts'];
+  }
+
+  if (/what|why|how|concept|principle|原理|概念|什么意思|是什么/.test(query)) {
+    return ['concepts', 'recipes'];
+  }
+
+  return ['components', 'concepts', 'recipes'];
+}
+
+async function buildRetrievedKnowledgeContext(
+  content: string,
+  references: ChatReference[],
+  circuitState: CircuitState
+): Promise<string> {
+  const board = getActiveBoardId(circuitState);
+  const relatedComponentIds = getRelevantComponentIds(references, circuitState);
+  const query = content.trim();
+
+  const entries = await getKnowledgeEntries(query, {
+    kinds: getKnowledgeKindsForQuery(query),
+    board,
+    relatedComponentIds,
+    limit: 4,
+  });
+
+  if (entries.length === 0) {
+    return '';
+  }
+
+  return entries.map(({ entry, file }) => {
+    const extraNotes: string[] = [];
+    if (entry.difficulty) {
+      extraNotes.push(`- Difficulty: ${entry.difficulty}`);
+    }
+    if (entry.intent) {
+      extraNotes.push(`- Best for: ${entry.intent}`);
+    }
+    if (entry.boards && entry.boards.length > 0) {
+      extraNotes.push(`- Boards: ${entry.boards.join(', ')}`);
+    }
+    if (entry.related_components && entry.related_components.length > 0) {
+      extraNotes.push(`- Related components: ${entry.related_components.join(', ')}`);
+    }
+
+    const extraBlock = extraNotes.length > 0 ? `${extraNotes.join('\n')}\n\n` : '';
+    const contentPreview = `${extraBlock}${file.content.substring(0, 900)}`;
+
+    return formatKnowledgeContext(
+      entry.kind.slice(0, -1).replace(/^\w/, char => char.toUpperCase()),
+      entry.name,
+      contentPreview,
+      file.frontmatter.common_issues || [],
+      file.frontmatter.safety || []
+    );
+  }).join('\n\n');
 }
 
 /**
@@ -903,14 +960,6 @@ export async function sendMessage(
   projectContext?: ProjectContext,
   conversationHistory?: ConversationMessage[]
 ): Promise<AIResponse> {
-  // Debug: Log circuit state summary (keep this for debugging)
-  console.log('[AI Debug] Components:', circuitState.placedComponents.map(c => ({
-    type: c.definitionId,
-    hasParent: !!c.parentBreadboardId,
-    insertedPins: c.insertedPins,
-    internalConnections: c.internalConnections,
-  })));
-  console.log('[AI Debug] Breadboard pins available:', circuitState.breadboardPins ? Object.keys(circuitState.breadboardPins) : 'none');
 
   // Build context from ALL placed components (so AI can see the full circuit)
   const allComponentsContext = buildAllComponentsContext(circuitState);
@@ -925,6 +974,7 @@ export async function sendMessage(
 
   const wireContext = buildWireContext(references, circuitState);
   const simulationStatus = buildSimulationStatus(circuitState);
+  const retrievedKnowledgeContext = await buildRetrievedKnowledgeContext(content, references, circuitState);
 
   // Build project context if available
   const projectContextStr = buildProjectContext(projectContext);
@@ -934,6 +984,7 @@ export async function sendMessage(
     componentContext,
     wireContext,
     simulationStatus,
+    retrievedKnowledgeContext,
     content
   );
 

@@ -20,6 +20,22 @@ const COMPONENT_CATALOG: Record<string, { name: string; image: string; category:
   'Registor_220Ω': { name: 'Resistor 220Ω', image: 'Registor_220Ω.png', category: 'passive' },
   'breadboard': { name: 'Half-Size Breadboard', image: 'breadboard.png', category: 'boards' },
   'pushbutton': { name: 'Push Button', image: 'pushbutton_OFF.png', category: 'passive' },
+  'buzzer': { name: 'Piezo Buzzer', image: 'Buzzer.svg', category: 'Output' },
+  'vibration-motor': { name: 'Vibration Motor', image: 'Vibration Motor.svg', category: 'Output' },
+  'potentiometer': { name: 'Potentiometer', image: 'passive-generic.svg', category: 'passive' },
+  'rgb-led-common-cathode': { name: 'RGB LED', image: 'passive-generic.svg', category: 'passive' },
+  'photoresistor': { name: 'Photoresistor', image: 'sensor-generic.svg', category: 'sensors' },
+  'lm35': { name: 'LM35 Temperature Sensor', image: 'sensor-generic.svg', category: 'sensors' },
+  'pir-sensor': { name: 'PIR Motion Sensor', image: 'sensor-generic.svg', category: 'sensors' },
+  'ultrasonic-sr04': { name: 'HC-SR04 Ultrasonic Sensor', image: 'ultrasonic-sr04.svg', category: 'sensors' },
+  'dht11': { name: 'DHT11 Sensor', image: 'sensor-generic.svg', category: 'sensors' },
+  'ir-receiver': { name: 'IR Receiver', image: 'sensor-generic.svg', category: 'sensors' },
+  'ir-led': { name: 'IR LED Emitter', image: 'ir-led.svg', category: 'Output' },
+  'lcd1602-i2c': { name: 'LCD1602 I2C Module', image: 'display-generic.svg', category: 'modules' },
+  'oled-ssd1306': { name: 'OLED SSD1306 Module', image: 'display-generic.svg', category: 'modules' },
+  'rtc-ds1307': { name: 'DS1307 RTC Module', image: 'module-generic.svg', category: 'modules' },
+  'microsd-module': { name: 'MicroSD Module', image: 'module-generic.svg', category: 'modules' },
+  'shift-register-74hc595': { name: '74HC595 Shift Register', image: 'module-generic.svg', category: 'modules' },
 };
 
 // Types for circuit state

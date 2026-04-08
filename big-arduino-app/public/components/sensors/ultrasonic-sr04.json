@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "2.1",
+  "id": "ultrasonic-sr04",
+  "name": "HC-SR04 Ultrasonic Sensor",
+  "category": "sensors",
+  "libraryId": "book-expansion",
+  "modelId": "hc_sr04",
+  "primaryProtocol": "digital",
+  "supportedProtocols": ["digital", "power"],
+  "aliases": ["sr04", "hc-sr04", "ultrasonic sensor"],
+  "tags": ["sensor", "distance"],
+  "image": "ultrasonic-sr04.svg",
+  "width": 180,
+  "height": 110,
+  "description": "Ultrasonic ranging module with trigger and echo pins.",
+  "previewPins": ["TRIG", "ECHO", "VCC", "GND"],
+  "pins": [
+    { "id": "VCC", "label": "VCC", "description": "Power supply.", "type": "power", "x": 45, "y": 96, "hitRadius": 8, "functions": [{ "name": "VCC_IN", "type": "power" }], "electricalRole": "power-input", "required": true },
+    { "id": "TRIG", "label": "TRIG", "description": "Trigger input pulse.", "type": "digital", "x": 70, "y": 96, "hitRadius": 8, "functions": [{ "name": "TRIGGER_IN", "type": "trigger" }], "electricalRole": "signal-input", "required": true },
+    { "id": "ECHO", "label": "ECHO", "description": "Echo pulse output.", "type": "digital", "x": 95, "y": 96, "hitRadius": 8, "functions": [{ "name": "ECHO_OUT", "type": "echo" }], "electricalRole": "signal-output", "required": true },
+    { "id": "GND", "label": "GND", "description": "Ground.", "type": "ground", "x": 120, "y": 96, "hitRadius": 8, "functions": [{ "name": "GND", "type": "gnd" }], "electricalRole": "ground-return", "required": true }
+  ],
+  "knowledgeRefs": {
+    "component": "ultrasonic-sr04",
+    "concepts": ["distance-sensing"],
+    "recipes": ["ultrasonic-distance-monitor"]
+  },
+  "source": {
+    "origin": ["arduino-book", "101-book"],
+    "confidence": "high"
+  },
+  "netStatus": "partial"
+}

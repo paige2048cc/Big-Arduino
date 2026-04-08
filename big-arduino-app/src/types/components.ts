@@ -12,7 +12,62 @@ export type PinType =
   | 'communication'
   | 'power'
   | 'ground'
-  | 'terminal';
+  | 'terminal'
+  | 'i2c'
+  | 'spi'
+  | 'uart';
+
+export type SemanticFunctionType =
+  | 'digital'
+  | 'analog'
+  | 'pwm'
+  | 'i2c'
+  | 'spi'
+  | 'uart'
+  | 'power'
+  | 'gnd'
+  | 'clock'
+  | 'data'
+  | 'trigger'
+  | 'echo'
+  | 'other';
+
+export type ComponentProtocol =
+  | 'digital'
+  | 'analog'
+  | 'pwm'
+  | 'i2c'
+  | 'spi'
+  | 'uart'
+  | 'power'
+  | 'other';
+
+export interface PinFunctionDefinition {
+  name: string;
+  type: SemanticFunctionType;
+}
+
+export interface FunctionTypeDefinition {
+  value: SemanticFunctionType;
+  label: string;
+}
+
+export interface KnowledgeRefs {
+  component?: string;
+  concepts?: string[];
+  recipes?: string[];
+}
+
+export interface ComponentSourceInfo {
+  origin: string[];
+  confidence?: 'high' | 'medium' | 'low';
+}
+
+export interface ComponentCompatibility {
+  boards?: string[];
+  voltage?: string[];
+  notes?: string[];
+}
 
 /**
  * Pin definition from component JSON
@@ -34,6 +89,13 @@ export interface Pin {
    * - Circuit simulation (treating connected pins as one node)
    */
   net?: string;
+  functions?: PinFunctionDefinition[];
+  electricalRole?: string;
+  polarity?: 'positive' | 'negative' | 'neutral';
+  preferredMatches?: string[];
+  aliases?: string[];
+  required?: boolean;
+  notes?: string;
 }
 
 /**
@@ -81,12 +143,22 @@ export interface InternalConnections {
  * Component definition loaded from JSON
  */
 export interface ComponentDefinition {
+  schemaVersion?: string;
   id: string;
   name: string;
   category: string;
+  libraryId?: string;
+  modelId?: string;
+  variantId?: string;
+  primaryProtocol?: ComponentProtocol;
+  supportedProtocols?: ComponentProtocol[];
+  aliases?: string[];
+  tags?: string[];
   image: string;
   width: number;
   height: number;
+  previewPins?: string[];
+  functionTypes?: FunctionTypeDefinition[];
   pins: Pin[];
   // Optional description for the component
   description?: string;
@@ -96,6 +168,11 @@ export interface ComponentDefinition {
   variants?: Record<string, ComponentVariant>;
   // Editable properties (LED color, resistor value, etc.)
   properties?: Record<string, PropertyDefinition>;
+  knowledgeRefs?: KnowledgeRefs;
+  source?: ComponentSourceInfo;
+  netStatus?: 'none' | 'partial' | 'complete';
+  generatorHints?: Record<string, boolean | string | number>;
+  compatibility?: ComponentCompatibility;
 }
 
 /**
@@ -184,6 +261,56 @@ export interface ComponentCategory {
   id: string;
   name: string;
   components: string[];
+}
+
+export interface ComponentCatalogVariant {
+  id: string;
+  name: string;
+  componentPath: string;
+  status: 'available' | 'planned';
+}
+
+export interface ComponentCatalogEntry {
+  id: string;
+  name: string;
+  category: string;
+  libraryId?: string;
+  modelId?: string;
+  defaultVariant?: string;
+  primaryProtocol?: ComponentProtocol;
+  supportedProtocols?: ComponentProtocol[];
+  aliases?: string[];
+  tags?: string[];
+  componentPath: string;
+  knowledgeId?: string;
+  variants?: ComponentCatalogVariant[];
+  previewPins?: string[];
+  renderReady: boolean;
+  simulationReady: boolean;
+  knowledgeReady: boolean;
+  netStatus?: 'none' | 'partial' | 'complete';
+  visibleInLibrary: boolean;
+  librarySection?: string;
+  librarySectionName?: string;
+  image?: string;
+}
+
+export interface ComponentCatalog {
+  version: string;
+  components: ComponentCatalogEntry[];
+}
+
+export interface LibraryComponentItem {
+  id: string;
+  name: string;
+  image: string;
+  folder: string;
+}
+
+export interface LibraryComponentSection {
+  id: string;
+  name: string;
+  components: LibraryComponentItem[];
 }
 
 /**

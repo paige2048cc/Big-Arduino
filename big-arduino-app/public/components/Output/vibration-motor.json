@@ -1,10 +1,19 @@
 {
+  "schemaVersion": "2.1",
   "id": "vibration-motor",
   "name": "Vibration Motor",
   "category": "Output",
+  "libraryId": "core-basic",
+  "modelId": "vibration_motor_coin",
+  "primaryProtocol": "power",
+  "supportedProtocols": ["power", "digital", "pwm"],
+  "aliases": ["vibration motor", "coin motor", "haptic motor"],
+  "tags": ["output", "haptic"],
   "image": "Vibration Motor.svg",
   "width": 57,
   "height": 179,
+  "description": "Small vibration motor that should be driven through a transistor stage.",
+  "previewPins": ["ANODE", "CATHODE"],
   "pins": [
     {
       "id": "CATHODE",
@@ -13,7 +22,11 @@
       "type": "terminal",
       "x": 18,
       "y": 172,
-      "hitRadius": 8
+      "hitRadius": 8,
+      "functions": [{ "name": "GND", "type": "gnd" }],
+      "electricalRole": "ground-return",
+      "polarity": "negative",
+      "required": true
     },
     {
       "id": "ANODE",
@@ -22,7 +35,21 @@
       "type": "terminal",
       "x": 38,
       "y": 172,
-      "hitRadius": 8
+      "hitRadius": 8,
+      "functions": [{ "name": "MOTOR_IN", "type": "power" }, { "name": "PWM_IN", "type": "pwm" }],
+      "electricalRole": "power-input",
+      "polarity": "positive",
+      "required": true
     }
-  ]
+  ],
+  "knowledgeRefs": {
+    "component": "vibration-motor",
+    "concepts": ["digital-output", "pwm-output"],
+    "recipes": ["vibration-motor-pulse"]
+  },
+  "source": {
+    "origin": ["big-arduino", "manual-curation"],
+    "confidence": "medium"
+  },
+  "netStatus": "none"
 }

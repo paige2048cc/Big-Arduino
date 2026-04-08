@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "2.1",
+  "id": "dht11",
+  "name": "DHT11 Temperature & Humidity Sensor",
+  "category": "sensors",
+  "libraryId": "book-expansion",
+  "modelId": "dht11",
+  "primaryProtocol": "digital",
+  "supportedProtocols": ["digital", "power"],
+  "aliases": ["dht11", "humidity sensor"],
+  "tags": ["sensor", "temperature", "humidity"],
+  "image": "sensor-generic.svg",
+  "width": 140,
+  "height": 120,
+  "description": "Digital sensor for low-cost temperature and humidity readings.",
+  "previewPins": ["VCC", "DATA", "GND"],
+  "pins": [
+    { "id": "VCC", "label": "VCC", "description": "Power supply.", "type": "power", "x": 42, "y": 102, "hitRadius": 8, "functions": [{ "name": "VCC_IN", "type": "power" }], "electricalRole": "power-input", "required": true },
+    { "id": "DATA", "label": "DATA", "description": "Single-wire digital data pin.", "type": "digital", "x": 70, "y": 102, "hitRadius": 8, "functions": [{ "name": "DATA_IO", "type": "digital" }], "electricalRole": "signal-bidirectional", "required": true },
+    { "id": "GND", "label": "GND", "description": "Ground.", "type": "ground", "x": 98, "y": 102, "hitRadius": 8, "functions": [{ "name": "GND", "type": "gnd" }], "electricalRole": "ground-return", "required": true }
+  ],
+  "knowledgeRefs": {
+    "component": "dht11",
+    "concepts": ["temperature-sensing"],
+    "recipes": ["dht11-climate-monitor"]
+  },
+  "source": {
+    "origin": ["arduino-book"],
+    "confidence": "high"
+  },
+  "netStatus": "partial"
+}

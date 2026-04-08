@@ -1,10 +1,19 @@
 {
+  "schemaVersion": "2.1",
   "id": "buzzer",
   "name": "Piezo Buzzer",
   "category": "Output",
+  "libraryId": "core-basic",
+  "modelId": "buzzer_piezo",
+  "primaryProtocol": "digital",
+  "supportedProtocols": ["digital", "pwm", "power"],
+  "aliases": ["buzzer", "piezo buzzer", "beeper"],
+  "tags": ["audio", "output", "polarized"],
   "image": "Buzzer.svg",
   "width": 80,
   "height": 87,
+  "description": "Piezo buzzer for simple tones and alerts.",
+  "previewPins": ["POSITIVE", "NEGATIVE"],
   "internalConnections": {
     "always": [
       ["POSITIVE", "NEGATIVE"]
@@ -19,7 +28,11 @@
       "type": "terminal",
       "x": 11,
       "y": 86,
-      "hitRadius": 8
+      "hitRadius": 8,
+      "functions": [{ "name": "SIGNAL_IN", "type": "digital" }, { "name": "PWM_IN", "type": "pwm" }],
+      "electricalRole": "signal-input",
+      "polarity": "positive",
+      "required": true
     },
     {
       "id": "NEGATIVE",
@@ -28,7 +41,21 @@
       "type": "terminal",
       "x": 70,
       "y": 86,
-      "hitRadius": 8
+      "hitRadius": 8,
+      "functions": [{ "name": "GND", "type": "gnd" }],
+      "electricalRole": "ground-return",
+      "polarity": "negative",
+      "required": true
     }
-  ]
+  ],
+  "knowledgeRefs": {
+    "component": "buzzer",
+    "concepts": ["digital-output", "pwm-output"],
+    "recipes": ["buzzer-alert"]
+  },
+  "source": {
+    "origin": ["big-arduino", "arduino-book"],
+    "confidence": "high"
+  },
+  "netStatus": "partial"
 }

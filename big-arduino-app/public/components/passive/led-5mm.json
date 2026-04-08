@@ -1,10 +1,20 @@
 {
+  "schemaVersion": "2.1",
   "id": "led-5mm",
   "name": "LED (5mm)",
   "category": "passive",
+  "libraryId": "core-basic",
+  "modelId": "led_5mm",
+  "defaultVariant": "red",
+  "primaryProtocol": "digital",
+  "supportedProtocols": ["digital", "pwm", "power"],
+  "aliases": ["led", "light emitting diode", "indicator led"],
+  "tags": ["starter", "polarized", "output"],
   "image": "LED_Red_OFF.png",
   "width": 40,
   "height": 71,
+  "description": "Standard 5mm LED. Requires a current-limiting resistor.",
+  "previewPins": ["ANODE", "CATHODE"],
   "internalConnections": {
     "always": [
       ["ANODE", "CATHODE"]
@@ -19,7 +29,13 @@
       "type": "terminal",
       "x": 36,
       "y": 68,
-      "hitRadius": 8
+      "hitRadius": 8,
+      "functions": [{ "name": "VCC_IN", "type": "power" }, { "name": "SIGNAL_IN", "type": "digital" }],
+      "electricalRole": "positive-input",
+      "polarity": "positive",
+      "aliases": ["+", "positive"],
+      "preferredMatches": ["5V", "3.3V", "digital-high", "pwm"],
+      "required": true
     },
     {
       "id": "CATHODE",
@@ -28,7 +44,13 @@
       "type": "terminal",
       "x": 13,
       "y": 68,
-      "hitRadius": 8
+      "hitRadius": 8,
+      "functions": [{ "name": "GND", "type": "gnd" }],
+      "electricalRole": "ground-return",
+      "polarity": "negative",
+      "aliases": ["-", "negative"],
+      "preferredMatches": ["GND"],
+      "required": true
     }
   ],
   "variants": {
@@ -44,5 +66,14 @@
       "options": ["red", "green", "blue", "yellow", "white"],
       "default": "red"
     }
+  },
+  "knowledgeRefs": {
+    "component": "led-5mm",
+    "concepts": ["digital-output", "pwm-output"],
+    "recipes": ["blink-led", "fade-led-pwm"]
+  },
+  "source": {
+    "origin": ["big-arduino", "arduino-book", "101-book"],
+    "confidence": "high"
   }
 }
