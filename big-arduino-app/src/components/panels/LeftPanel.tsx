@@ -8,9 +8,18 @@ type TabType = 'components' | 'code';
 interface LeftPanelProps {
   code?: string;
   onCodeChange?: (code: string) => void;
+  allowedComponentIds?: string[];
+  componentLibraryTitle?: string;
+  componentLibraryDescription?: string;
 }
 
-export function LeftPanel({ code = '', onCodeChange }: LeftPanelProps) {
+export function LeftPanel({
+  code = '',
+  onCodeChange,
+  allowedComponentIds,
+  componentLibraryTitle,
+  componentLibraryDescription,
+}: LeftPanelProps) {
   const [activeTab, setActiveTab] = useState<TabType>('components');
 
   return (
@@ -36,7 +45,11 @@ export function LeftPanel({ code = '', onCodeChange }: LeftPanelProps) {
       {/* Panel Content */}
       <div className="panel-content">
         {activeTab === 'components' ? (
-          <ComponentLibrary />
+          <ComponentLibrary
+            allowedComponentIds={allowedComponentIds}
+            titleOverride={componentLibraryTitle}
+            descriptionOverride={componentLibraryDescription}
+          />
         ) : (
           <div className="code-editor-container">
             <div className="code-editor-header">

@@ -538,6 +538,10 @@
   padding: 2px 18px 18px;
 }
 
+.brainstorm-selection-card--actions {
+  width: 100%;
+}
+
 .brainstorm-selection-header {
   margin-bottom: 12px;
 }
@@ -568,6 +572,10 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.brainstorm-selection-grid--actions {
+  gap: 10px;
+}
+
 .brainstorm-option-card {
   display: flex;
   flex-direction: column;
@@ -591,6 +599,11 @@
 
 .brainstorm-option-card:disabled {
   cursor: default;
+}
+
+.brainstorm-option-card--disabled {
+  opacity: 0.55;
+  box-shadow: none;
 }
 
 .brainstorm-option-card.selected {
@@ -648,6 +661,36 @@
   font-size: 12px;
   line-height: 1.55;
   color: #475569;
+}
+
+.brainstorm-option-card--action-row {
+  min-height: 0;
+  padding: 12px 14px;
+}
+
+.brainstorm-action-row-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+}
+
+.brainstorm-action-row-text {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: baseline;
+  text-align: left;
+}
+
+.brainstorm-option-card--action-row .brainstorm-option-label {
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.brainstorm-option-card--action-row .brainstorm-option-description {
+  font-size: 13px;
+  line-height: 1.55;
 }
 
 .brainstorm-selection-footer {

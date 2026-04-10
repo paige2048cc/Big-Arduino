@@ -198,6 +198,8 @@ interface AIChatLocationState {
   fromAIChat?: boolean;
   initialChatMessages?: Array<{ role: 'user' | 'assistant'; content: string }>;
   projectTitle?: string;
+  projectComponentIds?: string[];
+  projectComponentSummary?: string;
 }
 
 export function ProjectPage() {
@@ -874,7 +876,7 @@ export function ProjectPage() {
   const isLedButtonProject = projectId === LED_BUTTON_PROJECT_ID;
   const isAiSessionProject = projectId === AI_SESSION_PROJECT_ID;
   const projectAiUiEnabled = !(isLedButtonProject || isAiSessionProject);
-  const effectiveAIChatMode = isAIChatMode && projectAiUiEnabled;
+  const effectiveAIChatMode = isAIChatMode;
 
   // Onboarding
   const initOnboarding = useOnboardingStore((state) => state.initOnboarding);
@@ -893,11 +895,12 @@ export function ProjectPage() {
     navigate(`/project/${projectId}`, { replace: true, state: null });
   }, [isAIChatMode, projectId, navigate]);
 
-  // Legacy AI session route should not render chat for Button-Powered LED flow.
+  // Legacy AI session route should only fall back when opened without AI chat state.
   useEffect(() => {
     if (projectId !== AI_SESSION_PROJECT_ID) return;
+    if (isAIChatMode) return;
     navigate(`/project/${LED_BUTTON_PROJECT_ID}`, { replace: true, state: null });
-  }, [projectId, navigate]);
+  }, [projectId, navigate, isAIChatMode]);
 
   // Skip onboarding step that targets the hidden AI panel
   useEffect(() => {
@@ -1254,6 +1257,9 @@ export function ProjectPage() {
               <LeftPanel
                 code={currentCode}
                 onCodeChange={(code) => console.log('Code changed:', code)}
+                allowedComponentIds={locationState?.projectComponentIds}
+                componentLibraryTitle={locationState?.projectComponentIds?.length ? 'For this project' : undefined}
+                componentLibraryDescription={locationState?.projectComponentSummary}
               />
             }
             centerPanel={

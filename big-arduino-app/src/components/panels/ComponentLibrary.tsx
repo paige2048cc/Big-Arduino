@@ -8,12 +8,21 @@ import './ComponentLibrary.css';
 
 interface ComponentLibraryProps {
   onComponentDragStart?: (componentId: string) => void;
+  allowedComponentIds?: string[];
+  titleOverride?: string;
+  descriptionOverride?: string;
 }
 
-export function ComponentLibrary({ onComponentDragStart }: ComponentLibraryProps) {
+export function ComponentLibrary({
+  onComponentDragStart,
+  allowedComponentIds,
+  titleOverride,
+  descriptionOverride,
+}: ComponentLibraryProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [componentCategories, setComponentCategories] = useState<LibraryComponentSection[]>([]);
   const highlightedComponents = useHighlightedToolbarComponents();
+  const allowedSet = allowedComponentIds ? new Set(allowedComponentIds.map(id => id.toLowerCase())) : null;
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set(['boards', 'microcontrollers', 'input', 'output', 'passive', 'sensors', 'displays', 'modules', 'logic'])
   );
@@ -54,13 +63,21 @@ export function ComponentLibrary({ onComponentDragStart }: ComponentLibraryProps
 
   const filteredCategories = componentCategories.map(category => ({
     ...category,
-    components: category.components.filter(comp =>
-      comp.name.toLowerCase().includes(searchQuery.toLowerCase())
-    )
+    components: category.components.filter(comp => {
+      const matchesSearch = comp.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesAllowed = !allowedSet || allowedSet.has(comp.id.toLowerCase());
+      return matchesSearch && matchesAllowed;
+    })
   })).filter(category => category.components.length > 0);
 
   return (
     <div className="component-library">
+      {(titleOverride || descriptionOverride) && (
+        <div className="component-library-context">
+          {titleOverride && <div className="component-library-context__title">{titleOverride}</div>}
+          {descriptionOverride && <div className="component-library-context__description">{descriptionOverride}</div>}
+        </div>
+      )}
       {/* Search */}
       <div className="component-search">
         <Search size={16} />
