@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Send, Loader2, ChevronRight, Cpu, Package, Check } from 'lucide-react';
+import { Send, Loader2, ChevronRight, Cpu, Package, Check, Lightbulb, RotateCcw } from 'lucide-react';
 import { Sidebar } from '../components/layout/Sidebar';
 import { BlueCharacter } from '../components/ai/BlueCharacter';
 import type { DetectedComponent, ProjectMatch } from '../utils/componentMatcher';
@@ -77,14 +77,50 @@ interface BreakdownCardData {
   note: string;
 }
 
-interface ProjectStartCardData {
-  projectName: string;
-  userOrigin: string;
-  userChoices: string[];
-  aiContribution: string[];
-  ownershipLine: string;
-  nextActions: string[];
-  optionalTwist?: string;
+interface ComponentNeed {
+  name: string;
+  purpose: string;
+}
+
+interface BrainstormIdea {
+  id: string;
+  title: string;
+  difficulty: DifficultyLevel;
+  hook: string;
+  whatItDoes: string;
+  components: ComponentNeed[];
+}
+
+interface IdeaCardsData {
+  title?: string;
+  subtitle?: string;
+  ideas: BrainstormIdea[];
+  selectable?: boolean;
+  selectedId?: string | null;
+  submitted?: boolean;
+  confirmLabel?: string;
+  helperText?: string;
+}
+
+interface FinalProjectData {
+  title: string;
+  difficulty: DifficultyLevel;
+  hook: string;
+  whatItDoes: string;
+  components: ComponentNeed[];
+  summary: string;
+}
+
+interface TwistCalloutData {
+  title: string;
+  content: string;
+}
+
+interface ActionButtonsData {
+  buttons: {
+    id: 'start-project' | 'restart';
+    label: string;
+  }[];
 }
 
 interface BrainstormDirection {
@@ -96,41 +132,30 @@ interface BrainstormDirection {
 
 interface AmplifyResult {
   intro: string;
-  items: {
-    title: string;
-    description: string;
-    badge?: string;
-  }[];
-  recommendedFocus: {
-    title: string;
-    reason: string;
-    difficulty: DifficultyLevel;
-  };
+  ideas: BrainstormIdea[];
+  helperText?: string;
 }
 
 interface RealizeResult {
   intro: string;
-  project: EvaluationCardData & {
-    userOrigin: string;
-    userChoices: string[];
-    aiContribution: string[];
-    ownershipLine: string;
-    nextActions: string[];
-    optionalTwist?: string;
-  };
+  project: FinalProjectData;
   breakdown?: BreakdownCardData | null;
+  twist?: string;
 }
 
 interface BrainstormSession {
   source: 'home' | 'scanner';
   stage: StageId;
-  currentQuestion: SeedQuestionId | null;
+  currentQuestion: SeedQuestionId | 'question1-followup' | null;
   answers: Partial<Record<SeedQuestionId, string>>;
   knownComponents: string[];
   directions: BrainstormDirection[];
   selectedDirectionIds: string[];
   selectedActionId: AmplifyActionId | null;
   lastAmplifyResult: AmplifyResult | null;
+  amplifyIdeas: BrainstormIdea[];
+  selectedIdeaId: string | null;
+  askedSeedFollowUp: boolean;
 }
 
 interface ChatMessage {
@@ -152,7 +177,10 @@ interface ChatMessage {
   insightCard?: InsightCardData;
   evaluationCard?: EvaluationCardData;
   breakdownCard?: BreakdownCardData;
-  projectStartCard?: ProjectStartCardData;
+  ideaCards?: IdeaCardsData;
+  finalProject?: FinalProjectData;
+  twistCallout?: TwistCalloutData;
+  actionButtons?: ActionButtonsData;
 }
 
 const COMPONENT_KEYWORDS = [
@@ -169,53 +197,6 @@ const COMPONENT_KEYWORDS = [
   { label: 'LCD Display', keywords: ['lcd', 'display', 'screen'] },
   { label: 'OLED Display', keywords: ['oled'] },
 ];
-
-const STAGE_COPY: Record<StageId, StageCardData> = {
-  seed: {
-    stage: 'seed',
-    title: 'Stage S · Seed',
-    description: 'Start from the user’s own words before AI branches outward.',
-  },
-  play: {
-    stage: 'play',
-    title: 'Stage P · Play',
-    description: 'Scan the possibility space broadly before committing to one path.',
-  },
-  amplify: {
-    stage: 'amplify',
-    title: 'Stage A · Amplify',
-    description: 'Let the user choose how AI should deepen the selected directions.',
-  },
-  realize: {
-    stage: 'realize',
-    title: 'Stage R · Realize',
-    description: 'Turn one direction into a realistic starting path without overwhelming it.',
-  },
-};
-
-const SEED_QUESTIONS: Record<SeedQuestionId, SeedQuestionCard> = {
-  question1: {
-    id: 'question1',
-    index: 1,
-    total: 3,
-    prompt: 'What’s one feeling, frustration, curiosity, or moment you want this project to grow from?',
-    hint: 'Keep it personal and simple. No need to think about circuits yet.',
-  },
-  question2: {
-    id: 'question2',
-    index: 2,
-    total: 3,
-    prompt: 'What Arduino parts or modules do you already have nearby, or most want to use?',
-    hint: 'Name anything that feels exciting, even if you are not sure how to use it yet.',
-  },
-  question3: {
-    id: 'question3',
-    index: 3,
-    total: 3,
-    prompt: 'If you had one afternoon, what would you most want to make something *able to do*?',
-    hint: 'Finish the blank in your own words: “I want to make something that can ...”',
-  },
-};
 
 const PLAY_LENSES = [
   { id: 'reality-extension', label: 'Reality extension' },
@@ -269,6 +250,47 @@ function normalizeDifficulty(value: string | undefined): DifficultyLevel {
   return 'easy';
 }
 
+function cleanInlineMarkdown(text: string) {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/`(.*?)`/g, '$1')
+    .trim();
+}
+
+function normalizeComponentNeeds(components: unknown): ComponentNeed[] {
+  if (!Array.isArray(components)) return [];
+
+  return components
+    .map((item) => {
+      if (typeof item === 'string') {
+        return { name: cleanInlineMarkdown(item), purpose: '' };
+      }
+
+      if (item && typeof item === 'object' && 'name' in item && 'purpose' in item) {
+        const component = item as { name?: string; purpose?: string };
+        return {
+          name: cleanInlineMarkdown(component.name || ''),
+          purpose: cleanInlineMarkdown(component.purpose || ''),
+        };
+      }
+
+      return null;
+    })
+    .filter((item): item is ComponentNeed => !!item && !!item.name);
+}
+
+function normalizeIdea(rawIdea: Partial<BrainstormIdea>, fallbackId: string): BrainstormIdea {
+  return {
+    id: rawIdea.id || fallbackId,
+    title: cleanInlineMarkdown(rawIdea.title || 'Project direction'),
+    difficulty: normalizeDifficulty(rawIdea.difficulty),
+    hook: cleanInlineMarkdown(rawIdea.hook || ''),
+    whatItDoes: cleanInlineMarkdown(rawIdea.whatItDoes || ''),
+    components: normalizeComponentNeeds(rawIdea.components),
+  };
+}
+
 function extractJsonPayload(raw: string) {
   const trimmed = raw.trim();
   const fencedMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
@@ -311,127 +333,182 @@ function buildDirectionsFallback(session: BrainstormSession): { intro: string; d
 function buildAmplifyFallback(session: BrainstormSession): AmplifyResult {
   const selected = session.directions.filter(direction => session.selectedDirectionIds.includes(direction.id));
   const action = session.selectedActionId || 'expand';
+  const baseParts = session.knownComponents.length > 0 ? session.knownComponents : ['Arduino Uno', 'Breadboard', 'Jumper wires'];
+  const focus = selected[0];
+
+  if (action === 'decompose') {
+    return {
+      intro: 'Here are a few ways to keep the idea intact while making the first build smaller and easier to start.',
+      ideas: [
+        {
+          id: 'decompose-mvp',
+          title: `${focus?.title || 'Core idea'} MVP`,
+          difficulty: 'easy',
+          hook: 'Start with one small behavior that proves the feeling is there.',
+          whatItDoes: 'This version strips the project down to one sensor input and one clear output so the core interaction works first.',
+          components: [
+            { name: baseParts[0], purpose: 'Runs the first prototype logic.' },
+            { name: baseParts[1] || 'LED', purpose: 'Provides the clearest first feedback.' },
+            { name: baseParts[2] || 'Buzzer', purpose: 'Adds one more expressive signal only if needed.' },
+          ],
+        },
+        {
+          id: 'decompose-expanded',
+          title: `${focus?.title || 'Core idea'} plus one layer`,
+          difficulty: 'medium',
+          hook: 'Keep the same concept, then add one richer interaction after the MVP works.',
+          whatItDoes: 'After the base interaction is stable, this version adds a second feedback layer so the project feels more alive without becoming too complex.',
+          components: [
+            { name: baseParts[0], purpose: 'Coordinates the sensor and output behavior.' },
+            { name: baseParts[1] || 'Sensor module', purpose: 'Captures the main trigger or environmental change.' },
+            { name: 'LED', purpose: 'Shows a visible response in the space.' },
+            { name: 'Buzzer', purpose: 'Adds a simple audio cue.' },
+          ],
+        },
+      ],
+      helperText: 'Pick one version to carry into the full project description.',
+    };
+  }
+
   if (action === 'challenge') {
     return {
-      intro: 'Before building, pressure-test what would make this idea genuinely meaningful.',
-      items: selected.map(direction => ({
-        title: direction.title,
-        description: `Who is this really for, and what would be lost if the project became simpler than ${direction.description.toLowerCase()}?`,
-        badge: 'Challenge',
-      })),
-      recommendedFocus: {
-        title: selected[0]?.title || 'Focused concept',
-        reason: 'It keeps the original emotional hook while staying buildable.',
-        difficulty: 'medium',
-      },
+      intro: 'A useful challenge here is deciding what should make this idea feel meaningful instead of just technically working.',
+      ideas: [
+        {
+          id: 'challenge-subtle',
+          title: `${focus?.title || 'Subtle version'}`,
+          difficulty: 'easy',
+          hook: 'What if the project stayed quiet and let the tension come from anticipation instead of alarms?',
+          whatItDoes: 'This version reacts gently, using minimal light or sound so the emotional tone stays subtle and psychological.',
+          components: [
+            { name: baseParts[0], purpose: 'Runs the lightweight behavior logic.' },
+            { name: 'LED', purpose: 'Creates a restrained visual cue.' },
+            { name: '220Ω resistor', purpose: 'Protects the LED.' },
+          ],
+        },
+        {
+          id: 'challenge-expressive',
+          title: `${focus?.title || 'Expressive version'}`,
+          difficulty: 'medium',
+          hook: 'Or should the project make the emotion unmistakable the moment something changes?',
+          whatItDoes: 'This version responds more dramatically, layering light and sound so the atmosphere feels immediate and obvious.',
+          components: [
+            { name: baseParts[0], purpose: 'Coordinates the stronger response.' },
+            { name: baseParts[1] || 'Ultrasonic Distance Sensor', purpose: 'Detects movement or proximity.' },
+            { name: 'LED', purpose: 'Builds urgency visually.' },
+            { name: 'Buzzer', purpose: 'Adds a rising sound cue.' },
+          ],
+        },
+      ],
+      helperText: 'Choose the tone you want, then continue.',
     };
   }
 
   if (action === 'resources') {
     return {
-      intro: 'Keep the creative control with the user and surface the key technical ingredients first.',
-      items: [
+      intro: 'If you want to keep ideating while staying grounded, these are the most practical build directions to hold onto.',
+      ideas: [
         {
-          title: 'Core interaction',
-          description: 'Define the smallest input or output that proves the idea physically works.',
-          badge: 'Resource',
+          id: 'resources-basic',
+          title: `${focus?.title || 'Practical direction'}`,
+          difficulty: 'easy',
+          hook: 'A lean prototype built from the parts already closest to hand.',
+          whatItDoes: 'This version focuses on one sensor and one response, which makes it easy to test, tweak, and reimagine later.',
+          components: [
+            { name: baseParts[0], purpose: 'Runs the prototype logic.' },
+            { name: baseParts[1] || 'Sensor module', purpose: 'Captures the key input.' },
+            { name: 'LED', purpose: 'Shows immediate feedback.' },
+          ],
         },
         {
-          title: 'Component shortlist',
-          description: `Start from ${session.knownComponents.join(', ') || 'LED, button, buzzer'} and add only one new part if needed.`,
-          badge: 'Resource',
-        },
-        {
-          title: 'Prototype constraint',
-          description: 'Aim for a one-evening MVP before adding data, networking, or polish.',
-          badge: 'Resource',
+          id: 'resources-rich',
+          title: `${focus?.title || 'Expanded direction'}`,
+          difficulty: 'medium',
+          hook: 'The same idea, but with one extra layer that makes it feel more intentional.',
+          whatItDoes: 'This direction keeps the same core behavior and adds a second output or sensor so the interaction feels more complete.',
+          components: [
+            { name: baseParts[0], purpose: 'Coordinates the richer interaction.' },
+            { name: baseParts[1] || 'Sensor module', purpose: 'Provides the main trigger.' },
+            { name: 'LED', purpose: 'Creates visible feedback.' },
+            { name: 'Buzzer', purpose: 'Adds atmosphere or warning.' },
+          ],
         },
       ],
-      recommendedFocus: {
-        title: selected[0]?.title || 'Lean prototype',
-        reason: 'The most useful next move is to anchor the concept in one small prototype.',
-        difficulty: 'easy',
-      },
+      helperText: 'Choose the version you want to flesh out next.',
     };
   }
 
   if (action === 'combine' && selected.length > 1) {
     return {
-      intro: 'Combine only the directions the user actually chose, so the hybrid still feels owned.',
-      items: [
+      intro: 'These combinations stay close to the directions you chose, but connect them into fuller project concepts.',
+      ideas: [
         {
+          id: 'combine-balanced',
           title: `${selected[0].title} + ${selected[1].title}`,
-          description: `Blend ${selected[0].description.toLowerCase()} with ${selected[1].description.toLowerCase()} into a single stronger experience.`,
-          badge: 'Combine',
+          difficulty: 'medium',
+          hook: 'A balanced combination that keeps both ideas recognizable.',
+          whatItDoes: `This concept blends ${selected[0].description.toLowerCase()} with ${selected[1].description.toLowerCase()} so the project feels both coherent and surprising.`,
+          components: [
+            { name: baseParts[0], purpose: 'Handles the combined behavior.' },
+            { name: baseParts[1] || 'Primary sensor', purpose: 'Detects the main event.' },
+            { name: 'LED', purpose: 'Creates an expressive visual layer.' },
+            { name: 'Buzzer', purpose: 'Adds another emotional cue.' },
+          ],
+        },
+        {
+          id: 'combine-bold',
+          title: `${selected[0].title} reimagined`,
+          difficulty: 'hard',
+          hook: 'A more experimental version that pushes the same pairing further.',
+          whatItDoes: 'This version turns the combined idea into a more immersive interaction, with extra feedback and a broader sensing range.',
+          components: [
+            { name: baseParts[0], purpose: 'Runs the expanded interaction logic.' },
+            { name: baseParts[1] || 'Sensor module', purpose: 'Tracks the main trigger.' },
+            { name: 'LED', purpose: 'Builds a stronger visual response.' },
+            { name: 'Buzzer', purpose: 'Adds tension or rhythm.' },
+            { name: 'Optional extra sensor', purpose: 'Lets the project respond in a richer way.' },
+          ],
         },
       ],
-      recommendedFocus: {
-        title: `${selected[0].title} remix`,
-        reason: 'The blend creates a clearer project identity than either path alone.',
-        difficulty: 'medium',
-      },
-    };
-  }
-
-  if (action === 'decompose') {
-    return {
-      intro: 'Preview the build path early so the project still feels reachable.',
-      items: [
-        { title: 'Step 1', description: 'Build one tiny interaction that proves the core behavior.', badge: 'Path' },
-        { title: 'Step 2', description: 'Add the second component that makes the idea more expressive.', badge: 'Path' },
-        { title: 'Step 3', description: 'Only then layer on polish or richer feedback.', badge: 'Path' },
-      ],
-      recommendedFocus: {
-        title: selected[0]?.title || 'Stepped build',
-        reason: 'Breaking it down makes the idea less overwhelming without shrinking it.',
-        difficulty: 'medium',
-      },
+      helperText: 'Choose the version that feels closest to what you want to build.',
     };
   }
 
   return {
-    intro: 'Take the selected directions and stretch them a little further before deciding what to build.',
-    items: selected.map(direction => ({
-      title: `${direction.title} MVP`,
-      description: `Start with a minimal interaction that captures ${direction.description.toLowerCase()}.`,
-      badge: 'Deepen',
+    intro: 'Here are a few fuller directions that keep your chosen idea but make it concrete enough to build next.',
+    ideas: selected.slice(0, 3).map((direction, index) => ({
+      id: `${direction.id}-deepen-${index + 1}`,
+      title: index === 0 ? direction.title : `${direction.title} variation ${index + 1}`,
+      difficulty: index === 0 ? 'medium' : index === 1 ? 'easy' : 'hard',
+      hook: index === 0
+        ? 'The most balanced version: expressive, buildable, and still open to iteration.'
+        : index === 1
+          ? 'A simpler version that proves the idea quickly.'
+          : 'A more ambitious version that pushes the same feeling further.',
+      whatItDoes: `This concept develops ${direction.description.toLowerCase()} into a clearer Arduino interaction with a stronger sense of behavior and feedback.`,
+      components: [
+        { name: baseParts[0], purpose: 'Acts as the control center for the project.' },
+        { name: baseParts[1] || 'Sensor module', purpose: 'Captures the input or condition that drives the idea.' },
+        { name: 'LED', purpose: 'Gives visible feedback.' },
+        ...(index > 0 ? [{ name: 'Buzzer', purpose: 'Adds audio or tension when the interaction changes.' }] : []),
+      ],
     })),
-    recommendedFocus: {
-      title: selected[0]?.title || 'Promising direction',
-      reason: 'It feels expressive while still being manageable for a first prototype.',
-      difficulty: selected.length > 1 ? 'medium' : 'easy',
-    },
+    helperText: 'Choose one direction to turn into a complete project description.',
   };
 }
 
 function buildRealizeFallback(session: BrainstormSession, amplify: AmplifyResult): RealizeResult {
-  const focusTitle = amplify.recommendedFocus.title || session.directions.find(direction => session.selectedDirectionIds.includes(direction.id))?.title || 'New Arduino concept';
-  const difficulty = amplify.recommendedFocus.difficulty;
-  const components = uniqueStrings([
-    ...session.knownComponents,
-    difficulty === 'easy' ? 'Breadboard' : 'Sensor module',
-  ]).slice(0, 5);
-
+  const chosenIdea = session.amplifyIdeas.find(idea => idea.id === session.selectedIdeaId) || amplify.ideas[0];
+  const difficulty = chosenIdea?.difficulty || 'medium';
   return {
-    intro: 'Here is a grounded project start card that keeps the user’s ownership visible and the next step clear.',
+    intro: 'This feels like a strong direction. Here’s a fuller version you could actually build next.',
     project: {
-      title: focusTitle,
+      title: chosenIdea?.title || 'New Arduino concept',
       difficulty,
-      tagline: 'A compact concept shaped by the user’s original seed and refined with AI.',
-      creativeEvaluation: 'The concept is distinctive because it grows from a personal prompt instead of a generic starter project.',
-      technicalEvaluation: `A ${difficulty} version is realistic if the first prototype stays narrow and uses only a few parts.`,
-      components,
-      timeEstimate: difficulty === 'hard' ? '2-3 weeks' : difficulty === 'medium' ? '1-2 weeks' : '1 evening to 1 weekend',
-      hardestPart: difficulty === 'hard' ? 'Keeping the interaction coherent while adding complexity.' : 'Choosing the smallest useful first version.',
-      tradeoff: 'Adding more features can make the idea richer, but it can also dilute the first successful build.',
-      userOrigin: session.answers.question1 || session.answers.question3 || 'A personal starting idea.',
-      userChoices: session.directions
-        .filter(direction => session.selectedDirectionIds.includes(direction.id))
-        .map(direction => direction.title),
-      aiContribution: amplify.items.slice(0, 2).map(item => item.title),
-      ownershipLine: 'The concept started from your own seed, and the AI only helped expand the path around it.',
-      nextActions: ['Start with the MVP', 'Look up similar builds', 'Save this direction'],
-      optionalTwist: 'Optional twist: add one tiny sensory detail, like a sound or pulse, only after the MVP works.',
+      hook: chosenIdea?.hook || 'A buildable idea shaped by your original prompt.',
+      whatItDoes: chosenIdea?.whatItDoes || 'This version turns the idea into a concrete Arduino interaction with a clear input and response.',
+      components: chosenIdea?.components || [],
+      summary: 'It keeps the feeling you started with, but now it has a clearer build path and a small enough first version to begin with.',
     },
     breakdown: difficulty === 'easy'
       ? null
@@ -444,6 +521,7 @@ function buildRealizeFallback(session: BrainstormSession, amplify: AmplifyResult
           ],
           note: 'Keep the steps short so the project feels buildable, not overwhelming.',
         },
+    twist: 'Maybe you could add one extra sensory detail later, like a sudden glow shift or a small sound cue, just to make the project feel more alive.',
   };
 }
 
@@ -507,14 +585,19 @@ Return valid JSON only. No markdown fences. No extra prose.
 Schema:
 {
   "intro": "string",
-  "items": [
-    { "title": "string", "description": "string", "badge": "string" }
+  "ideas": [
+    {
+      "id": "string",
+      "title": "string",
+      "difficulty": "easy | medium | hard",
+      "hook": "string",
+      "whatItDoes": "string",
+      "components": [
+        { "name": "string", "purpose": "string" }
+      ]
+    }
   ],
-  "recommendedFocus": {
-    "title": "string",
-    "reason": "string",
-    "difficulty": "easy | medium | hard"
-  }
+  "helperText": "string"
 }
 
 Rules:
@@ -524,13 +607,15 @@ Rules:
   - decompose: preview how the direction can be built in chunks
   - challenge: ask provocative but constructive questions
   - resources: point to the most useful technical resources or ingredients first
-- Return 1-3 items.
-- Keep each description concise and concrete.
-- The recommendedFocus should identify one promising direction to carry into Stage R.
+- Return 2-4 ideas.
+- Each idea should feel like a real project direction, not a short note.
+- Each idea must include a short hook, a concise "what it does" paragraph, and a components list with purpose for each component.
+- Keep the tone close to the main branch exploring style: vivid, warm, and practical.
+- Include difficulty labels directly in the data.
 - Stay grounded in Arduino reality and the known components.`;
 }
 
-function buildRealizePrompt(session: BrainstormSession, amplify: AmplifyResult) {
+function buildRealizePrompt(session: BrainstormSession, selectedIdea: BrainstormIdea) {
   return `BRAINSTORM_JSON::
 Create the R stage output for an Arduino brainstorming flow.
 
@@ -543,12 +628,13 @@ User seed answers:
 Selected directions:
 ${session.directions.filter(direction => session.selectedDirectionIds.includes(direction.id)).map(direction => `- ${direction.title}: ${direction.description}`).join('\n')}
 
-Amplify recommendation:
-- Focus title: ${amplify.recommendedFocus.title}
-- Reason: ${amplify.recommendedFocus.reason}
-- Difficulty: ${amplify.recommendedFocus.difficulty}
-- Amplify items:
-${amplify.items.map(item => `- ${item.title}: ${item.description}`).join('\n')}
+Chosen Stage A idea:
+- Title: ${selectedIdea.title}
+- Difficulty: ${selectedIdea.difficulty}
+- Hook: ${selectedIdea.hook}
+- What it does: ${selectedIdea.whatItDoes}
+- Components:
+${selectedIdea.components.map(component => `  - ${component.name}: ${component.purpose}`).join('\n')}
 
 Return valid JSON only. No markdown fences. No extra prose.
 Schema:
@@ -557,34 +643,30 @@ Schema:
   "project": {
     "title": "string",
     "difficulty": "easy | medium | hard",
-    "tagline": "string",
-    "creativeEvaluation": "string",
-    "technicalEvaluation": "string",
-    "components": ["string"],
-    "timeEstimate": "string",
-    "hardestPart": "string",
-    "tradeoff": "string",
-    "userOrigin": "string",
-    "userChoices": ["string"],
-    "aiContribution": ["string"],
-    "ownershipLine": "string",
-    "nextActions": ["string"],
-    "optionalTwist": "string"
+    "hook": "string",
+    "whatItDoes": "string",
+    "components": [
+      { "name": "string", "purpose": "string" }
+    ],
+    "summary": "string"
   },
   "breakdown": {
     "title": "string",
     "steps": ["string"],
     "note": "string"
-  } | null
+  } | null,
+  "twist": "string"
 }
 
 Rules:
-- The project card must preserve ownership by referencing the user’s original seed in natural language.
-- The evaluation must feel honest, not overhyped.
+- Keep the tone close to the main branch project descriptions: warm, vivid, and practical.
+- The intro should be 1-2 sentences, not a large block.
+- The project should read like a complete, buildable project introduction.
 - If difficulty is medium or hard, breakdown is required and must contain 2-4 steps.
 - The first breakdown step must be a tiny MVP, like lighting one LED or making a buzzer beep.
 - Keep the breakdown short enough to avoid overwhelm.
-- If difficulty is easy, set breakdown to null.`;
+- If difficulty is easy, set breakdown to null.
+- The twist should feel optional and lightweight, as an extra playful thought, not part of the core project.`;
 }
 
 export function AIChatPage() {
@@ -626,16 +708,22 @@ export function AIChatPage() {
   };
 
   const getBrainstormDifficultyClass = (difficulty: DifficultyLevel) => `brainstorm-difficulty--${difficulty}`;
+  const formatDifficultyLabel = (difficulty: DifficultyLevel) => difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
 
   const stripComponentRefs = (content: string): string =>
     content.replace(/\[\[(add|ref):[^\]]+\]\]\s*/g, '');
+
+  const activeIdeaSelectionMessage = useMemo(
+    () => [...messages].reverse().find(msg => msg.ideaCards?.selectable && !msg.ideaCards.submitted) || null,
+    [messages]
+  );
 
   const activeSelectionMessage = useMemo(
     () => [...messages].reverse().find(msg => msg.selectionCard && !msg.selectionCard.submitted) || null,
     [messages]
   );
 
-  const canUseInput = !activeSelectionMessage && !isLoading;
+  const canUseInput = !activeSelectionMessage && !activeIdeaSelectionMessage && !isLoading;
 
   const inputPlaceholder = (() => {
     if (activeSelectionMessage?.selectionCard?.kind === 'directions') {
@@ -644,8 +732,11 @@ export function AIChatPage() {
     if (activeSelectionMessage?.selectionCard?.kind === 'actions') {
       return 'Choose one AI action below to continue...';
     }
+    if (activeIdeaSelectionMessage?.ideaCards?.selectable) {
+      return 'Choose one project direction below to continue...';
+    }
     if (brainstormSession?.stage === 'seed') {
-      return 'Type your answer to the seed question...';
+      return 'Type your answer...';
     }
     if (brainstormSession?.stage === 'realize') {
       return 'Ask a follow-up about this project idea...';
@@ -654,8 +745,14 @@ export function AIChatPage() {
   })();
 
   const getPageTitle = () => {
-    if (brainstormSession) return 'AI Brainstorming';
-    if (state?.detected && state.detected.length > 0) return 'Component Scanner';
+    if (state?.detected && state.detected.length > 0) {
+      return 'Component Scanner';
+    }
+    if (state?.initialMessage) {
+      const maxLength = 40;
+      const msg = state.initialMessage;
+      return msg.length > maxLength ? `${msg.substring(0, maxLength)}...` : msg;
+    }
     return 'AI Assistant';
   };
 
@@ -678,6 +775,9 @@ export function AIChatPage() {
       selectedDirectionIds: [],
       selectedActionId: null,
       lastAmplifyResult: null,
+      amplifyIdeas: [],
+      selectedIdeaId: null,
+      askedSeedFollowUp: false,
     });
 
     setMessages([
@@ -690,10 +790,8 @@ export function AIChatPage() {
         id: createId('assistant'),
         role: 'assistant',
         content: knownComponents.length > 0
-          ? 'This will grow from your words. You already mentioned some components, so I’ll fold that into the flow and skip the parts question.'
-          : 'This will grow from your words. Let’s add one more practical seed before we branch outward.',
-        stageCard: STAGE_COPY.seed,
-        seedQuestion: SEED_QUESTIONS[nextQuestion],
+          ? 'Nice starting point. You already mentioned some parts, so let’s focus on what you most want this thing to do if you had one afternoon to make it.'
+          : 'Nice starting point. What Arduino parts or modules do you already have nearby, or most want to use for this idea?',
       },
     ]);
   };
@@ -710,20 +808,17 @@ export function AIChatPage() {
       selectedDirectionIds: [],
       selectedActionId: null,
       lastAmplifyResult: null,
+      amplifyIdeas: [],
+      selectedIdeaId: null,
+      askedSeedFollowUp: false,
     });
 
-    setMessages(prev => [
-      ...prev,
-      {
-        id: createId('assistant'),
-        role: 'assistant',
-        content: knownComponents.length > 0
-          ? 'Let’s start from the feeling or moment you care about first. I can already see your components, so Question 2 is covered and we’ll skip it later.'
-          : 'Let’s start from the feeling or moment you care about first, then we’ll branch out together.',
-        stageCard: STAGE_COPY.seed,
-        seedQuestion: SEED_QUESTIONS.question1,
-      },
-    ]);
+    const componentNames = knownComponents.join(', ');
+    const fallback = componentNames
+      ? `I see you've got **${componentNames.toLowerCase()}** — that's a fascinating place to start. What kind of **feeling or theme** are you drawn to exploring? Maybe something about presence and absence, personal space, or something that responds to movement?`
+      : 'Tell me — is there a feeling, theme, or idea you’d like to express through a project?';
+
+    setMessages(prev => [...prev, { id: createId('assistant'), role: 'assistant', content: fallback }]);
   };
 
   useEffect(() => {
@@ -794,11 +889,10 @@ export function AIChatPage() {
           id: createId('assistant'),
           role: 'assistant',
           content: fallback.intro,
-          stageCard: STAGE_COPY.play,
           selectionCard: {
             kind: 'directions',
-            title: 'Choose 1-3 directions that feel worth developing.',
-            subtitle: 'Displayed as a broad scan first, then you commit to a few.',
+            title: 'Which directions feel worth exploring a bit more?',
+            subtitle: 'Pick up to 3.',
             options: fallback.directions.map(direction => ({
               id: direction.id,
               label: direction.title,
@@ -808,7 +902,7 @@ export function AIChatPage() {
             multiSelect: true,
             maxSelections: 3,
             selectedIds: [],
-            confirmLabel: 'Continue to Stage A',
+            confirmLabel: 'Continue',
             columns: 2,
             helperText: 'Pick up to 3. More than that usually makes the next step too shallow.',
           },
@@ -842,11 +936,10 @@ export function AIChatPage() {
           id: createId('assistant'),
           role: 'assistant',
           content: intro,
-          stageCard: STAGE_COPY.play,
           selectionCard: {
             kind: 'directions',
-            title: 'Choose 1-3 directions that feel worth developing.',
-            subtitle: 'Displayed as a broad scan first, then you commit to a few.',
+            title: 'Which directions feel worth exploring a bit more?',
+            subtitle: 'Pick up to 3.',
             options: safeDirections.map(direction => ({
               id: direction.id,
               label: direction.title,
@@ -856,7 +949,7 @@ export function AIChatPage() {
             multiSelect: true,
             maxSelections: 3,
             selectedIds: [],
-            confirmLabel: 'Continue to Stage A',
+            confirmLabel: 'Continue',
             columns: 2,
             helperText: 'Pick up to 3. More than that usually makes the next step too shallow.',
           },
@@ -872,11 +965,10 @@ export function AIChatPage() {
           id: createId('assistant'),
           role: 'assistant',
           content: fallback.intro,
-          stageCard: STAGE_COPY.play,
           selectionCard: {
             kind: 'directions',
-            title: 'Choose 1-3 directions that feel worth developing.',
-            subtitle: 'Displayed as a broad scan first, then you commit to a few.',
+            title: 'Which directions feel worth exploring a bit more?',
+            subtitle: 'Pick up to 3.',
             options: fallback.directions.map(direction => ({
               id: direction.id,
               label: direction.title,
@@ -886,7 +978,7 @@ export function AIChatPage() {
             multiSelect: true,
             maxSelections: 3,
             selectedIds: [],
-            confirmLabel: 'Continue to Stage A',
+            confirmLabel: 'Continue',
             columns: 2,
             helperText: 'Pick up to 3. More than that usually makes the next step too shallow.',
           },
@@ -897,25 +989,28 @@ export function AIChatPage() {
     }
   };
 
-  const requestRealizeStage = async (session: BrainstormSession, amplify: AmplifyResult) => {
+  const requestRealizeStage = async (session: BrainstormSession, selectedIdea: BrainstormIdea) => {
     try {
-      const response = await sendMessage(buildRealizePrompt(session, amplify), [], circuitState);
+      const response = await sendMessage(buildRealizePrompt(session, selectedIdea), [], circuitState);
       const parsed = parseAIResponse(response.content);
       const payload = extractJsonPayload(parsed.content) as {
         intro?: string;
-        project?: RealizeResult['project'];
+        project?: Partial<FinalProjectData>;
         breakdown?: RealizeResult['breakdown'];
+        twist?: string;
       };
 
-      const fallback = buildRealizeFallback(session, amplify);
+      const fallback = buildRealizeFallback(session, { intro: '', ideas: [selectedIdea] });
       const project = payload.project
         ? {
-            ...payload.project,
+            title: cleanInlineMarkdown(payload.project.title || fallback.project.title),
             difficulty: normalizeDifficulty(payload.project.difficulty),
-            components: Array.isArray(payload.project.components) ? payload.project.components : fallback.project.components,
-            userChoices: Array.isArray(payload.project.userChoices) ? payload.project.userChoices : fallback.project.userChoices,
-            aiContribution: Array.isArray(payload.project.aiContribution) ? payload.project.aiContribution : fallback.project.aiContribution,
-            nextActions: Array.isArray(payload.project.nextActions) ? payload.project.nextActions : fallback.project.nextActions,
+            hook: cleanInlineMarkdown(payload.project.hook || fallback.project.hook),
+            whatItDoes: cleanInlineMarkdown(payload.project.whatItDoes || fallback.project.whatItDoes),
+            components: normalizeComponentNeeds(payload.project.components).length > 0
+              ? normalizeComponentNeeds(payload.project.components)
+              : fallback.project.components,
+            summary: cleanInlineMarkdown(payload.project.summary || fallback.project.summary),
           }
         : fallback.project;
 
@@ -937,33 +1032,30 @@ export function AIChatPage() {
           id: createId('assistant'),
           role: 'assistant',
           content: payload.intro || fallback.intro,
-          stageCard: STAGE_COPY.realize,
-          evaluationCard: {
+          finalProject: {
             title: project.title,
             difficulty,
-            tagline: project.tagline,
-            creativeEvaluation: project.creativeEvaluation,
-            technicalEvaluation: project.technicalEvaluation,
+            hook: project.hook,
+            whatItDoes: project.whatItDoes,
             components: project.components,
-            timeEstimate: project.timeEstimate,
-            hardestPart: project.hardestPart,
-            tradeoff: project.tradeoff,
+            summary: project.summary,
           },
           breakdownCard: normalizedBreakdown || undefined,
-          projectStartCard: {
-            projectName: project.title,
-            userOrigin: project.userOrigin,
-            userChoices: project.userChoices,
-            aiContribution: project.aiContribution,
-            ownershipLine: project.ownershipLine,
-            nextActions: project.nextActions,
-            optionalTwist: project.optionalTwist,
+          twistCallout: {
+            title: 'Have more fun',
+            content: cleanInlineMarkdown(payload.twist || fallback.twist || ''),
+          },
+          actionButtons: {
+            buttons: [
+              { id: 'start-project', label: "Sounds good, let's start project" },
+              { id: 'restart', label: 'Start over' },
+            ],
           },
         },
       ]);
     } catch (error) {
       console.error('Brainstorm realize error:', error);
-      const fallback = buildRealizeFallback(session, amplify);
+      const fallback = buildRealizeFallback(session, { intro: '', ideas: [selectedIdea] });
       setBrainstormSession(prev => prev ? { ...prev, stage: 'realize' } : prev);
       setMessages(prev => [
         ...prev,
@@ -971,17 +1063,17 @@ export function AIChatPage() {
           id: createId('assistant'),
           role: 'assistant',
           content: fallback.intro,
-          stageCard: STAGE_COPY.realize,
-          evaluationCard: fallback.project,
+          finalProject: fallback.project,
           breakdownCard: fallback.breakdown || undefined,
-          projectStartCard: {
-            projectName: fallback.project.title,
-            userOrigin: fallback.project.userOrigin,
-            userChoices: fallback.project.userChoices,
-            aiContribution: fallback.project.aiContribution,
-            ownershipLine: fallback.project.ownershipLine,
-            nextActions: fallback.project.nextActions,
-            optionalTwist: fallback.project.optionalTwist,
+          twistCallout: {
+            title: 'Have more fun',
+            content: fallback.twist || '',
+          },
+          actionButtons: {
+            buttons: [
+              { id: 'start-project', label: "Sounds good, let's start project" },
+              { id: 'restart', label: 'Start over' },
+            ],
           },
         },
       ]);
@@ -999,71 +1091,72 @@ export function AIChatPage() {
       } else {
         const response = await sendMessage(buildAmplifyPrompt(session), [], circuitState);
         const parsed = parseAIResponse(response.content);
-        const payload = extractJsonPayload(parsed.content) as AmplifyResult;
+        const payload = extractJsonPayload(parsed.content) as {
+          intro?: string;
+          ideas?: Partial<BrainstormIdea>[];
+          helperText?: string;
+        };
         amplify = {
           intro: payload.intro || buildAmplifyFallback(session).intro,
-          items: Array.isArray(payload.items) && payload.items.length > 0 ? payload.items.slice(0, 3) : buildAmplifyFallback(session).items,
-          recommendedFocus: payload.recommendedFocus
-            ? {
-                title: payload.recommendedFocus.title,
-                reason: payload.recommendedFocus.reason,
-                difficulty: normalizeDifficulty(payload.recommendedFocus.difficulty),
-              }
-            : buildAmplifyFallback(session).recommendedFocus,
+          ideas: Array.isArray(payload.ideas) && payload.ideas.length > 0
+            ? payload.ideas.slice(0, 4).map((idea, index) => normalizeIdea(idea, `amplify-${index + 1}`))
+            : buildAmplifyFallback(session).ideas,
+          helperText: cleanInlineMarkdown(payload.helperText || buildAmplifyFallback(session).helperText || ''),
         };
       }
 
-      setBrainstormSession(prev => prev ? { ...prev, stage: 'amplify', lastAmplifyResult: amplify } : prev);
+      setBrainstormSession(prev => prev ? {
+        ...prev,
+        stage: 'amplify',
+        lastAmplifyResult: amplify,
+        amplifyIdeas: amplify.ideas,
+        selectedIdeaId: null,
+      } : prev);
       setMessages(prev => [
         ...prev,
         {
           id: createId('assistant'),
           role: 'assistant',
           content: amplify.intro,
-          stageCard: STAGE_COPY.amplify,
-          insightCard: {
-            title: 'AI amplification',
-            subtitle: amplify.recommendedFocus.reason,
-            items: amplify.items,
+          ideaCards: {
+            title: 'Here are a few stronger directions to choose from.',
+            subtitle: session.selectedActionId === 'challenge'
+              ? 'These are shaped by a harder question about what you want the project to feel like.'
+              : undefined,
+            ideas: amplify.ideas,
+            selectable: true,
+            selectedId: null,
+            confirmLabel: 'Continue',
+            helperText: amplify.helperText,
           },
         },
       ]);
-
-      await requestRealizeStage(
-        {
-          ...session,
-          stage: 'amplify',
-          lastAmplifyResult: amplify,
-        },
-        amplify
-      );
     } catch (error) {
       console.error('Brainstorm amplify error:', error);
       const fallback = buildAmplifyFallback(session);
-      setBrainstormSession(prev => prev ? { ...prev, stage: 'amplify', lastAmplifyResult: fallback } : prev);
+      setBrainstormSession(prev => prev ? {
+        ...prev,
+        stage: 'amplify',
+        lastAmplifyResult: fallback,
+        amplifyIdeas: fallback.ideas,
+        selectedIdeaId: null,
+      } : prev);
       setMessages(prev => [
         ...prev,
         {
           id: createId('assistant'),
           role: 'assistant',
           content: fallback.intro,
-          stageCard: STAGE_COPY.amplify,
-          insightCard: {
-            title: 'AI amplification',
-            subtitle: fallback.recommendedFocus.reason,
-            items: fallback.items,
+          ideaCards: {
+            title: 'Here are a few stronger directions to choose from.',
+            ideas: fallback.ideas,
+            selectable: true,
+            selectedId: null,
+            confirmLabel: 'Continue',
+            helperText: fallback.helperText,
           },
         },
       ]);
-
-      await requestRealizeStage(
-        {
-          ...session,
-          stage: 'amplify',
-          lastAmplifyResult: fallback,
-        },
-        fallback
-      );
     } finally {
       setIsLoading(false);
     }
@@ -1073,10 +1166,16 @@ export function AIChatPage() {
     if (!brainstormSession || !brainstormSession.currentQuestion) return;
 
     const questionId = brainstormSession.currentQuestion;
-    const nextAnswers = { ...brainstormSession.answers, [questionId]: text };
+    const history = buildConversationHistory(messages);
+    const nextAnswers = questionId === 'question1-followup'
+      ? {
+          ...brainstormSession.answers,
+          question1: [brainstormSession.answers.question1, text].filter(Boolean).join(' | '),
+        }
+      : { ...brainstormSession.answers, [questionId]: text };
     let nextKnownComponents = brainstormSession.knownComponents;
 
-    if (questionId === 'question1' || questionId === 'question2') {
+    if (questionId === 'question1' || questionId === 'question2' || questionId === 'question1-followup') {
       nextKnownComponents = uniqueStrings([...nextKnownComponents, ...detectMentionedComponents(text)]);
     }
 
@@ -1085,7 +1184,41 @@ export function AIChatPage() {
       { id: createId('user'), role: 'user', content: text },
     ]);
 
-    if (questionId === 'question1') {
+    if (questionId === 'question1' && !brainstormSession.askedSeedFollowUp) {
+      let followUpContent = `That's a strong starting point. What's one small moment, image, or sensation that captures it for you?`;
+
+      if (isAIServiceConfigured()) {
+        setIsLoading(true);
+        try {
+          const response = await sendMessage(text, [], circuitState, undefined, history);
+          const parsed = parseAIResponse(response.content);
+          followUpContent = parsed.content;
+        } catch (error) {
+          console.error('Brainstorm seed follow-up error:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+
+      setBrainstormSession({
+        ...brainstormSession,
+        answers: nextAnswers,
+        knownComponents: nextKnownComponents,
+        currentQuestion: 'question1-followup',
+        askedSeedFollowUp: true,
+      });
+      setMessages(prev => [
+        ...prev,
+        {
+          id: createId('assistant'),
+          role: 'assistant',
+          content: followUpContent,
+        },
+      ]);
+      return;
+    }
+
+    if (questionId === 'question1' || questionId === 'question1-followup') {
       const hasComponentsAlready = nextKnownComponents.length > 0;
       const nextQuestion = hasComponentsAlready ? 'question3' : 'question2';
       const nextSession: BrainstormSession = {
@@ -1104,10 +1237,8 @@ export function AIChatPage() {
           id: createId('assistant'),
           role: 'assistant',
           content: hasComponentsAlready
-            ? 'Nice. You already gave enough hints about the parts, so I’ll skip Question 2 and ask the last seed prompt.'
-            : 'Good starting point. Let’s anchor it in the parts you actually have before we branch out.',
-          stageCard: STAGE_COPY.seed,
-          seedQuestion: SEED_QUESTIONS[nextQuestion],
+            ? 'That gives me something real to work with. If you had one afternoon, what would you most want to make something able to do?'
+            : 'That helps. What Arduino parts or modules do you already have nearby, or most want to use for this idea?',
         },
       ]);
       return;
@@ -1126,9 +1257,7 @@ export function AIChatPage() {
         {
           id: createId('assistant'),
           role: 'assistant',
-          content: 'Perfect. One last seed, then I’ll open up the idea space.',
-          stageCard: STAGE_COPY.seed,
-          seedQuestion: SEED_QUESTIONS.question3,
+          content: 'Nice. If you had one afternoon, what would you most want to make something able to do?',
         },
       ]);
       return;
@@ -1147,7 +1276,7 @@ export function AIChatPage() {
 
   const handleSend = async () => {
     const text = input.trim();
-    if (!text || isLoading || activeSelectionMessage) return;
+    if (!text || isLoading || activeSelectionMessage || activeIdeaSelectionMessage) return;
     setInput('');
 
     if (brainstormSession?.stage === 'seed' && brainstormSession.currentQuestion) {
@@ -1224,7 +1353,7 @@ export function AIChatPage() {
     if (messages.length < 2) return null;
     for (let index = messages.length - 1; index >= 0; index -= 1) {
       const msg = messages[index];
-      if (msg.projectStartCard || msg.selectionCard || msg.evaluationCard) continue;
+      if (msg.ideaCards || msg.selectionCard || msg.finalProject || msg.actionButtons) continue;
       if (msg.role === 'assistant' && msg.content && isConnectionMessage(msg.content)) {
         return msg.id;
       }
@@ -1247,10 +1376,22 @@ export function AIChatPage() {
     navigate(`/project/${projectId}`);
   };
 
+  const handleRestartBrainstorm = () => {
+    navigate('/ai-chat', { state });
+  };
+
   const updateSelectionCard = (messageId: string, updater: (card: SelectionCardData) => SelectionCardData) => {
     setMessages(prev => prev.map(msg => (
       msg.id === messageId && msg.selectionCard
         ? { ...msg, selectionCard: updater(msg.selectionCard) }
+        : msg
+    )));
+  };
+
+  const updateIdeaCards = (messageId: string, updater: (cards: IdeaCardsData) => IdeaCardsData) => {
+    setMessages(prev => prev.map(msg => (
+      msg.id === messageId && msg.ideaCards
+        ? { ...msg, ideaCards: updater(msg.ideaCards) }
         : msg
     )));
   };
@@ -1295,11 +1436,10 @@ export function AIChatPage() {
           id: createId('assistant'),
           role: 'assistant',
           content: 'Great. Now choose how you want AI to help with those directions.',
-          stageCard: STAGE_COPY.amplify,
           selectionCard: {
             kind: 'actions',
-            title: 'Choose one action for Stage A.',
-            subtitle: 'The AI follows your choice instead of deciding the next move for you.',
+            title: 'How should I help with these directions?',
+            subtitle: 'Choose one action.',
             options: AMPLIFY_ACTIONS.map(action => ({
               id: action.id,
               label: action.title,
@@ -1308,8 +1448,8 @@ export function AIChatPage() {
             multiSelect: false,
             maxSelections: 1,
             selectedIds: [],
-            confirmLabel: 'Run this action',
-            columns: 2,
+            confirmLabel: 'Continue',
+            columns: 1,
             helperText: 'One action at a time keeps the direction clear.',
           },
         },
@@ -1342,6 +1482,56 @@ export function AIChatPage() {
       setBrainstormSession(nextSession);
       await requestAmplifyStage(nextSession);
     }
+  };
+
+  const handleIdeaToggle = (messageId: string, ideaId: string) => {
+    const message = messages.find(msg => msg.id === messageId);
+    const cards = message?.ideaCards;
+    if (!cards || cards.submitted || !cards.selectable) return;
+
+    updateIdeaCards(messageId, current => ({
+      ...current,
+      selectedId: current.selectedId === ideaId ? null : ideaId,
+    }));
+  };
+
+  const handleIdeaConfirm = async (messageId: string) => {
+    const message = messages.find(msg => msg.id === messageId);
+    const cards = message?.ideaCards;
+    if (!cards || cards.submitted || !cards.selectable || !cards.selectedId || !brainstormSession) return;
+
+    updateIdeaCards(messageId, current => ({ ...current, submitted: true }));
+    const selectedIdea = brainstormSession.amplifyIdeas.find(idea => idea.id === cards.selectedId);
+    if (!selectedIdea) return;
+
+    setMessages(prev => [
+      ...prev,
+      {
+        id: createId('user'),
+        role: 'user',
+        content: `Let's continue with **${selectedIdea.title}**.`,
+      },
+    ]);
+
+    const nextSession: BrainstormSession = {
+      ...brainstormSession,
+      selectedIdeaId: selectedIdea.id,
+    };
+    setBrainstormSession(nextSession);
+    setIsLoading(true);
+    try {
+      await requestRealizeStage(nextSession, selectedIdea);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleActionButton = (actionId: 'start-project' | 'restart') => {
+    if (actionId === 'start-project') {
+      handleStartProject();
+      return;
+    }
+    handleRestartBrainstorm();
   };
 
   const handleGoalChoice = async (choiceId: string) => {
@@ -1379,6 +1569,28 @@ export function AIChatPage() {
     }
 
     initializeBrainstormFromScanner();
+    if (isAIServiceConfigured()) {
+      setIsLoading(true);
+      try {
+        const detected = state?.detected || [];
+        const componentNames = detected.map(d => d.className).join(', ');
+        const exploringPrompt = `The user has these components: ${componentNames}. They chose "Exploring" mode — they want to brainstorm and discover creative project ideas. Start by asking them about what feelings, themes or ideas they'd like to explore. Be conversational and encouraging. Keep it brief. Mention the component naturally first, then ask the feeling question with a little guidance.`;
+        const response = await sendMessage(exploringPrompt, [], circuitState);
+        const parsed = parseAIResponse(response.content);
+        setMessages(prev => {
+          const next = [...prev];
+          const lastAssistantIndex = next.map(item => item.role).lastIndexOf('assistant');
+          if (lastAssistantIndex >= 0) {
+            next[lastAssistantIndex] = { ...next[lastAssistantIndex], content: parsed.content };
+          }
+          return next;
+        });
+      } catch (error) {
+        console.error('Exploring intro error:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
   };
 
   return (
@@ -1432,32 +1644,10 @@ export function AIChatPage() {
                       </div>
                     )}
 
-                    {msg.stageCard && (
-                      <div className="brainstorm-stage-card">
-                        <div className={`brainstorm-stage-badge brainstorm-stage-badge--${msg.stageCard.stage}`}>
-                          {msg.stageCard.stage.toUpperCase()}
-                        </div>
-                        <div className="brainstorm-stage-copy">
-                          <div className="brainstorm-stage-title">{msg.stageCard.title}</div>
-                          <div className="brainstorm-stage-description">{msg.stageCard.description}</div>
-                        </div>
-                      </div>
-                    )}
-
                     {msg.content && (
                       <div className="scan-chat-text">
                         {parseMarkdown(
                           msg.role === 'assistant' ? stripComponentRefs(msg.content) : msg.content
-                        )}
-                      </div>
-                    )}
-
-                    {msg.seedQuestion && (
-                      <div className="brainstorm-seed-card">
-                        <div className="brainstorm-seed-counter">Question {msg.seedQuestion.index} / {msg.seedQuestion.total}</div>
-                        <div className="brainstorm-seed-prompt">{msg.seedQuestion.prompt}</div>
-                        {msg.seedQuestion.hint && (
-                          <div className="brainstorm-seed-hint">{msg.seedQuestion.hint}</div>
                         )}
                       </div>
                     )}
@@ -1528,24 +1718,6 @@ export function AIChatPage() {
                       </div>
                     )}
 
-                    {msg.insightCard && (
-                      <div className="brainstorm-insight-card">
-                        <div className="brainstorm-insight-title">{msg.insightCard.title}</div>
-                        {msg.insightCard.subtitle && (
-                          <div className="brainstorm-insight-subtitle">{msg.insightCard.subtitle}</div>
-                        )}
-                        <div className="brainstorm-insight-list">
-                          {msg.insightCard.items.map(item => (
-                            <div key={item.title} className="brainstorm-insight-item">
-                              {item.badge && <div className="brainstorm-insight-badge">{item.badge}</div>}
-                              <div className="brainstorm-insight-item-title">{item.title}</div>
-                              <div className="brainstorm-insight-item-description">{item.description}</div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
                     {msg.projectCards && (
                       <div className="featured-projects-section">
                         <div className="featured-projects-grid">
@@ -1589,35 +1761,77 @@ export function AIChatPage() {
                       </div>
                     )}
 
-                    {msg.evaluationCard && (
-                      <div className="brainstorm-evaluation-card">
-                        <div className="brainstorm-evaluation-header">
-                          <div>
-                            <div className="brainstorm-evaluation-title">{msg.evaluationCard.title}</div>
-                            <div className="brainstorm-evaluation-tagline">{msg.evaluationCard.tagline}</div>
-                          </div>
-                          <span className={`brainstorm-difficulty-chip ${getBrainstormDifficultyClass(msg.evaluationCard.difficulty)}`}>
-                            {msg.evaluationCard.difficulty}
-                          </span>
+                    {msg.ideaCards && (
+                      <div className="brainstorm-idea-cards">
+                        {msg.ideaCards.title && (
+                          <div className="brainstorm-selection-title">{msg.ideaCards.title}</div>
+                        )}
+                        {msg.ideaCards.subtitle && (
+                          <div className="brainstorm-selection-subtitle">{msg.ideaCards.subtitle}</div>
+                        )}
+                        <div className="brainstorm-idea-list">
+                          {msg.ideaCards.ideas.map(idea => {
+                            const isSelected = msg.ideaCards?.selectedId === idea.id;
+                            return (
+                              <button
+                                key={idea.id}
+                                type="button"
+                                className={`brainstorm-idea-card ${isSelected ? 'selected' : ''} ${msg.ideaCards?.selectable ? 'brainstorm-idea-card--selectable' : ''}`}
+                                onClick={() => msg.ideaCards?.selectable && handleIdeaToggle(msg.id, idea.id)}
+                                disabled={!msg.ideaCards?.selectable || !!msg.ideaCards.submitted}
+                              >
+                                <div className="brainstorm-idea-header">
+                                  <div className="brainstorm-idea-title-group">
+                                    <div className="brainstorm-idea-title">{idea.title}</div>
+                                    {idea.hook && <div className="brainstorm-idea-hook">{idea.hook}</div>}
+                                  </div>
+                                  <div className="brainstorm-idea-chip-row">
+                                    <span className={`brainstorm-difficulty-chip ${getBrainstormDifficultyClass(idea.difficulty)}`}>
+                                      {formatDifficultyLabel(idea.difficulty)}
+                                    </span>
+                                    {msg.ideaCards?.selectable && (
+                                      <span className={`brainstorm-option-check ${isSelected ? 'selected' : ''}`}>
+                                        {isSelected && <Check size={12} />}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="brainstorm-idea-section">
+                                  <div className="brainstorm-idea-section-title">What it does</div>
+                                  <p>{idea.whatItDoes}</p>
+                                </div>
+                                {idea.components.length > 0 && (
+                                  <div className="brainstorm-idea-section">
+                                    <div className="brainstorm-idea-section-title">Components needed</div>
+                                    <div className="brainstorm-component-list">
+                                      {idea.components.map(component => (
+                                        <div key={`${idea.id}-${component.name}`} className="brainstorm-component-item">
+                                          <strong>{component.name}</strong>
+                                          {component.purpose && <span> — {component.purpose}</span>}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </button>
+                            );
+                          })}
                         </div>
-                        <div className="brainstorm-evaluation-grid">
-                          <div className="brainstorm-evaluation-panel">
-                            <div className="brainstorm-panel-title">Creative evaluation</div>
-                            <p>{msg.evaluationCard.creativeEvaluation}</p>
+                        {msg.ideaCards?.selectable && (
+                          <div className="brainstorm-selection-footer">
+                            {msg.ideaCards.helperText && (
+                              <div className="brainstorm-selection-helper">{msg.ideaCards.helperText}</div>
+                            )}
+                            <button
+                              type="button"
+                              className="brainstorm-confirm-btn"
+                              onClick={() => handleIdeaConfirm(msg.id)}
+                              disabled={!msg.ideaCards.selectedId || !!msg.ideaCards.submitted}
+                            >
+                              {msg.ideaCards.submitted ? 'Locked in' : (msg.ideaCards.confirmLabel || 'Continue')}
+                            </button>
                           </div>
-                          <div className="brainstorm-evaluation-panel">
-                            <div className="brainstorm-panel-title">Technical evaluation</div>
-                            <p>{msg.evaluationCard.technicalEvaluation}</p>
-                            <div className="brainstorm-tech-meta">
-                              <div><strong>Parts:</strong> {msg.evaluationCard.components.join(', ')}</div>
-                              <div><strong>Time:</strong> {msg.evaluationCard.timeEstimate}</div>
-                              <div><strong>Hardest step:</strong> {msg.evaluationCard.hardestPart}</div>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="brainstorm-tradeoff">
-                          <strong>Worth considering:</strong> {msg.evaluationCard.tradeoff}
-                        </div>
+                        )}
                       </div>
                     )}
 
@@ -1636,42 +1850,65 @@ export function AIChatPage() {
                       </div>
                     )}
 
-                    {msg.projectStartCard && (
-                      <div className="brainstorm-start-card">
-                        <div className="brainstorm-start-eyebrow">Project starting point</div>
-                        <div className="brainstorm-start-title">{msg.projectStartCard.projectName}</div>
-                        <div className="brainstorm-start-block">
-                          <div className="brainstorm-start-label">Core seed from the user</div>
-                          <p>{msg.projectStartCard.userOrigin}</p>
-                        </div>
-                        <div className="brainstorm-start-block">
-                          <div className="brainstorm-start-label">Directions the user chose</div>
-                          <div className="brainstorm-token-list">
-                            {msg.projectStartCard.userChoices.map(choice => (
-                              <span key={choice} className="brainstorm-token">{choice}</span>
-                            ))}
+                    {msg.finalProject && (
+                      <div className="brainstorm-idea-cards">
+                        <div className="brainstorm-idea-list">
+                          <div className="brainstorm-idea-card brainstorm-idea-card--final">
+                            <div className="brainstorm-idea-header">
+                              <div className="brainstorm-idea-title-group">
+                                <div className="brainstorm-idea-title">{msg.finalProject.title}</div>
+                                {msg.finalProject.hook && <div className="brainstorm-idea-hook">{msg.finalProject.hook}</div>}
+                              </div>
+                              <span className={`brainstorm-difficulty-chip ${getBrainstormDifficultyClass(msg.finalProject.difficulty)}`}>
+                                {formatDifficultyLabel(msg.finalProject.difficulty)}
+                              </span>
+                            </div>
+                            <div className="brainstorm-idea-section">
+                              <div className="brainstorm-idea-section-title">What it does</div>
+                              <p>{msg.finalProject.whatItDoes}</p>
+                            </div>
+                            {msg.finalProject.components.length > 0 && (
+                              <div className="brainstorm-idea-section">
+                                <div className="brainstorm-idea-section-title">Components needed</div>
+                                <div className="brainstorm-component-list">
+                                  {msg.finalProject.components.map(component => (
+                                    <div key={`${msg.id}-${component.name}`} className="brainstorm-component-item">
+                                      <strong>{component.name}</strong>
+                                      {component.purpose && <span> — {component.purpose}</span>}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            <div className="brainstorm-project-summary">{msg.finalProject.summary}</div>
                           </div>
                         </div>
-                        <div className="brainstorm-start-block">
-                          <div className="brainstorm-start-label">AI helped expand</div>
-                          <div className="brainstorm-token-list">
-                            {msg.projectStartCard.aiContribution.map(choice => (
-                              <span key={choice} className="brainstorm-token brainstorm-token--soft">{choice}</span>
-                            ))}
-                          </div>
+                      </div>
+                    )}
+
+                    {msg.twistCallout && (
+                      <div className="brainstorm-twist-card">
+                        <div className="brainstorm-twist-title">
+                          <Lightbulb size={16} />
+                          <span>{msg.twistCallout.title}</span>
                         </div>
-                        <div className="brainstorm-start-ownership">{msg.projectStartCard.ownershipLine}</div>
-                        <div className="brainstorm-start-block">
-                          <div className="brainstorm-start-label">Next actions</div>
-                          <div className="brainstorm-token-list">
-                            {msg.projectStartCard.nextActions.map(action => (
-                              <span key={action} className="brainstorm-token">{action}</span>
-                            ))}
-                          </div>
-                        </div>
-                        {msg.projectStartCard.optionalTwist && (
-                          <div className="brainstorm-optional-twist">{msg.projectStartCard.optionalTwist}</div>
-                        )}
+                        <div className="brainstorm-twist-content">{msg.twistCallout.content}</div>
+                      </div>
+                    )}
+
+                    {msg.actionButtons && (
+                      <div className="brainstorm-action-buttons">
+                        {msg.actionButtons.buttons.map(action => (
+                          <button
+                            key={action.id}
+                            type="button"
+                            className={`brainstorm-action-btn ${action.id === 'restart' ? 'brainstorm-action-btn--secondary' : ''}`}
+                            onClick={() => handleActionButton(action.id)}
+                          >
+                            {action.id === 'restart' && <RotateCcw size={14} />}
+                            <span>{action.label}</span>
+                          </button>
+                        ))}
                       </div>
                     )}
                   </div>
