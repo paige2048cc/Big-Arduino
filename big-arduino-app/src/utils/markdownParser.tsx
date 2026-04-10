@@ -4,6 +4,7 @@
  * Parses a subset of markdown without external dependencies:
  * - Numbered lists (1. item)
  * - Bold text (**bold**)
+ * - Italic text (*italic*)
  */
 
 import React from 'react';
@@ -23,7 +24,7 @@ export function parseMarkdown(text: string): React.ReactNode {
       result.push(
         <ol key={`list-${result.length}`} className="markdown-list" start={listStartNumber}>
           {currentList.map((item, i) => (
-            <li key={i}>{parseBold(item)}</li>
+            <li key={i}>{parseInlineMarkdown(item)}</li>
           ))}
         </ol>
       );
@@ -55,7 +56,7 @@ export function parseMarkdown(text: string): React.ReactNode {
         // Regular text line - parse bold and add
         result.push(
           <span key={`text-${i}`}>
-            {parseBold(line)}
+            {parseInlineMarkdown(line)}
             {i < lines.length - 1 && <br />}
           </span>
         );
@@ -70,29 +71,28 @@ export function parseMarkdown(text: string): React.ReactNode {
 }
 
 /**
- * Parse bold text (**bold**) in a string
+ * Parse inline markdown (**bold**, *italic*) in a string
  */
-function parseBold(text: string): React.ReactNode {
+function parseInlineMarkdown(text: string): React.ReactNode {
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
-  const boldRegex = /\*\*(.+?)\*\*/g;
+  const inlineRegex = /(\*\*([^*]+)\*\*)|(\*([^*]+)\*)/g;
   let match;
 
-  while ((match = boldRegex.exec(text)) !== null) {
-    // Add text before the bold
+  while ((match = inlineRegex.exec(text)) !== null) {
     if (match.index > lastIndex) {
       parts.push(text.slice(lastIndex, match.index));
     }
 
-    // Add bold text
-    parts.push(
-      <strong key={`bold-${match.index}`}>{match[1]}</strong>
-    );
+    if (match[2]) {
+      parts.push(<strong key={`bold-${match.index}`}>{match[2]}</strong>);
+    } else if (match[4]) {
+      parts.push(<em key={`italic-${match.index}`}>{match[4]}</em>);
+    }
 
     lastIndex = match.index + match[0].length;
   }
 
-  // Add remaining text
   if (lastIndex < text.length) {
     parts.push(text.slice(lastIndex));
   }

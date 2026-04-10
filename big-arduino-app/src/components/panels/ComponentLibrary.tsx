@@ -8,13 +8,22 @@ import './ComponentLibrary.css';
 
 interface ComponentLibraryProps {
   onComponentDragStart?: (componentId: string) => void;
+  allowedComponentIds?: string[];
+  titleOverride?: string;
+  descriptionOverride?: string;
 }
 
-export function ComponentLibrary({ onComponentDragStart }: ComponentLibraryProps) {
+export function ComponentLibrary({
+  onComponentDragStart,
+  allowedComponentIds,
+  titleOverride,
+  descriptionOverride,
+}: ComponentLibraryProps) {
   const projectNeededSectionId = 'project-needed';
   const [searchQuery, setSearchQuery] = useState('');
   const [componentCategories, setComponentCategories] = useState<LibraryComponentSection[]>([]);
   const highlightedComponents = useHighlightedToolbarComponents();
+  const allowedSet = allowedComponentIds ? new Set(allowedComponentIds.map(id => id.toLowerCase())) : null;
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set([
       projectNeededSectionId,
@@ -105,14 +114,23 @@ export function ComponentLibrary({ onComponentDragStart }: ComponentLibraryProps
   const filteredCategories = sectionsToRender
     .map(category => ({
       ...category,
-      components: category.components.filter(comp =>
-        (comp.searchText || comp.name.toLowerCase()).includes(normalizedSearchQuery)
-      ),
+      components: category.components.filter(comp => {
+        const searchableText = comp.searchText || comp.name.toLowerCase();
+        const matchesSearch = searchableText.includes(normalizedSearchQuery);
+        const matchesAllowed = !allowedSet || allowedSet.has(comp.id.toLowerCase());
+        return matchesSearch && matchesAllowed;
+      }),
     }))
     .filter(category => category.components.length > 0);
 
   return (
     <div className="component-library">
+      {(titleOverride || descriptionOverride) && (
+        <div className="component-library-context">
+          {titleOverride && <div className="component-library-context__title">{titleOverride}</div>}
+          {descriptionOverride && <div className="component-library-context__description">{descriptionOverride}</div>}
+        </div>
+      )}
       {/* Search */}
       <div className="component-search">
         <Search size={16} />
@@ -151,7 +169,10 @@ export function ComponentLibrary({ onComponentDragStart }: ComponentLibraryProps
                     key={`${category.id}-${component.id}`}
                     component={component}
                     category={component.folder}
-                    highlighted={category.id === projectNeededSectionId}
+                    highlighted={
+                      category.id === projectNeededSectionId ||
+                      highlightedComponents.includes(component.id)
+                    }
                     onDragStart={onComponentDragStart}
                   />
                 ))}
