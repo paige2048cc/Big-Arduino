@@ -223,16 +223,16 @@ export function HomePage() {
 
               <div className="home-hero-content">
                 <div className="home-hero-title">
-                  <h1>What will you create today?</h1>
+                  <h1>Let's grow an idea into a project</h1>
                 </div>
                 <p className="home-hero-subtitle">
-                  Describe your idea and our AI will help you plan the circuit, write the code, and simulate it instantly.
+                  Tell us what's been on your mind, what parts you have, or what kind of interaction you want to create. The AI will help you explore the space.
                 </p>
 
                 <div className="home-idea-input">
                   <input
                     type="text"
-                    placeholder="e.g., 'A plant watering reminder with LED indicators'"
+                    placeholder="e.g. “I want to make something that helps me stop forgetting to water plants”"
                     value={ideaInput}
                     onChange={(e) => setIdeaInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
