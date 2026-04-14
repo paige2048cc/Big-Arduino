@@ -11,9 +11,11 @@ import './AIChatPage.css';
 
 type StageId = 'seed' | 'play' | 'amplify' | 'realize';
 type SeedQuestionId = 'question1' | 'question2' | 'question3';
+type BrainstormQuestionId = SeedQuestionId | 'question1-followup' | 'idea-description' | 'project-description' | 'custom-input';
 type DifficultyLevel = 'easy' | 'medium' | 'hard';
 type AmplifyActionId = 'expand' | 'combine' | 'decompose' | 'challenge';
 type EntryModeId = 'many-ideas' | 'have-components' | 'dont-know' | 'optimize-existing';
+type EntrySelectionId = EntryModeId | 'custom-input';
 
 interface StageCardData {
   stage: StageId;
@@ -155,7 +157,7 @@ interface BrainstormSession {
   source: 'home' | 'scanner';
   entryMode: EntryModeId | null;
   stage: StageId;
-  currentQuestion: SeedQuestionId | 'question1-followup' | 'idea-description' | 'project-description' | null;
+  currentQuestion: BrainstormQuestionId | null;
   answers: Partial<Record<SeedQuestionId, string>>;
   knownComponents: string[];
   directions: BrainstormDirection[];
@@ -327,24 +329,6 @@ function normalizeIdea(rawIdea: Partial<BrainstormIdea>, fallbackId: string): Br
   };
 }
 
-function normalizeSearchText(text: string) {
-  return text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-}
-
-function inferComponentDefinitionId(text: string): string | null {
-  const normalized = normalizeSearchText(text);
-  if (!normalized) return null;
-
-  if (normalized.includes('arduino')) return 'arduino-uno';
-  if (normalized.includes('breadboard')) return 'breadboard';
-  if (normalized.includes('resistor')) return 'registor_220ω';
-
-  const keywordMatch = COMPONENT_KEYWORDS.find(item =>
-    item.keywords.some(keyword => normalized.includes(normalizeSearchText(keyword)))
-  );
-  return keywordMatch?.definitionId || null;
-}
-
 function summarizeStepTitle(stepText: string, fallbackTitle: string): string {
   const cleaned = cleanInlineMarkdown(stepText)
     .replace(/^step\s*\d+[:.)\-\s]*/i, '')
@@ -357,37 +341,10 @@ function summarizeStepTitle(stepText: string, fallbackTitle: string): string {
   return summary.length > 60 ? `${summary.slice(0, 57).trim()}...` : summary;
 }
 
-function buildStartProjectConfig(message: ChatMessage) {
-  const firstStep = cleanInlineMarkdown(message.breakdownCard?.steps?.[0] || '');
-  const finalProject = message.finalProject;
-  const fallbackTitle = finalProject?.title || 'AI Project';
-  const titleSummary = summarizeStepTitle(firstStep, fallbackTitle);
-
-  const inferredIds = uniqueStrings([
-    ...((firstStep ? [firstStep] : []).map(inferComponentDefinitionId).filter((id): id is string => !!id)),
-    ...((finalProject?.components || [])
-      .map(component => inferComponentDefinitionId(component.name))
-      .filter((id): id is string => !!id)),
-  ]);
-
-  const stepComponentIds = uniqueStrings([
-    'arduino-uno',
-    'breadboard',
-    ...inferredIds,
-  ]);
-
+function buildStartProjectNavigationState() {
   return {
-    projectTitle: `Step 1: ${titleSummary}`,
-    projectComponentIds: stepComponentIds,
-    projectComponentSummary: firstStep || `Start with the MVP for ${fallbackTitle}.`,
-    initialChatMessages: [
-      {
-        role: 'assistant' as const,
-        content: firstStep
-          ? `Let's start with step 1: ${firstStep}`
-          : `Let's start with the MVP for ${fallbackTitle}.`,
-      },
-    ],
+    projectTitle: 'Step1：press to buzz',
+    workspaceSessionKey: createId('ai-buzzer-workspace'),
   };
 }
 
@@ -395,18 +352,142 @@ function buildEntryStateSelectionCard(): SelectionCardData {
   return {
     kind: 'entry-state',
     title: 'How would you describe your current situation?',
-    subtitle: 'Pick the option that feels closest.',
-    options: ENTRY_MODE_OPTIONS.map(option => ({
-      id: option.id,
-      label: option.label,
-      description: option.description,
-    })),
+    subtitle: 'Pick the closest option, or choose the custom input option.',
+    options: [
+      ...ENTRY_MODE_OPTIONS.map(option => ({
+        id: option.id,
+        label: option.label,
+        description: option.description,
+      })),
+      {
+        id: 'custom-input',
+        label: 'I want to type my own situation or instruction',
+        description: 'Use your own words if you already know the idea, constraint, question, or kind of help you want.',
+      },
+    ],
     multiSelect: false,
     maxSelections: 1,
     selectedIds: [],
     confirmLabel: 'Continue',
     columns: 1,
   };
+}
+
+type DirectBrainstormIntent = 'question' | 'deepen' | 'improve' | 'brainstorm';
+
+function detectDirectBrainstormIntent(text: string): DirectBrainstormIntent {
+  const lower = text.trim().toLowerCase();
+
+  const deepenSignals = [
+    'deepen', 'deep dive', 'dig deeper', 'expand this', 'focus on this', 'focus on that',
+    'only deepen', 'just deepen', 'go deeper', 'drill into',
+    '深挖', '深入', '展开这个想法', '只深挖', '只展开',
+  ];
+  if (deepenSignals.some(signal => lower.includes(signal))) {
+    return 'deepen';
+  }
+
+  const improveSignals = [
+    'improve', 'optimize', 'upgrade', 'iterate', 'refine', 'make it better',
+    '优化', '改进', '升级', '迭代', '完善',
+  ];
+  if (improveSignals.some(signal => lower.includes(signal))) {
+    return 'improve';
+  }
+
+  const questionSignals = [
+    '?', '？', 'what', 'how', 'why', 'which', 'can you', 'could you', 'should i',
+    'difference', '区别', '怎么', '如何', '为什么', '可以吗', '能不能',
+  ];
+  if (questionSignals.some(signal => lower.includes(signal))) {
+    return 'question';
+  }
+
+  return 'brainstorm';
+}
+
+function describeComponentPurpose(name: string) {
+  const lower = name.toLowerCase();
+  if (lower.includes('arduino')) return 'Runs the project logic and coordinates the interaction.';
+  if (lower.includes('breadboard')) return 'Lets you prototype the circuit quickly and rearrange it easily.';
+  if (lower.includes('button')) return 'Acts as the main user input.';
+  if (lower.includes('buzzer')) return 'Adds audible feedback when the interaction changes.';
+  if (lower.includes('led')) return 'Adds a clear visual response.';
+  if (lower.includes('sensor')) return 'Detects the condition that drives the project.';
+  return 'Supports the core behavior of the project.';
+}
+
+function buildSyntheticDirectionFromText(text: string): BrainstormDirection {
+  const cleaned = cleanInlineMarkdown(text);
+  return {
+    id: 'user-focus',
+    lens: 'User focus',
+    title: summarizeStepTitle(cleaned, 'Your idea'),
+    description: cleaned,
+  };
+}
+
+function buildSyntheticIdeaFromDirection(direction: BrainstormDirection, session: BrainstormSession): BrainstormIdea {
+  const componentNames = uniqueStrings([
+    'Arduino Uno',
+    'Breadboard',
+    ...session.knownComponents,
+  ]);
+  const safeComponentNames = componentNames.length > 2 ? componentNames : [...componentNames, 'LED'];
+
+  return {
+    id: `${direction.id}-direct-realize`,
+    title: direction.title,
+    difficulty: 'medium',
+    hook: 'A focused build that grows directly from the direction you chose.',
+    whatItDoes: direction.description,
+    components: safeComponentNames.slice(0, 4).map(name => ({
+      name,
+      purpose: describeComponentPurpose(name),
+    })),
+  };
+}
+
+function buildBrainstormFreeformPrompt(
+  session: BrainstormSession,
+  userText: string,
+  activeSelection?: SelectionCardData | null,
+  activeIdeas?: IdeaCardsData | null
+) {
+  const activeCardSummary = activeSelection
+    ? `${activeSelection.kind}: ${activeSelection.options.map(option => option.label).join(' | ')}`
+    : activeIdeas
+      ? `idea selection: ${activeIdeas.ideas.map(idea => idea.title).join(' | ')}`
+      : 'none';
+
+  const selectedDirections = session.directions
+    .filter(direction => session.selectedDirectionIds.includes(direction.id))
+    .map(direction => direction.title)
+    .join(', ') || 'none';
+
+  return `You are helping inside a structured Arduino brainstorming flow, but the user just typed a direct message instead of following the preset buttons.
+
+Current flow state:
+- Stage: ${session.stage}
+- Entry mode: ${session.entryMode || 'not chosen yet'}
+- Current question: ${session.currentQuestion || 'none'}
+- Known components: ${session.knownComponents.join(', ') || 'none'}
+- Seed answers:
+  - Question 1: ${session.answers.question1 || 'N/A'}
+  - Question 2: ${session.answers.question2 || 'N/A'}
+  - Question 3: ${session.answers.question3 || 'N/A'}
+- Selected directions: ${selectedDirections}
+- Active selectable UI: ${activeCardSummary}
+
+User message:
+${userText}
+
+Rules:
+- Respond to the user's actual instruction or question first.
+- Do not rigidly force the preset flow if the user is clearly asking for something specific.
+- If they ask a direct question, answer it directly.
+- If they give a constraint or instruction, adapt around it.
+- Keep the response concise, warm, and grounded in realistic Arduino projects.`;
 }
 
 function extractJsonPayload(raw: string) {
@@ -906,25 +987,28 @@ export function AIChatPage() {
     [messages]
   );
 
-  const canUseInput = !activeSelectionMessage && !activeIdeaSelectionMessage && !isLoading;
+  const canUseInput = !isLoading;
 
   const inputPlaceholder = (() => {
     if (activeSelectionMessage?.selectionCard?.kind === 'directions') {
-      return 'Choose 1-3 directions below to continue...';
+      return 'Select up to 3 below, or type a question/instruction...';
     }
     if (activeSelectionMessage?.selectionCard?.kind === 'actions') {
-      return 'Choose one AI action below to continue...';
+      return 'Choose one action below, or type what kind of help you want...';
     }
     if (activeSelectionMessage?.selectionCard?.kind === 'entry-state') {
-      return 'Choose the option that fits you best...';
+      return 'Choose an option, or type your own situation/question/instruction...';
     }
     if (activeIdeaSelectionMessage?.ideaCards?.selectable) {
-      return 'Choose one project direction below to continue...';
+      return 'Choose a direction below, or ask a follow-up question...';
     }
     if (brainstormSession?.awaitingChallengeAnswer) {
       return 'Answer the question above...';
     }
     if (brainstormSession?.stage === 'seed') {
+      if (brainstormSession.currentQuestion === 'custom-input') {
+        return 'Type your situation, idea, question, or instruction...';
+      }
       if (brainstormSession.currentQuestion === 'idea-description') {
         return 'Describe the idea you want to make real...';
       }
@@ -1086,7 +1170,7 @@ export function AIChatPage() {
           selectionCard: {
             kind: 'directions',
             title: 'Which directions feel worth exploring a bit more?',
-            subtitle: 'Pick up to 3.',
+            subtitle: 'Pick 1 to 3. Staying under 3 keeps the next step focused.',
             options: fallback.directions.map(direction => ({
               id: direction.id,
               label: direction.title,
@@ -1098,7 +1182,7 @@ export function AIChatPage() {
             selectedIds: [],
             confirmLabel: 'Continue',
             columns: 2,
-            helperText: 'Pick up to 3. More than that usually makes the next step too shallow.',
+            helperText: 'Select at most 3. If you pick too many, the next step becomes shallow.',
           },
         },
       ]);
@@ -1133,7 +1217,7 @@ export function AIChatPage() {
           selectionCard: {
             kind: 'directions',
             title: 'Which directions feel worth exploring a bit more?',
-            subtitle: 'Pick up to 3.',
+            subtitle: 'Pick 1 to 3. Staying under 3 keeps the next step focused.',
             options: safeDirections.map(direction => ({
               id: direction.id,
               label: direction.title,
@@ -1145,7 +1229,7 @@ export function AIChatPage() {
             selectedIds: [],
             confirmLabel: 'Continue',
             columns: 2,
-            helperText: 'Pick up to 3. More than that usually makes the next step too shallow.',
+            helperText: 'Select at most 3. If you pick too many, the next step becomes shallow.',
           },
         },
       ]);
@@ -1162,7 +1246,7 @@ export function AIChatPage() {
           selectionCard: {
             kind: 'directions',
             title: 'Which directions feel worth exploring a bit more?',
-            subtitle: 'Pick up to 3.',
+            subtitle: 'Pick 1 to 3. Staying under 3 keeps the next step focused.',
             options: fallback.directions.map(direction => ({
               id: direction.id,
               label: direction.title,
@@ -1174,7 +1258,7 @@ export function AIChatPage() {
             selectedIds: [],
             confirmLabel: 'Continue',
             columns: 2,
-            helperText: 'Pick up to 3. More than that usually makes the next step too shallow.',
+            helperText: 'Select at most 3. If you pick too many, the next step becomes shallow.',
           },
         },
       ]);
@@ -1241,7 +1325,7 @@ export function AIChatPage() {
           },
           actionButtons: {
             buttons: [
-              { id: 'start-project', label: "Sounds good, let's start project" },
+              { id: 'start-project', label: '开始step1' },
               { id: 'restart', label: 'Start over' },
             ],
           },
@@ -1265,7 +1349,7 @@ export function AIChatPage() {
           },
           actionButtons: {
             buttons: [
-              { id: 'start-project', label: "Sounds good, let's start project" },
+              { id: 'start-project', label: '开始step1' },
               { id: 'restart', label: 'Start over' },
             ],
           },
@@ -1425,6 +1509,157 @@ export function AIChatPage() {
     }
   };
 
+  const handleBrainstormFreeformReply = async (text: string, sessionOverride?: BrainstormSession) => {
+    const session = sessionOverride || brainstormSession;
+    if (!session) return;
+
+    const history = buildConversationHistory(messages);
+
+    setMessages(prev => [
+      ...prev,
+      { id: createId('user'), role: 'user', content: text },
+    ]);
+
+    if (!isAIServiceConfigured()) {
+      setMessages(prev => [
+        ...prev,
+        {
+          id: createId('assistant'),
+          role: 'assistant',
+          content: 'I can answer follow-up questions here too. If you want to keep the flow moving, you can also keep selecting the cards below.',
+        },
+      ]);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await sendMessage(
+        buildBrainstormFreeformPrompt(
+          session,
+          text,
+          activeSelectionMessage?.selectionCard || null,
+          activeIdeaSelectionMessage?.ideaCards || null
+        ),
+        [],
+        circuitState,
+        undefined,
+        history
+      );
+      const parsed = parseAIResponse(response.content);
+      setMessages(prev => [
+        ...prev,
+        {
+          id: createId('assistant'),
+          role: 'assistant',
+          content: parsed.content,
+        },
+      ]);
+    } catch (error) {
+      console.error('Brainstorm freeform reply error:', error);
+      setMessages(prev => [
+        ...prev,
+        {
+          id: createId('assistant'),
+          role: 'assistant',
+          content: 'Sorry, I had trouble responding to that. Please try again in a moment.',
+        },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCustomSituationInput = async (text: string) => {
+    if (!brainstormSession) return;
+
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    if (activeSelectionMessage?.selectionCard?.kind === 'entry-state' && !activeSelectionMessage.selectionCard.submitted) {
+      updateSelectionCard(activeSelectionMessage.id, current => ({
+        ...current,
+        submitted: true,
+        selectedIds: current.selectedIds.length > 0 ? current.selectedIds : ['custom-input'],
+      }));
+    }
+
+    const nextKnownComponents = uniqueStrings([
+      ...brainstormSession.knownComponents,
+      ...detectMentionedComponents(trimmed),
+    ]);
+    const nextAnswers: Partial<Record<SeedQuestionId, string>> = {
+      ...brainstormSession.answers,
+      ...(nextKnownComponents.length > 0 ? { question2: formatKnownComponentsAnswer(nextKnownComponents) } : {}),
+    };
+    const intent = detectDirectBrainstormIntent(trimmed);
+
+    if (intent === 'question') {
+      const nextSession: BrainstormSession = {
+        ...brainstormSession,
+        currentQuestion: null,
+        knownComponents: nextKnownComponents,
+        answers: nextAnswers,
+        pendingInitialInput: null,
+      };
+      setBrainstormSession(nextSession);
+      await handleBrainstormFreeformReply(trimmed, nextSession);
+      return;
+    }
+
+    if (intent === 'deepen') {
+      const directDirection = buildSyntheticDirectionFromText(trimmed);
+      const nextSession: BrainstormSession = {
+        ...brainstormSession,
+        entryMode: 'many-ideas',
+        stage: 'amplify',
+        currentQuestion: null,
+        answers: {
+          ...nextAnswers,
+          question1: trimmed,
+        },
+        knownComponents: nextKnownComponents,
+        directions: [directDirection],
+        selectedDirectionIds: [directDirection.id],
+        selectedActionId: 'expand',
+        pendingInitialInput: null,
+        askedSeedFollowUp: true,
+      };
+      setMessages(prev => [
+        ...prev,
+        { id: createId('user'), role: 'user', content: trimmed },
+      ]);
+      setBrainstormSession(nextSession);
+      setIsLoading(true);
+      try {
+        await requestAmplifyStage(nextSession);
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    const nextSession: BrainstormSession = {
+      ...brainstormSession,
+      entryMode: intent === 'improve' ? 'optimize-existing' : 'many-ideas',
+      stage: 'play',
+      currentQuestion: null,
+      answers: {
+        ...nextAnswers,
+        question1: trimmed,
+      },
+      knownComponents: nextKnownComponents,
+      pendingInitialInput: null,
+      askedSeedFollowUp: true,
+    };
+    setMessages(prev => [
+      ...prev,
+      { id: createId('user'), role: 'user', content: trimmed },
+    ]);
+    setBrainstormSession(nextSession);
+    await requestDirections(nextSession);
+  };
+
   const handleChallengeAnswer = async (text: string) => {
     if (!brainstormSession || !brainstormSession.awaitingChallengeAnswer) return;
 
@@ -1547,6 +1782,11 @@ export function AIChatPage() {
     if (!brainstormSession || !brainstormSession.currentQuestion) return;
 
     const questionId = brainstormSession.currentQuestion;
+    if (questionId === 'custom-input') {
+      await handleCustomSituationInput(text);
+      return;
+    }
+
     const history = buildConversationHistory(messages);
     const pendingInitial = brainstormSession.pendingInitialInput?.trim();
     const nextAnswers = questionId === 'question1-followup'
@@ -1683,7 +1923,7 @@ export function AIChatPage() {
 
   const handleSend = async () => {
     const text = input.trim();
-    if (!text || isLoading || activeSelectionMessage || activeIdeaSelectionMessage) return;
+    if (!text || isLoading) return;
     setInput('');
 
     if (brainstormSession?.awaitingChallengeAnswer) {
@@ -1693,6 +1933,15 @@ export function AIChatPage() {
 
     if (brainstormSession?.stage === 'seed' && brainstormSession.currentQuestion) {
       await handleSeedAnswer(text);
+      return;
+    }
+
+    if (brainstormSession && (activeSelectionMessage || activeIdeaSelectionMessage)) {
+      if (activeSelectionMessage?.selectionCard?.kind === 'entry-state') {
+        await handleCustomSituationInput(text);
+        return;
+      }
+      await handleBrainstormFreeformReply(text);
       return;
     }
 
@@ -1780,17 +2029,12 @@ export function AIChatPage() {
     return null;
   })();
 
-  const handleStartProject = (message?: ChatMessage) => {
-    if (!message?.finalProject) {
-      navigate('/project/led-button');
-      return;
-    }
-
-    const startConfig = buildStartProjectConfig(message);
-    navigate('/project/ai-session', {
+  const handleStartProject = () => {
+    const startState = buildStartProjectNavigationState();
+    navigate('/project/buzzer-button', {
       state: {
         fromAIChat: true,
-        ...startConfig,
+        ...startState,
       },
     });
   };
@@ -1865,8 +2109,8 @@ export function AIChatPage() {
     updateSelectionCard(messageId, current => ({ ...current, submitted: true }));
 
     if (card.kind === 'entry-state' && brainstormSession) {
-      const selectedMode = card.selectedIds[0] as EntryModeId;
-      const selectedLabel = ENTRY_MODE_OPTIONS.find(option => option.id === selectedMode)?.label || 'This sounds closest';
+      const selectedMode = card.selectedIds[0] as EntrySelectionId;
+      const selectedLabel = card.options.find(option => option.id === selectedMode)?.label || 'This sounds closest';
       const knownComponentsText = brainstormSession.knownComponents.join(', ');
       const pendingInput = brainstormSession.pendingInitialInput?.trim();
       const hasMeaningfulInitialInput = !!pendingInput && pendingInput.length > 2;
@@ -1879,6 +2123,23 @@ export function AIChatPage() {
           content: selectedLabel,
         },
       ]);
+
+      if (selectedMode === 'custom-input') {
+        setBrainstormSession({
+          ...brainstormSession,
+          currentQuestion: 'custom-input',
+          pendingInitialInput: null,
+        });
+        setMessages(prev => [
+          ...prev,
+          {
+            id: createId('assistant'),
+            role: 'assistant',
+            content: 'Tell me your situation in your own words. You can share an idea, constraint, instruction, or question, and I will follow that lead instead of forcing the default path.',
+          },
+        ]);
+        return;
+      }
 
       if (selectedMode === 'many-ideas') {
         setBrainstormSession({
@@ -1951,6 +2212,36 @@ export function AIChatPage() {
 
     if (card.kind === 'directions' && brainstormSession) {
       const selectedDirections = brainstormSession.directions.filter(direction => card.selectedIds.includes(direction.id));
+
+      if (selectedDirections.length === 1) {
+        const selectedDirection = selectedDirections[0];
+        const directIdea = buildSyntheticIdeaFromDirection(selectedDirection, brainstormSession);
+        const nextSession: BrainstormSession = {
+          ...brainstormSession,
+          stage: 'realize',
+          selectedDirectionIds: card.selectedIds,
+          selectedIdeaId: directIdea.id,
+        };
+
+        setMessages(prev => [
+          ...prev,
+          {
+            id: createId('user'),
+            role: 'user',
+            content: `I want to focus on **${selectedDirection.title}**.`,
+          },
+        ]);
+
+        setBrainstormSession(nextSession);
+        setIsLoading(true);
+        try {
+          await requestRealizeStage(nextSession, directIdea);
+        } finally {
+          setIsLoading(false);
+        }
+        return;
+      }
+
       setMessages(prev => [
         ...prev,
         {
@@ -2053,9 +2344,9 @@ export function AIChatPage() {
     }
   };
 
-  const handleActionButton = (actionId: 'start-project' | 'restart', message: ChatMessage) => {
+  const handleActionButton = (actionId: 'start-project' | 'restart') => {
     if (actionId === 'start-project') {
-      handleStartProject(message);
+      handleStartProject();
       return;
     }
     handleRestartBrainstorm();
@@ -2203,6 +2494,14 @@ export function AIChatPage() {
                         <div className="brainstorm-selection-header">
                           <div className="brainstorm-selection-title">{msg.selectionCard.title}</div>
                           <div className="brainstorm-selection-subtitle">{msg.selectionCard.subtitle}</div>
+                          {msg.selectionCard.kind === 'directions' && (
+                            <div className="brainstorm-selection-limit">
+                              <span className="brainstorm-selection-limit-label">Select up to 3</span>
+                              <span className="brainstorm-selection-limit-count">
+                                {msg.selectionCard.selectedIds.length}/{msg.selectionCard.maxSelections}
+                              </span>
+                            </div>
+                          )}
                         </div>
 
                         <div className={`brainstorm-selection-grid brainstorm-selection-grid--${msg.selectionCard.columns || 1} ${msg.selectionCard.kind === 'actions' ? 'brainstorm-selection-grid--actions' : ''}`}>
@@ -2444,7 +2743,7 @@ export function AIChatPage() {
                             key={action.id}
                             type="button"
                             className={`brainstorm-action-btn ${action.id === 'restart' ? 'brainstorm-action-btn--secondary' : ''}`}
-                            onClick={() => handleActionButton(action.id, msg)}
+                            onClick={() => handleActionButton(action.id)}
                           >
                             {action.id === 'restart' && <RotateCcw size={14} />}
                             <span>{action.label}</span>

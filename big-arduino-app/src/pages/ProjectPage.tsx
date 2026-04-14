@@ -40,7 +40,7 @@ const AI_CHAT_PANELS: PanelConfig[] = [
 /** Button-Powered LED: hide Instructions in the dock only; step + toolbar highlights run via headless panel. */
 const LED_BUTTON_PROJECT_ID = 'led-button';
 const AI_SESSION_PROJECT_ID = 'ai-session';
-let lastOpenedProjectId: string | undefined;
+let lastOpenedWorkspaceKey: string | undefined;
 
 /** Frame 2 SVG (656×162): blue “Next” pill — path bounds in viewBox space */
 const LED_BANNER_FRAME2_NEXT_RECT = {
@@ -201,6 +201,7 @@ interface AIChatLocationState {
   projectTitle?: string;
   projectComponentIds?: string[];
   projectComponentSummary?: string;
+  workspaceSessionKey?: string;
 }
 
 export function ProjectPage() {
@@ -210,6 +211,13 @@ export function ProjectPage() {
 
   const locationState = (location.state as AIChatLocationState | null);
   const isAIChatMode = locationState?.fromAIChat === true;
+  const workspaceScopeKey = useMemo(() => {
+    if (!projectId) return 'project:unknown';
+    if (isAIChatMode) {
+      return `project:${projectId}:ai:${locationState?.workspaceSessionKey || location.key}`;
+    }
+    return `project:${projectId}:standard`;
+  }, [projectId, isAIChatMode, locationState?.workspaceSessionKey, location.key]);
 
   // Find the project
   const project = presetProjects.find(p => p.id === projectId);
@@ -241,18 +249,20 @@ export function ProjectPage() {
 
   // Keep each project's workspace isolated even when returning through Home.
   useEffect(() => {
-    if (
-      projectId &&
-      lastOpenedProjectId !== undefined &&
-      lastOpenedProjectId !== projectId
-    ) {
+    if (lastOpenedWorkspaceKey !== undefined && lastOpenedWorkspaceKey !== workspaceScopeKey) {
       clearCircuit();
       clearHistory();
     }
-    if (projectId) {
-      lastOpenedProjectId = projectId;
+    lastOpenedWorkspaceKey = workspaceScopeKey;
+  }, [workspaceScopeKey, clearCircuit, clearHistory]);
+
+  useEffect(() => {
+    if (isAIChatMode && locationState?.initialChatMessages && locationState.initialChatMessages.length > 0) {
+      setChatMessages(locationState.initialChatMessages);
+      return;
     }
-  }, [projectId, clearCircuit, clearHistory]);
+    setChatMessages([{ role: 'assistant', content: 'Hi! I\'m here to help you with this project. Ask me anything!' }]);
+  }, [workspaceScopeKey, isAIChatMode, locationState?.initialChatMessages]);
   const wires = useWires();
   const simulationErrors = useSimulationErrors();
   const buttonStates = useButtonStates();
@@ -1380,12 +1390,12 @@ export function ProjectPage() {
         </main>
 
         {hideInstructionsDock && (
-          <InstructionsPanel headless key={`instruction-sync-${projectId}`} />
+          <InstructionsPanel headless key={`instruction-sync-${workspaceScopeKey}`} />
         )}
 
         {showFloatingInstructions && (
           <div className="project-floating-instructions">
-            <InstructionsPanel key={`instruction-float-${projectId}`} />
+            <InstructionsPanel key={`instruction-float-${workspaceScopeKey}`} />
           </div>
         )}
 
@@ -1436,13 +1446,13 @@ export function ProjectPage() {
 
   return projectAiUiEnabled ? (
     <DockingProvider
-      key={`${projectId ?? 'project'}-${effectiveAIChatMode}`}
+      key={workspaceScopeKey}
       defaultPanels={dockPanels}
       initialPanelOrder={dockPanelOrder}
     >
-      <div className="project-page">{projectPageInner}</div>
+      <div className="project-page" key={workspaceScopeKey}>{projectPageInner}</div>
     </DockingProvider>
   ) : (
-    <div className="project-page">{projectPageInner}</div>
+    <div className="project-page" key={workspaceScopeKey}>{projectPageInner}</div>
   );
 }

@@ -1063,6 +1063,9 @@ export const useCircuitStore = create<CircuitState & CircuitActions>()(
         state.simulationErrors = [];
         state.buttonStates.clear();
         state.componentDefinitions.clear();
+        state.highlightedItems = [];
+        state.highlightedToolbarComponents = [];
+        state.activeOnboardings.clear();
       });
     },
 

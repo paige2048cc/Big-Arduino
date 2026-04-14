@@ -33,12 +33,20 @@ function distance(p1: { x: number; y: number }, p2: { x: number; y: number }): n
 const BASE_PIN_WIRE_DRAG_THRESHOLD_PX = 6;
 const MIN_CANVAS_ZOOM = 0.5;
 const MAX_CANVAS_ZOOM = 3;
+const TRACKPAD_PINCH_ZOOM_SENSITIVITY = 0.0011;
+const WHEEL_ZOOM_SENSITIVITY = 0.0018;
 
 function isLikelyTrackpadPan(event: WheelEvent): boolean {
   if (event.ctrlKey) return false;
   if (Math.abs(event.deltaX) > 0) return true;
   if (event.deltaMode !== WheelEvent.DOM_DELTA_PIXEL) return false;
   return Math.abs(event.deltaY) < 50 || !Number.isInteger(event.deltaY);
+}
+
+function getZoomMultiplierFromWheel(event: WheelEvent): number {
+  const sensitivity = event.ctrlKey ? TRACKPAD_PINCH_ZOOM_SENSITIVITY : WHEEL_ZOOM_SENSITIVITY;
+  const cappedDelta = Math.max(-180, Math.min(180, event.deltaY));
+  return Math.exp(-cappedDelta * sensitivity);
 }
 
 // Calculate distance from a point to a line segment
@@ -1199,9 +1207,8 @@ export function CircuitCanvas({
       if (isLikelyTrackpadPan(e)) {
         panCanvasBy(fabricCanvas, -e.deltaX, -e.deltaY);
       } else {
-        const delta = e.deltaY;
         const pointer = fabricCanvas.getScenePoint(e);
-        const newZoom = fabricCanvas.getZoom() * (delta > 0 ? 0.9 : 1.1);
+        const newZoom = fabricCanvas.getZoom() * getZoomMultiplierFromWheel(e);
         zoomCanvasAtPoint(fabricCanvas, pointer, newZoom);
       }
       e.preventDefault();

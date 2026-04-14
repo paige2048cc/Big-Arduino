@@ -559,6 +559,37 @@
   color: #64748b;
 }
 
+.brainstorm-selection-limit {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(25, 60, 184, 0.08);
+  border: 1px solid rgba(25, 60, 184, 0.14);
+}
+
+.brainstorm-selection-limit-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #193cb8;
+}
+
+.brainstorm-selection-limit-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #193cb8;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .brainstorm-selection-grid {
   display: grid;
   gap: 12px;
@@ -705,6 +736,7 @@
   font-size: 12px;
   line-height: 1.5;
   color: #64748b;
+  font-weight: 600;
 }
 
 .brainstorm-confirm-btn {
