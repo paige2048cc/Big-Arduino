@@ -966,6 +966,14 @@
   color: #0f172b;
 }
 
+.brainstorm-breakdown-subtitle {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #193cb8;
+  font-weight: 700;
+}
+
 .brainstorm-insight-subtitle {
   margin-top: 4px;
   font-size: 12px;

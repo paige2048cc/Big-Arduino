@@ -77,6 +77,7 @@ interface EvaluationCardData {
 
 interface BreakdownCardData {
   title: string;
+  subtitle?: string;
   steps: string[];
   note: string;
 }
@@ -93,6 +94,7 @@ interface BrainstormIdea {
   hook: string;
   whatItDoes: string;
   components: ComponentNeed[];
+  breakdown?: BreakdownCardData;
 }
 
 interface IdeaCardsData {
@@ -318,6 +320,24 @@ function normalizeComponentNeeds(components: unknown): ComponentNeed[] {
     .filter((item): item is ComponentNeed => !!item && !!item.name);
 }
 
+function normalizeBreakdown(rawBreakdown: unknown, fallbackTitle = 'Build steps'): BreakdownCardData | undefined {
+  if (!rawBreakdown || typeof rawBreakdown !== 'object') return undefined;
+  const breakdown = rawBreakdown as {
+    title?: string;
+    subtitle?: string;
+    steps?: unknown;
+    note?: string;
+  };
+  if (!Array.isArray(breakdown.steps) || breakdown.steps.length === 0) return undefined;
+
+  return {
+    title: cleanInlineMarkdown(breakdown.title || fallbackTitle),
+    subtitle: breakdown.subtitle ? cleanInlineMarkdown(breakdown.subtitle) : undefined,
+    steps: breakdown.steps.slice(0, 4).map(step => cleanInlineMarkdown(String(step))),
+    note: cleanInlineMarkdown(breakdown.note || 'Keep the steps short enough that the project still feels buildable.'),
+  };
+}
+
 function normalizeIdea(rawIdea: Partial<BrainstormIdea>, fallbackId: string): BrainstormIdea {
   return {
     id: rawIdea.id || fallbackId,
@@ -326,6 +346,7 @@ function normalizeIdea(rawIdea: Partial<BrainstormIdea>, fallbackId: string): Br
     hook: cleanInlineMarkdown(rawIdea.hook || ''),
     whatItDoes: cleanInlineMarkdown(rawIdea.whatItDoes || ''),
     components: normalizeComponentNeeds(rawIdea.components),
+    breakdown: normalizeBreakdown(rawIdea.breakdown),
   };
 }
 
@@ -448,6 +469,29 @@ function buildSyntheticIdeaFromDirection(direction: BrainstormDirection, session
   };
 }
 
+function hasChineseCharacters(text: string) {
+  return /[\u3400-\u9fff]/.test(text);
+}
+
+function buildLanguageRuleFromTexts(texts: Array<string | undefined | null>) {
+  const combined = texts
+    .filter((text): text is string => typeof text === 'string' && text.trim().length > 0)
+    .join('\n')
+    .trim();
+
+  if (hasChineseCharacters(combined)) {
+    return [
+      '- Write all user-facing content in Simplified Chinese.',
+      '- Do not switch to English except for unavoidable technical names or component IDs.',
+    ].join('\n');
+  }
+
+  return [
+    '- Write all user-facing content in the same non-Chinese language as the user text.',
+    '- Do not include any Chinese characters, Chinese words, or Chinese sentences.',
+  ].join('\n');
+}
+
 function buildBrainstormFreeformPrompt(
   session: BrainstormSession,
   userText: string,
@@ -487,6 +531,8 @@ Rules:
 - Do not rigidly force the preset flow if the user is clearly asking for something specific.
 - If they ask a direct question, answer it directly.
 - If they give a constraint or instruction, adapt around it.
+- Match the language of the user's message exactly.
+- If the user is not writing in Chinese, do not include any Chinese.
 - Keep the response concise, warm, and grounded in realistic Arduino projects.`;
 }
 
@@ -538,32 +584,39 @@ function buildAmplifyFallback(session: BrainstormSession): AmplifyResult {
   const focus = selected[0];
 
   if (action === 'decompose') {
-    return {
-      intro: `Let's turn **${focus?.title || 'this idea'}** into a path you could actually build. I’d start with a tiny version first, then layer in the richer behavior later.`,
-      ideas: [
-        {
-          id: 'decompose-mvp',
-          title: `${focus?.title || 'Core idea'} MVP`,
-          difficulty: 'easy',
-          hook: 'Start with one small behavior that proves the project works at all.',
-          whatItDoes: 'This version focuses on the core interaction only, so you can build confidence before adding anything extra.',
-          components: [
-            { name: baseParts[0], purpose: 'Runs the first prototype logic.' },
-            { name: baseParts[1] || 'LED', purpose: 'Provides the clearest first feedback.' },
-            { name: baseParts[2] || 'Buzzer', purpose: 'Adds one more expressive signal only if needed.' },
-          ],
-        },
+    const ideas = selected.slice(0, 3).map((direction, index) => ({
+      id: `${direction.id}-breakdown-${index + 1}`,
+      title: direction.title,
+      difficulty: index === 0 ? 'medium' : index === 1 ? 'easy' : 'hard',
+      hook: 'A clearer build path that stays faithful to this direction.',
+      whatItDoes: `This version keeps the spirit of ${direction.description.toLowerCase()} while turning it into a project you can prototype step by step.`,
+      components: [
+        { name: baseParts[0], purpose: 'Runs the core logic for this version.' },
+        { name: baseParts[1] || 'Primary sensor', purpose: 'Captures the main input or trigger.' },
+        { name: 'LED', purpose: 'Gives immediate visible feedback while you test the core idea.' },
+        ...(index > 0 ? [{ name: 'Buzzer', purpose: 'Adds an extra feedback layer once the MVP works.' }] : []),
       ],
       breakdown: {
-        title: 'A simple build path',
+        title: 'Build steps',
+        subtitle: `For ${direction.title}`,
         steps: [
-          `Make a tiny MVP version of **${focus?.title || 'the idea'}** that proves the core interaction.`,
-          'Add one richer output or sensor only after the MVP works reliably.',
-          'Refine the timing, behavior, and atmosphere so the project feels intentional.',
+          `Build the smallest MVP for **${direction.title}** so the core interaction works once in a simple, reliable way.`,
+          'Add the next most important sensing or feedback layer after the MVP is stable.',
+          'Refine the timing, response, and feel so the interaction becomes intentional rather than generic.',
         ],
-        note: 'Keep the first version small enough that you can finish it without getting overwhelmed.',
+        note: 'Click another direction card to compare its build path.',
       },
-      helperText: 'If this path feels right, continue and I’ll turn it into a fuller project direction.',
+    } satisfies BrainstormIdea));
+
+    return {
+      intro: selected.length > 1
+        ? 'Here are the selected directions turned into buildable project paths. Each card has its own step-by-step breakdown, and the steps below follow the card you click.'
+        : `Let's turn **${focus?.title || 'this idea'}** into a path you could actually build. I’d start with a tiny version first, then layer in the richer behavior later.`,
+      ideas,
+      breakdown: ideas[0]?.breakdown,
+      helperText: selected.length > 1
+        ? 'Click a direction card to switch the build steps below, then continue with the one you want to develop.'
+        : 'If this path feels right, continue and I’ll turn it into a fuller project direction.',
     };
   }
 
@@ -667,6 +720,12 @@ function buildRealizeFallback(session: BrainstormSession, amplify: AmplifyResult
 }
 
 function buildDirectionsPrompt(session: BrainstormSession) {
+  const languageRule = buildLanguageRuleFromTexts([
+    session.answers.question1,
+    session.answers.question2,
+    session.answers.question3,
+    session.pendingInitialInput,
+  ]);
   return `BRAINSTORM_JSON::
 Create the P stage directions for an Arduino brainstorming flow.
 
@@ -709,12 +768,20 @@ Rules:
 - If entry mode is "many-ideas", treat Question 1 as the idea they want help executing.
 - If entry mode is "optimize-existing", treat Question 1 as the existing project and generate directions that evolve, improve, remix, or sharpen that project.
 - If entry mode is "have-components" or "dont-know", use the normal brainstorming style.
+- Language:
+${languageRule}
 - Keep the ideas realistically buildable with Arduino and named extra parts when needed.`;
 }
 
 function buildAmplifyPrompt(session: BrainstormSession) {
   const selected = session.directions.filter(direction => session.selectedDirectionIds.includes(direction.id));
   const selectedText = selected.map(direction => `- ${direction.title} (${direction.lens}): ${direction.description}`).join('\n');
+  const languageRule = buildLanguageRuleFromTexts([
+    session.answers.question1,
+    session.answers.question2,
+    session.answers.question3,
+    ...selected.map(direction => `${direction.title} ${direction.description}`),
+  ]);
   if (session.selectedActionId === 'decompose') {
     return `BRAINSTORM_JSON::
 Create the A stage "Break Down" response for an Arduino brainstorming flow.
@@ -740,21 +807,26 @@ Schema:
       "whatItDoes": "string",
       "components": [
         { "name": "string", "purpose": "string" }
-      ]
+      ],
+      "breakdown": {
+        "title": "string",
+        "subtitle": "string",
+        "steps": ["string"],
+        "note": "string"
+      }
     }
   ],
-  "breakdown": {
-    "title": "string",
-    "steps": ["string"],
-    "note": "string"
-  },
   "helperText": "string"
 }
 
 Rules:
-- Focus on one selected direction and explain what the project is.
-- The breakdown should split the project into 2-4 executable steps.
+- Return one detailed idea for each selected direction, in the same order the directions were provided.
+- Do not merge directions here. Merging belongs to the "combine" action, not "Break Down".
+- Each idea must include its own breakdown object.
+- Each breakdown should split that specific idea into 2-4 executable steps.
 - The first step must be a tiny MVP.
+- Language:
+${languageRule}
 - Keep it practical, clear, and not overwhelming.`;
   }
 
@@ -802,12 +874,20 @@ Rules:
 - Include difficulty labels directly in the data.
 - For expand: explain what the project can do, and include at least one vivid, concrete example or scene.
 - For combine: build only from the selected directions, and make the merged concept stronger or more complex while staying grounded in them.
+- Language:
+${languageRule}
 - Stay grounded in Arduino reality and the known components.`;
 }
 
 function buildChallengeQuestionsPrompt(session: BrainstormSession) {
   const selected = session.directions.filter(direction => session.selectedDirectionIds.includes(direction.id));
   const selectedText = selected.map(direction => `- ${direction.title} (${direction.lens}): ${direction.description}`).join('\n');
+  const languageRule = buildLanguageRuleFromTexts([
+    session.answers.question1,
+    session.answers.question2,
+    session.answers.question3,
+    ...selected.map(direction => `${direction.title} ${direction.description}`),
+  ]);
   return `BRAINSTORM_JSON::
 Create challenge questions for the A stage of an Arduino brainstorming flow.
 
@@ -829,6 +909,8 @@ Schema:
 Rules:
 - Return 2-3 questions total.
 - Ask questions that help the user reflect more deeply on meaning, audience, tension, purpose, or tradeoffs.
+- Language:
+${languageRule}
 - Do not generate solutions yet.`;
 }
 
@@ -839,6 +921,14 @@ function buildChallengeSynthesisPrompt(session: BrainstormSession) {
     const answer = session.challengeAnswers[index] || 'No answer';
     return `Q${index + 1}: ${question}\nA${index + 1}: ${answer}`;
   }).join('\n');
+  const languageRule = buildLanguageRuleFromTexts([
+    session.answers.question1,
+    session.answers.question2,
+    session.answers.question3,
+    ...session.challengeQuestions,
+    ...session.challengeAnswers,
+    ...selected.map(direction => `${direction.title} ${direction.description}`),
+  ]);
 
   return `BRAINSTORM_JSON::
 Create improved A stage ideas after challenge questions in an Arduino brainstorming flow.
@@ -876,10 +966,21 @@ Schema:
 Rules:
 - Start from the user’s answers and make the project feel more clearly understood now.
 - Return 2-3 improved ideas.
+- Language:
+${languageRule}
 - Keep the ideas focused, vivid, and practical.`;
 }
 
 function buildRealizePrompt(session: BrainstormSession, selectedIdea: BrainstormIdea) {
+  const languageRule = buildLanguageRuleFromTexts([
+    session.answers.question1,
+    session.answers.question2,
+    session.answers.question3,
+    selectedIdea.title,
+    selectedIdea.hook,
+    selectedIdea.whatItDoes,
+    ...selectedIdea.components.map(component => `${component.name} ${component.purpose}`),
+  ]);
   return `BRAINSTORM_JSON::
 Create the R stage output for an Arduino brainstorming flow.
 
@@ -930,6 +1031,8 @@ Rules:
 - The first breakdown step must be a tiny MVP, like lighting one LED or making a buzzer beep.
 - Keep the breakdown short enough to avoid overwhelm.
 - If difficulty is easy, set breakdown to null.
+- Language:
+${languageRule}
 - The twist should feel optional and lightweight, as an extra playful thought, not part of the core project.`;
 }
 
@@ -1325,7 +1428,7 @@ export function AIChatPage() {
           },
           actionButtons: {
             buttons: [
-              { id: 'start-project', label: '开始step1' },
+              { id: 'start-project', label: '开始第1步' },
               { id: 'restart', label: 'Start over' },
             ],
           },
@@ -1349,7 +1452,7 @@ export function AIChatPage() {
           },
           actionButtons: {
             buttons: [
-              { id: 'start-project', label: '开始step1' },
+              { id: 'start-project', label: '开始第1步' },
               { id: 'restart', label: 'Start over' },
             ],
           },
@@ -1431,22 +1534,23 @@ export function AIChatPage() {
             ? payload.ideas.slice(0, 4).map((idea, index) => normalizeIdea(idea, `amplify-${index + 1}`))
             : fallback.ideas,
           helperText: cleanInlineMarkdown(payload.helperText || fallback.helperText || ''),
-          breakdown: payload.breakdown && Array.isArray(payload.breakdown.steps)
-            ? {
-                title: payload.breakdown.title || 'A simple build path',
-                steps: payload.breakdown.steps.slice(0, 4).map(step => cleanInlineMarkdown(step)),
-                note: cleanInlineMarkdown(payload.breakdown.note || ''),
-              }
-            : fallback.breakdown,
+          breakdown: normalizeBreakdown(payload.breakdown, 'A simple build path') || fallback.breakdown,
         };
       }
+
+      const initialIdeaId = session.selectedActionId === 'decompose'
+        ? (amplify.ideas[0]?.id || null)
+        : null;
+      const activeBreakdown = session.selectedActionId === 'decompose'
+        ? (amplify.ideas.find(idea => idea.id === initialIdeaId)?.breakdown || amplify.breakdown)
+        : amplify.breakdown;
 
       setBrainstormSession(prev => prev ? {
         ...prev,
         stage: 'amplify',
         lastAmplifyResult: amplify,
         amplifyIdeas: amplify.ideas,
-        selectedIdeaId: null,
+        selectedIdeaId: initialIdeaId,
         challengeQuestions: [],
         challengeAnswers: [],
         challengeQuestionIndex: 0,
@@ -1460,15 +1564,15 @@ export function AIChatPage() {
           content: amplify.intro,
           ideaCards: {
             title: session.selectedActionId === 'decompose'
-              ? 'Here is a buildable version with a clearer path.'
+              ? 'Here are buildable versions with switchable step-by-step paths.'
               : 'Here are a few stronger directions to choose from.',
             ideas: amplify.ideas,
             selectable: true,
-            selectedId: null,
+            selectedId: initialIdeaId,
             confirmLabel: 'Continue',
             helperText: amplify.helperText,
           },
-          breakdownCard: amplify.breakdown || undefined,
+          breakdownCard: activeBreakdown || undefined,
         },
       ]);
     } catch (error) {
@@ -1479,7 +1583,7 @@ export function AIChatPage() {
         stage: 'amplify',
         lastAmplifyResult: fallback,
         amplifyIdeas: fallback.ideas,
-        selectedIdeaId: null,
+        selectedIdeaId: fallback.ideas[0]?.id || null,
         challengeQuestions: [],
         challengeAnswers: [],
         challengeQuestionIndex: 0,
@@ -1493,15 +1597,17 @@ export function AIChatPage() {
           content: fallback.intro,
           ideaCards: {
             title: session.selectedActionId === 'decompose'
-              ? 'Here is a buildable version with a clearer path.'
+              ? 'Here are buildable versions with switchable step-by-step paths.'
               : 'Here are a few stronger directions to choose from.',
             ideas: fallback.ideas,
             selectable: true,
-            selectedId: null,
+            selectedId: session.selectedActionId === 'decompose' ? (fallback.ideas[0]?.id || null) : null,
             confirmLabel: 'Continue',
             helperText: fallback.helperText,
           },
-          breakdownCard: fallback.breakdown || undefined,
+          breakdownCard: session.selectedActionId === 'decompose'
+            ? (fallback.ideas[0]?.breakdown || fallback.breakdown || undefined)
+            : (fallback.breakdown || undefined),
         },
       ]);
     } finally {
@@ -2079,6 +2185,24 @@ export function AIChatPage() {
     )));
   };
 
+  const updateIdeaSelectionState = (
+    messageId: string,
+    selectedId: string | null,
+    breakdownCard?: BreakdownCardData
+  ) => {
+    setMessages(prev => prev.map(msg => {
+      if (msg.id !== messageId || !msg.ideaCards) return msg;
+      return {
+        ...msg,
+        ideaCards: {
+          ...msg.ideaCards,
+          selectedId,
+        },
+        breakdownCard,
+      };
+    }));
+  };
+
   const handleSelectionToggle = (messageId: string, optionId: string) => {
     const message = messages.find(msg => msg.id === messageId);
     const card = message?.selectionCard;
@@ -2306,6 +2430,15 @@ export function AIChatPage() {
     const message = messages.find(msg => msg.id === messageId);
     const cards = message?.ideaCards;
     if (!cards || cards.submitted || !cards.selectable) return;
+
+    const selectedIdea = cards.ideas.find(idea => idea.id === ideaId);
+    const hasPerIdeaBreakdown = cards.ideas.some(idea => !!idea.breakdown);
+
+    if (hasPerIdeaBreakdown) {
+      updateIdeaSelectionState(messageId, ideaId, selectedIdea?.breakdown);
+      setBrainstormSession(prev => prev ? { ...prev, selectedIdeaId: ideaId } : prev);
+      return;
+    }
 
     updateIdeaCards(messageId, current => ({
       ...current,
@@ -2678,6 +2811,9 @@ export function AIChatPage() {
                     {msg.breakdownCard && (
                       <div className="brainstorm-breakdown-card">
                         <div className="brainstorm-breakdown-title">{msg.breakdownCard.title}</div>
+                        {msg.breakdownCard.subtitle && (
+                          <div className="brainstorm-breakdown-subtitle">{msg.breakdownCard.subtitle}</div>
+                        )}
                         <div className="brainstorm-breakdown-list">
                           {msg.breakdownCard.steps.map((step, index) => (
                             <div key={`${msg.breakdownCard?.title}-${index}`} className="brainstorm-breakdown-step">
@@ -2756,7 +2892,7 @@ export function AIChatPage() {
                 {msg.id === startProjectMsgId && (
                   <div className="start-project-action">
                     <button className="start-project-btn" onClick={() => handleStartProject()}>
-                      <span>Start Project</span>
+                      <span>开始项目</span>
                       <ChevronRight size={16} />
                     </button>
                   </div>
