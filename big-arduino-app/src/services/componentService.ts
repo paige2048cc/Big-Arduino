@@ -110,7 +110,7 @@ const FRIENDLY_LIBRARY_COMPONENT_NAMES: Record<string, string> = {
   'breadboard': 'Breadboard',
   'led-5mm': 'LED',
   'pushbutton': 'Push Button',
-  'registor-220ω': '220 Ohm Resistor',
+  'registor-220ω': 'Resistor',
   'buzzer': 'Buzzer',
   'vibration-motor': 'Vibration Motor',
   'potentiometer': 'Potentiometer',

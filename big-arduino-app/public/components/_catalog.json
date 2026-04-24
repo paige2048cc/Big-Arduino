@@ -92,7 +92,7 @@
     },
     {
       "id": "Registor_220Ω",
-      "name": "Resistor (220 ohm)",
+      "name": "Resistor",
       "category": "passive",
       "libraryId": "core-basic",
       "modelId": "resistor_axial",
