@@ -10,6 +10,13 @@ All notable changes to Big Arduino App will be documented in this file.
 
 ---
 
+## [8.10.3] - 2026-05-22
+
+### Fixed
+- **Card selection no longer yanks viewport to the bottom**: The chat scroll-to-bottom effect (`useEffect` watching `[messages, isLoading]`) was firing on every `messages` array identity change, including in-place mutations like toggling an option on a `selectionCard`. After clicking the new return-anchor chip to scroll up to an unresolved P-stage card, every option click on that card snapped the viewport straight back to the bottom. The effect now tracks the previous `messages.length` via a ref and only triggers smooth-scroll when the length actually grows (new message appended) or when `isLoading` toggles. In-place mutations to existing messages — selection toggles, submit flags, anchor updates — leave the viewport alone.
+
+---
+
 ## [8.10.2] - 2026-05-22
 
 ### Changed

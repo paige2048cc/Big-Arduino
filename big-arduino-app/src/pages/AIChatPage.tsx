@@ -1266,8 +1266,17 @@ export function AIChatPage() {
     ]);
   }, [location.key]);
 
+  const prevMessagesLengthRef = useRef(messages.length);
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Only scroll to the bottom when a new message is appended or the loading
+    // indicator toggles. Mutating an existing message in place (e.g., toggling
+    // a selectionCard option) leaves the array length unchanged and must NOT
+    // move the viewport — otherwise every card click yanks the user back to
+    // the bottom of the chat.
+    if (messages.length > prevMessagesLengthRef.current || isLoading) {
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+    prevMessagesLengthRef.current = messages.length;
   }, [messages, isLoading]);
 
   const requestDirections = async (session: BrainstormSession) => {
