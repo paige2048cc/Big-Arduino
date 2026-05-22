@@ -10,6 +10,14 @@ All notable changes to Big Arduino App will be documented in this file.
 
 ---
 
+## [8.10.1] - 2026-05-22
+
+### Fixed
+- **"Start Project" button false-triggered by knowledge replies**: Added a `finalProject` gate to `startProjectMsgId` so the CTA only appears after the realize stage has actually produced a final project card. Before this gate, `isConnectionMessage()` would false-positive on any State F knowledge reply that incidentally mentioned two of [`connect`, `wire`, `pin`, `resistor`, `5v`, `gnd`, `breadboard`, ...] — for example a buzzer explanation containing "connects to any digital pin" — and surface the "Start Project" CTA while the user was still in the P/A stages.
+- **Hardcoded Chinese button labels in an otherwise English UI**: The "开始项目" CTA and the two "开始第1步" action button labels (`buttons[0]` after the realize stage) are now English ("Start Project" / "Start Step 1"), matching the rest of the client-side chrome. UI chrome is now consistently English-first; LLM-generated card content (direction titles, descriptions, AI text) continues to follow the user's language via the existing `buildLanguageRuleFromTexts` injection into BRAINSTORM_JSON prompts.
+
+---
+
 ## [8.10.0] - 2026-05-22
 
 ### Changed

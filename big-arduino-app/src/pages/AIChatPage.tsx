@@ -1438,7 +1438,7 @@ export function AIChatPage() {
           },
           actionButtons: {
             buttons: [
-              { id: 'start-project', label: '开始第1步' },
+              { id: 'start-project', label: 'Start Step 1' },
               { id: 'restart', label: 'Start over' },
             ],
           },
@@ -1462,7 +1462,7 @@ export function AIChatPage() {
           },
           actionButtons: {
             buttons: [
-              { id: 'start-project', label: '开始第1步' },
+              { id: 'start-project', label: 'Start Step 1' },
               { id: 'restart', label: 'Start over' },
             ],
           },
@@ -2136,6 +2136,11 @@ export function AIChatPage() {
 
   const startProjectMsgId = (() => {
     if (messages.length < 2) return null;
+    // Gate: the "Start project" CTA only makes sense after the realize stage
+    // has produced a finalProject card. Without this gate, knowledge-query
+    // replies that incidentally mention words like "connect" + "pin" would
+    // false-trigger the button while the user is still in P/A stages.
+    if (!messages.some(m => m.finalProject)) return null;
     for (let index = messages.length - 1; index >= 0; index -= 1) {
       const msg = messages[index];
       if (msg.ideaCards || msg.selectionCard || msg.finalProject || msg.actionButtons) continue;
@@ -2940,7 +2945,7 @@ export function AIChatPage() {
                 {msg.id === startProjectMsgId && (
                   <div className="start-project-action">
                     <button className="start-project-btn" onClick={() => handleStartProject()}>
-                      <span>开始项目</span>
+                      <span>Start Project</span>
                       <ChevronRight size={16} />
                     </button>
                   </div>
