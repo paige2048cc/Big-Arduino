@@ -382,7 +382,7 @@ function buildStartProjectNavigationState() {
 function buildEntryStateSelectionCard(): SelectionCardData {
   return {
     kind: 'entry-state',
-    title: 'How would you describe your current situation?',
+    title: '',
     subtitle: 'Pick the closest option, or choose the custom input option.',
     options: [
       ...ENTRY_MODE_OPTIONS.map(option => ({
@@ -2678,7 +2678,9 @@ export function AIChatPage() {
                     {msg.selectionCard && (
                       <div className={`brainstorm-selection-card ${msg.selectionCard.kind === 'actions' ? 'brainstorm-selection-card--actions' : ''}`}>
                         <div className="brainstorm-selection-header">
-                          <div className="brainstorm-selection-title">{msg.selectionCard.title}</div>
+                          {msg.selectionCard.title && (
+                            <div className="brainstorm-selection-title">{msg.selectionCard.title}</div>
+                          )}
                           <div className="brainstorm-selection-subtitle">{msg.selectionCard.subtitle}</div>
                           {msg.selectionCard.kind === 'directions' && (
                             <div className="brainstorm-selection-limit">

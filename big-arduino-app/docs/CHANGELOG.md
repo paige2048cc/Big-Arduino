@@ -10,6 +10,13 @@ All notable changes to Big Arduino App will be documented in this file.
 
 ---
 
+## [8.10.2] - 2026-05-22
+
+### Changed
+- **Removed redundant entry-state card title**: The card asking "How would you describe your current situation?" was effectively asking the same thing as the assistant message that introduces the card ("Before we dive in, which of these feels closest to where you are right now?"). The title is now an empty string and the `brainstorm-selection-title` div is rendered conditionally, so the card opens straight into its subtitle + options. Underlying entry-mode logic, branching, and post-selection follow-ups are untouched.
+
+---
+
 ## [8.10.1] - 2026-05-22
 
 ### Fixed
