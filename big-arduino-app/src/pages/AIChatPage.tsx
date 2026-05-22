@@ -639,15 +639,17 @@ function buildAmplifyFallback(session: BrainstormSession): AmplifyResult {
   }
 
   if (action === 'combine' && selected.length > 1) {
+    const mergedTitle = selected.map(d => d.title).join(' + ');
+    const mergedDescriptions = selected.map(d => d.description.toLowerCase()).join(' with ');
     return {
-      intro: 'Here’s what happens if we fuse the directions you picked into something stronger and more layered, while staying faithful to your choices.',
+      intro: 'Here’s what happens if we fuse the directions you picked into one stronger concept, staying faithful to all of your choices.',
       ideas: [
         {
-          id: 'combine-balanced',
-          title: `${selected[0].title} + ${selected[1].title}`,
+          id: 'combine-merged',
+          title: mergedTitle,
           difficulty: 'medium',
-          hook: 'A stronger concept built directly from the two directions you chose.',
-          whatItDoes: `This project combines ${selected[0].description.toLowerCase()} with ${selected[1].description.toLowerCase()} so the result feels more ambitious and more memorable than either one alone.`,
+          hook: `A single stronger concept built from all ${selected.length} directions you chose.`,
+          whatItDoes: `This project fuses ${mergedDescriptions} so the result feels more ambitious and more memorable than any one of them alone.`,
           components: [
             { name: baseParts[0], purpose: 'Handles the combined behavior.' },
             { name: baseParts[1] || 'Primary sensor', purpose: 'Detects the main event.' },
@@ -655,22 +657,8 @@ function buildAmplifyFallback(session: BrainstormSession): AmplifyResult {
             { name: 'Buzzer', purpose: 'Adds another emotional cue.' },
           ],
         },
-        {
-          id: 'combine-bold',
-          title: `${selected[0].title} reimagined`,
-          difficulty: 'hard',
-          hook: 'A more complex version that pushes the same combination into a fuller experience.',
-          whatItDoes: 'This version keeps the same core pairing, but turns it into something more immersive with richer feedback and more moving parts.',
-          components: [
-            { name: baseParts[0], purpose: 'Runs the expanded interaction logic.' },
-            { name: baseParts[1] || 'Sensor module', purpose: 'Tracks the main trigger.' },
-            { name: 'LED', purpose: 'Builds a stronger visual response.' },
-            { name: 'Buzzer', purpose: 'Adds tension or rhythm.' },
-            { name: 'Optional extra sensor', purpose: 'Lets the project respond in a richer way.' },
-          ],
-        },
       ],
-      helperText: 'Choose the version that feels closest to what you want to build.',
+      helperText: 'This is the merged concept built from your selected directions. Continue when you’re ready to develop it further.',
     };
   }
 
@@ -874,10 +862,12 @@ Schema:
 
 Rules:
 - Follow the chosen action closely:
-  - expand: deepen the selected direction(s)
-  - combine: only combine the directions the user selected
+  - expand: deepen each selected direction into a richer version of itself — do NOT merge directions, do NOT invent new ones
+  - combine: merge ALL selected directions into a single stronger concept — do NOT return separate alternatives
   - challenge: do not use this schema
-- Return 2-4 ideas.
+- Action-specific count (this is a HARD requirement, not a suggestion):
+  - If chosen action is "expand": return EXACTLY ${selected.length} ideas — one idea per selected direction, in the SAME ORDER as the directions listed above. Each returned idea must be a deepened version of the matching direction at the same position (idea[0] deepens direction[0], idea[1] deepens direction[1], etc.). Do NOT return more, do NOT return fewer, do NOT swap order.
+  - If chosen action is "combine": return EXACTLY 1 idea that fuses all ${selected.length} selected directions into one stronger concept. Do NOT return additional alternative ideas, do NOT return a per-direction breakdown.
 - Each idea should feel like a real project direction, not a short note.
 - Each idea must include a short hook, a concise "what it does" paragraph, and a components list with purpose for each component.
 - Keep the tone close to the main branch exploring style: vivid, warm, and practical.

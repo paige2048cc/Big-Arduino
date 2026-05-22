@@ -10,6 +10,15 @@ All notable changes to Big Arduino App will be documented in this file.
 
 ---
 
+## [8.10.4] - 2026-05-22
+
+### Fixed
+- **Amplify "Deepen" returned wrong number of ideas, sometimes more than selected**: The shared expand/combine prompt in `buildAmplifyPrompt` carried a flat "Return 2-4 ideas" rule that did not branch on action. Picking Deepen with 2 selected directions could yield 3–4 ideas (some invented, some merged), and the action lost its 1-to-1 "deepen each direction" semantic. The rule is now action-conditional and uses HARD wording: for `expand`, the LLM must return EXACTLY `selected.length` ideas, in the same order as the selected directions, with idea[i] deepening direction[i] — no merging, no inventing, no reordering.
+- **Amplify "Combine" returned multiple alternatives instead of a single merged concept**: Same root cause. The "Return 2-4 ideas" rule plus the lack of a singular constraint pushed the LLM to emit 2–4 alternative variations whenever combine was picked. The new action-conditional rule forces EXACTLY 1 merged idea for combine. Strengthened the per-action wording so the LLM understands combine produces one fused concept, not parallel options.
+- **buildAmplifyFallback also emitted two combine ideas**: When the LLM call failed or the JSON didn't parse, the fallback for combine returned two alternatives ("combine-balanced" + "combine-bold"). Reduced to a single merged idea that fuses ALL selected directions (not just the first two), so the fallback matches the new prompt contract.
+
+---
+
 ## [8.10.3] - 2026-05-22
 
 ### Fixed
