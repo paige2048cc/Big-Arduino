@@ -10,6 +10,25 @@ All notable changes to Big Arduino App will be documented in this file.
 
 ---
 
+## [8.10.0] - 2026-05-22
+
+### Changed
+- **SPAR system prompt: routed off-topic questions out of the ideation flow**: Reworked `src/config/aiPrompts.ts` so user questions (what / how / why / can / does / is / explain) no longer get force-marched into State E and answered with three project directions. The strict "any concrete detail → MOVE TO E" trigger was softened to require the user to be *developing an idea*; questions containing concrete nouns like "resistor" or "LED" now route to the new knowledge state instead. PRIORITY #1 (Circuit Debugging) gained an explicit triggering guard so it no longer runs ahead of every reply — it only fires when the user is actually asking about / showing a circuit problem.
+
+### Added
+- **State F (Knowledge Query) and State G (Meta / Tool Question)**: New states in the SPAR system prompt for factual questions about components, concepts, or the tool itself. State F answers concisely (2–3 sentences) and then decides whether to re-surface the previous unresolved offer using a judgment table — embedded bridge for orthogonal questions, no bridge for advancing questions, gentle re-surface only on the second consecutive off-topic turn, and a full anchor-drop after 2+ off-topic turns. Four worked examples (A–D) demonstrate each branch. State G mirrors the same return-bridge logic for UI/tool questions.
+- **RULES #7 — Conversation memory & return bridges (no templates)**: Top-level rule reinforcing that return bridges must be embedded in the answer (using the concept the user asked about as the bridge), never appended as a template question like "want to go back?". After 2+ off-topic turns the old offer is dropped and the new topic is re-classified from scratch.
+- **Return-anchor chip in chat UI**: New low-contrast pill rendered below free-chat AI replies whenever an unresolved SPAR `selectionCard` (entry-state / directions / actions) is sitting above. Clicking the chip smooth-scrolls to the target card and pulses it for 1.5s via a new `pulse-highlight` keyframe. The chip becomes an inert "Picked" badge automatically once the target card is submitted. Implemented as an additive `returnAnchor: { targetMessageId, targetCardKind }` field on `ChatMessage`, attached inside `handleBrainstormFreeformReply` only when the active selection card is still unsubmitted, so existing message types and the rest of the SPAR orchestration are untouched.
+
+---
+
+## [8.9.1] - 2026-05-22
+
+### Changed
+- **Scanner camera area height reduced**: Changed `.scanner-webcam-area` aspect ratio from `1` (1:1 square) to `3 / 2` so the camera preview height shrinks to about two-thirds of its previous size, giving the prediction bars more room in the card. The short-viewport fallback height in the `max-height: 800px` media query was scaled down proportionally from `min(55vh, 320px)` to `min(36.67vh, 213px)`. The webcam canvas keeps `object-fit: cover`, so the live feed crops to the new ratio without distortion.
+
+---
+
 ## [8.9.0] - 2026-03-30
 
 ### Added

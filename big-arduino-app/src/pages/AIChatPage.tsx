@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Send, Loader2, ChevronRight, Cpu, Package, Check, Lightbulb, RotateCcw } from 'lucide-react';
+import { Send, Loader2, ChevronRight, Cpu, Package, Check, Lightbulb, RotateCcw, CornerLeftUp } from 'lucide-react';
 import { Sidebar } from '../components/layout/Sidebar';
 import { BlueCharacter } from '../components/ai/BlueCharacter';
 import type { DetectedComponent, ProjectMatch } from '../utils/componentMatcher';
@@ -199,6 +199,10 @@ interface ChatMessage {
   finalProject?: FinalProjectData;
   twistCallout?: TwistCalloutData;
   actionButtons?: ActionButtonsData;
+  returnAnchor?: {
+    targetMessageId: string;
+    targetCardKind: SelectionCardData['kind'];
+  };
 }
 
 const COMPONENT_KEYWORDS = [
@@ -256,6 +260,12 @@ const ENTRY_MODE_OPTIONS: { id: EntryModeId; label: string; description: string 
     description: 'Describe the existing project first, then we will branch out from that project instead of starting from scratch.',
   },
 ];
+
+const RETURN_ANCHOR_LABELS: Record<SelectionCardData['kind'], string> = {
+  'entry-state': 'choose entry mode',
+  'directions': 'pick a direction',
+  'actions': 'pick an action',
+};
 
 function createId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -1638,6 +1648,13 @@ export function AIChatPage() {
       return;
     }
 
+    const anchorTarget = activeSelectionMessage && !activeSelectionMessage.selectionCard?.submitted
+      ? {
+          targetMessageId: activeSelectionMessage.id,
+          targetCardKind: activeSelectionMessage.selectionCard!.kind,
+        }
+      : undefined;
+
     setIsLoading(true);
     try {
       const response = await sendMessage(
@@ -1659,6 +1676,7 @@ export function AIChatPage() {
           id: createId('assistant'),
           role: 'assistant',
           content: parsed.content,
+          returnAnchor: anchorTarget,
         },
       ]);
     } catch (error) {
@@ -2203,6 +2221,14 @@ export function AIChatPage() {
     }));
   };
 
+  const handleReturnAnchorClick = (targetMessageId: string) => {
+    const el = document.getElementById(`msg-${targetMessageId}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('pulse-highlight');
+    window.setTimeout(() => el.classList.remove('pulse-highlight'), 1500);
+  };
+
   const handleSelectionToggle = (messageId: string, optionId: string) => {
     const message = messages.find(msg => msg.id === messageId);
     const card = message?.selectionCard;
@@ -2565,7 +2591,7 @@ export function AIChatPage() {
 
           <div className="scan-chat-messages">
             {messages.map(msg => (
-              <div key={msg.id}>
+              <div key={msg.id} id={`msg-${msg.id}`}>
                 <div className={`scan-chat-msg scan-chat-msg--${msg.role}`}>
                   {msg.role === 'assistant' && (
                     <div className={`scan-chat-avatar scan-chat-avatar--character ${msg.id !== lastAssistantMsgId ? 'blue-character-static' : ''}`}>
@@ -2602,6 +2628,28 @@ export function AIChatPage() {
                         )}
                       </div>
                     )}
+
+                    {msg.returnAnchor && (() => {
+                      const target = messages.find(m => m.id === msg.returnAnchor!.targetMessageId);
+                      const submitted = !!target?.selectionCard?.submitted;
+                      return (
+                        <div className="return-anchor-row">
+                          <button
+                            type="button"
+                            className={`return-anchor-chip${submitted ? ' return-anchor-chip--inert' : ''}`}
+                            onClick={() => !submitted && handleReturnAnchorClick(msg.returnAnchor!.targetMessageId)}
+                            disabled={submitted}
+                          >
+                            <CornerLeftUp size={12} />
+                            <span>
+                              {submitted
+                                ? 'Picked'
+                                : `Back to: ${RETURN_ANCHOR_LABELS[msg.returnAnchor!.targetCardKind]}`}
+                            </span>
+                          </button>
+                        </div>
+                      );
+                    })()}
 
                     {msg.choiceQuestion && !choiceMade && (
                       <div className="goal-choice-list">

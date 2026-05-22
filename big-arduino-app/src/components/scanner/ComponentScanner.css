@@ -92,7 +92,7 @@
 .scanner-webcam-area {
   position: relative;
   width: 100%;
-  aspect-ratio: 1;
+  aspect-ratio: 3 / 2;
   border-radius: 14px;
   overflow: hidden;
   background: #0f172b;
@@ -102,7 +102,7 @@
 @media (max-height: 800px) {
   .scanner-webcam-area {
     aspect-ratio: unset;
-    height: min(55vh, 320px);
+    height: min(36.67vh, 213px);
   }
 }
 

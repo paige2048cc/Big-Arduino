@@ -1516,3 +1516,47 @@
   color: #64748b;
   font-style: italic;
 }
+
+/* Return-anchor chip — appears below free-chat AI text when an unresolved
+   SPAR selection card is sitting above. Click jumps to the card and pulses it. */
+.return-anchor-row {
+  padding: 0 18px 12px;
+}
+
+.return-anchor-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(26, 43, 195, 0.06);
+  color: #1A2BC3;
+  border: 1px solid rgba(26, 43, 195, 0.18);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.return-anchor-chip:hover:not(:disabled) {
+  background: rgba(26, 43, 195, 0.12);
+  border-color: rgba(26, 43, 195, 0.3);
+}
+
+.return-anchor-chip--inert {
+  background: transparent;
+  color: #94a3b8;
+  border-color: #e2e8f0;
+  cursor: default;
+}
+
+@keyframes pulse-highlight {
+  0%   { box-shadow: 0 0 0 0   rgba(26, 43, 195, 0.55); }
+  70%  { box-shadow: 0 0 0 14px rgba(26, 43, 195, 0); }
+  100% { box-shadow: 0 0 0 0   rgba(26, 43, 195, 0); }
+}
+
+.pulse-highlight {
+  animation: pulse-highlight 1.5s ease-out 1;
+  border-radius: 18px;
+}
